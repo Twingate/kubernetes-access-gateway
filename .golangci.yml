@@ -1,0 +1,78 @@
+version: "2"
+
+run:
+  timeout: 2m
+
+linters:
+  default: all
+  disable:
+    - cyclop
+    - dupl
+    - depguard
+    - exhaustruct
+    - forcetypeassert  # Covered by revive linter's unchecked-type-assertion rule
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits  # FIXME
+    - godox  # FIXME
+    - gosmopolitan
+    - lll  # Covered by revive linter's line-length-limit rule
+    - maintidx
+    - mnd
+    - noctx
+    - nonamedreturns
+    - paralleltest
+    - testpackage
+    - varnamelen
+    - wrapcheck
+  exclusions:
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: '_test\.go'
+        linters:
+          - err113
+          - gosec
+  settings:
+    nestif:
+      min-complexity: 7
+    revive:
+      enable-all-rules: true
+      rules:
+        - name: add-constant
+          disabled: true
+        - name: cognitive-complexity
+          disabled: true
+        - name: cyclomatic
+          disabled: true
+        - name: flag-parameter
+          disabled: true
+        - name: function-length
+          disabled: true
+        - name: line-length-limit
+          disabled: true
+        - name: unchecked-type-assertion
+          exclude:
+            - "TEST"
+        - name: unused-parameter
+          arguments:
+            - allowRegex: "^_"
+        - name: unused-receiver
+          disabled: true
+
+formatters:
+  enable:
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard # Standard section: captures all standard packages.
+        - default # Default section: contains all imports that could not be matched to another section type.
+        - prefix(github.com/org/project) # Custom section: groups all imports with the specified Prefix.
+        - blank # Blank section: contains all blank imports. This section is not present unless explicitly enabled.
+        - dot # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
+        - alias # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
+        - localmodule

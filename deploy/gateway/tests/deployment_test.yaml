@@ -1,0 +1,42 @@
+suite: Deployment
+templates:
+  - deployment.yaml
+tests:
+  - it: should keep TLS secret volume and volume mount when other volumes are specified
+    set:
+      volumes:
+        - name: config-vol
+          mountPath: /etc/config
+      volumeMounts:
+        - name: config-vol
+          configMap:
+            name: log-config
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: tls-secret-volume
+              secret:
+                secretName: RELEASE-NAME-kubernetes-access-gateway-tls
+            - name: config-vol
+              mountPath: /etc/config
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: tls-secret-volume
+              mountPath: /etc/tls-secret-volume
+              readOnly: true
+            - name: config-vol
+              configMap:
+                name: log-config
+  - it: should use `tls.existingSecret` if provided
+    set:
+      tls:
+        existingSecret: "my-tls-secret"
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: tls-secret-volume
+              secret:
+                secretName: my-tls-secret

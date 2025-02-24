@@ -1,0 +1,43 @@
+suite: Service
+templates:
+  - service.yaml
+tests:
+  - it: add annotations for Twingate Resource CRD
+    set:
+      twingate:
+        resource:
+          enabled: true
+          extraAnnotations:
+            resource.twingate.com/name: "My Kubernetes API server"
+    asserts:
+      - equal:
+          path: metadata.annotations
+          value:
+            resource.twingate.com: "true"
+            resource.twingate.com/type: Kubernetes
+            resource.twingate.com/tlsSecret: RELEASE-NAME-kubernetes-access-gateway-tls
+            resource.twingate.com/name: "My Kubernetes API server"
+  - it: add Service annotations
+    set:
+      service:
+        annotations:
+          networking.gke.io/load-balancer-type: "Internal"
+    asserts:
+      - equal:
+          path: metadata.annotations
+          value:
+            networking.gke.io/load-balancer-type: "Internal"
+  - it: should require Service type
+    set:
+      service:
+        type: null
+    asserts:
+      - failedTemplate:
+          errorPattern: 'service: type is required'
+  - it: should not allow other Service type
+    set:
+      service:
+        type: NodePort
+    asserts:
+      - failedTemplate:
+          errorPattern: 'service.type must be one of the following: "ClusterIP", "LoadBalancer"'

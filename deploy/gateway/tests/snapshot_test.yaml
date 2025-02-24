@@ -1,0 +1,9 @@
+suite: Snapshot
+excludeTemplates:
+  # TLS certificates are dynamic so these templates are tested separately.
+  - NOTES.txt
+  - tls-secret.yaml
+tests:
+  - it: should render
+    asserts:
+      - matchSnapshot: {}

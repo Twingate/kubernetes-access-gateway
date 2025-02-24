@@ -1,0 +1,19 @@
+# Ignore version control directories
+.git
+.gitignore
+
+# CI
+.github/
+
+# Ignore editor/project files
+.vscode/
+.idea/
+.editorconfig
+
+# General files
+Dockerfile
+README.md
+LICENSE
+Makefile
+dangerfile.js
+deploy/

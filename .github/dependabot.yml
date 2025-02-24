@@ -4,9 +4,12 @@ updates:
     directory: "/"
     schedule:
       interval: daily
-      time: "13:00"
     open-pull-requests-limit: 5
   - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"

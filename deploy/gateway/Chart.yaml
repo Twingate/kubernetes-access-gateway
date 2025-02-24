@@ -1,0 +1,7 @@
+apiVersion: v2
+name: kubernetes-access-gateway
+description: A Helm chart for installing the Twingate Kubernetes Access Gateway
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://twingate.com
