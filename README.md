@@ -1,0 +1,1 @@
+# kubernetes-pam-proxy-internal
