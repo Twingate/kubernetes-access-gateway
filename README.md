@@ -1,10 +1,14 @@
 # Twingate Kubernetes Access Gateway
 
+[![CI](https://github.com/Twingate/kubernetes-access-gateway/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/Twingate/kubernetes-access-gateway/actions/workflows/ci.yaml)
+[![Coverage Status](https://coveralls.io/repos/github/Twingate/kubernetes-access-gateway/badge.svg?branch=main&t=7BQPrK)](https://coveralls.io/github/Twingate/kubernetes-access-gateway?branch=main)
+[![Dockerhub](https://img.shields.io/badge/dockerhub-images-info.svg?logo=Docker)](https://hub.docker.com/r/twingate/kubernetes-access-gateway)
+
 ## Prerequisites
 
 - Kubernetes cluster (1.31+)
 - Twingate account setup with a `Remote Network` for the Kubernetes cluster and
- connectors deployed (see the [Twingate Kubernetes Operator](https://github.com/Twingate/kubernetes-operator) or [the Helm chart](https://github.com/Twingate/helm-charts)
+ connectors deployed (see the [Twingate Kubernetes Access Gateway](https://github.com/Twingate/kubernetes-access-gateway) or [the Helm chart](https://github.com/Twingate/helm-charts)
  if required)
 
 ## Installation
