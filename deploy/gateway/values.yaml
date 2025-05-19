@@ -11,6 +11,8 @@ twingate:
   resource:
     enabled: false
     extraAnnotations: {}
+#      # Resource alias is included in the auto-generated TLS cert
+#      resource.twingate.com/alias: "myk8s.int"
 
 clusterDomain: cluster.local
 
