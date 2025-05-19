@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    # run only against tags
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  GOLANG_VERSION: 1.24.3
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GOLANG_VERSION }}
+
+      - uses: azure/setup-helm@v4.3.0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create Buildx builder
+        run: |
+          docker buildx create \
+            --name twingate-gateway-builder \
+            --driver docker-container \
+            --use
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_REGISTRY: ghcr.io/twingate
+          DOCKER_BUILDX_BUILDER: twingate-gateway-builder
+
+      - name: Helm Publish (Github)
+        env:
+          REGISTRY: ghcr.io
+        run: |
+          CURRENT_VERSION=$(go tool svu current)
+          CHART_VERSION="${CURRENT_VERSION:1}"
+          echo "🚀 Publishing helm chart version $CHART_VERSION"
+          echo ${{ secrets.GITHUB_TOKEN }} | helm registry login -u twingate --password-stdin $REGISTRY
+          helm package deploy/gateway --version $CHART_VERSION --app-version $CHART_VERSION
+          helm push kubernetes-access-gateway-$CHART_VERSION.tgz oci://$REGISTRY/twingate/helmcharts

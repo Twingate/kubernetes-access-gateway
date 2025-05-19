@@ -6,7 +6,7 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "k8sgateway",
+	Use:   "gateway",
 	Short: "Twingate Kubernetes Access Gateway",
 }
 

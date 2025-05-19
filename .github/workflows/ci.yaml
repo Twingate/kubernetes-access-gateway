@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GOLANG_VERSION: 1.24.0
+  GOLANG_VERSION: 1.24.3
 
 permissions:
   contents: read
@@ -27,7 +27,10 @@ jobs:
           - uses: actions/checkout@v4
           - uses: hadolint/hadolint-action@v3.1.0
             with:
-              dockerfile: Dockerfile
+              dockerfile: Dockerfile.goreleaser
+          - uses: hadolint/hadolint-action@v3.1.0
+            with:
+              dockerfile: Dockerfile.goreleaser-debug
 
   lint-go:
     runs-on: ubuntu-latest
@@ -77,19 +80,10 @@ jobs:
           go install github.com/mattn/goveralls@latest
           goveralls -coverprofile=covprofile -service=github
 
+
   build:
     runs-on: ubuntu-latest
-    needs: [lint-docker, lint-go, test]
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
-      with:
-        go-version: ${{ env.GOLANG_VERSION }}
-    - run: go build main.go
-
-  image-build:
-    runs-on: ubuntu-latest
-    needs: [build]
+    needs: [lint-docker, lint-go, test, test-helm]
     env:
       REGISTRY: ghcr.io/twingate
       DOCKER_BUILDX_CACHE: --cache-to type=gha,mode=max --cache-from type=gha
@@ -115,10 +109,14 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: Install GoReleaser
+      uses: goreleaser/goreleaser-action@v6
+      with:
+        distribution: goreleaser
+        version: "~> v2"
+        install-only: true
+
     - name: Build or Publish
-      run: |
-        if [ "${{ github.ref }}" = "refs/heads/master" ]; then
-          make publish
-        else
-          make build
-        fi
+      env:
+        VERSION_PRERELEASE: dev
+      run: make build

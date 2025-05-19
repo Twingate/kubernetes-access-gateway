@@ -1,0 +1,4 @@
+FROM gcr.io/distroless/static-debian12:nonroot
+ENTRYPOINT ["/gateway", "start"]
+COPY gateway /
+COPY LICENSE /

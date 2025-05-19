@@ -81,12 +81,16 @@ You can debug the Gateway locally using Minikube or other Kubernetes environment
 - If you have trouble connecting, ensure the pod is running and port 2345 is not already in use locally.
 - If you see connection errors, double-check that diagnostic mode is enabled and the correct image is deployed.
 
-## Changelog
+## Releasing
 
-See [CHANGELOG](./CHANGELOG.md)
+We use tags to release. `Makefile` has shortcut commands to release development or production releases.
+Semantic Release is used to determine the version (see `go tool svu next`).
+
+- `make cut-release`        - release a dev release (ex: `v0.2.1-dev+7a5384c`)
+- `make cut-release-prod`   - release a production release (ex: `v0.2.2`)
 
 ## Support
 
-- For general issues using this operator please open a GitHub issue.
+- For general issues using this gateway please open a GitHub issue.
 - For account specific issues, please visit the [Twingate forum](https://forum.twingate.com/)
  or open a [support ticket](https://help.twingate.com/)

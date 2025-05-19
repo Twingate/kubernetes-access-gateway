@@ -22,3 +22,7 @@ bin/*
 /test/out
 .idea
 .vscode
+
+# Added by goreleaser init:
+dist/
+/.envrc.local

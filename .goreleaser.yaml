@@ -1,0 +1,258 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+project_name: kubernetes-access-gateway
+
+before:
+  hooks:
+    - go mod tidy
+
+snapshot:
+  version_template: '{{ .Version }}-{{envOrDefault "VERSION_PRERELEASE" "local"}}+{{ .ShortCommit }}'
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+builds:
+  - id: gateway
+    binary: gateway
+    env:
+      - CGO_ENABLED=0
+    targets:
+      - linux_amd64
+      - linux_arm_v6
+      - linux_arm_v7
+      - linux_arm64
+      - darwin_amd64
+      - darwin_arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+  - id: gateway-debug
+    binary: gateway-debug
+    env:
+      - CGO_ENABLED=0
+    targets:
+      - linux_amd64
+      - linux_arm_v6
+      - linux_arm_v7
+      - linux_arm64
+      - darwin_amd64
+      - darwin_arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+dockers:
+  - use: buildx
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    ids:
+      - gateway
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+    build_flag_templates:
+      - "--pull"
+      - "--builder={{ .Env.DOCKER_BUILDX_BUILDER }}"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Tag}}"
+    extra_files:
+      - LICENSE
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    ids:
+      - gateway
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+    build_flag_templates:
+      - "--pull"
+      - "--builder={{ .Env.DOCKER_BUILDX_BUILDER }}"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Tag}}"
+    extra_files:
+      - LICENSE
+  # Debug containers
+  - use: buildx
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser-debug
+    ids:
+      - gateway-debug
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+    build_flag_templates:
+      - "--pull"
+      - "--builder={{ .Env.DOCKER_BUILDX_BUILDER }}"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Tag}}"
+    extra_files:
+      - LICENSE
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser-debug
+    ids:
+      - gateway-debug
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+    build_flag_templates:
+      - "--pull"
+      - "--builder={{ .Env.DOCKER_BUILDX_BUILDER }}"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Tag}}"
+    extra_files:
+      - LICENSE
+
+docker_manifests:
+  #******************* Dockerhub *******************#
+  # Example: twingate/kubernetes-access-gateway:latest (or dev)
+  - name_template: "twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}"
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+  # Example: twingate/kubernetes-access-gateway:v0.2.2
+  - name_template: "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}"
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+  # Example: twingate/kubernetes-access-gateway:v0
+  - name_template: "twingate/{{ .ProjectName }}:{{.Major}}"
+    skip_push: auto
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+  # Example: twingate/kubernetes-access-gateway:v0.2
+  - name_template: "twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}"
+    skip_push: auto
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+  #### Debug manifests
+  - name_template: "twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}-debug"
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+  - name_template: "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-debug"
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+  - name_template: "twingate/{{ .ProjectName }}:{{.Major}}-debug"
+    skip_push: auto
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+  - name_template: "twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}-debug"
+    skip_push: auto
+    image_templates:
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+
+  #******************* Github *******************#
+  # Example: twingate/kubernetes-access-gateway:latest (or dev)
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}"
+    image_templates:
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+  # Example: twingate/kubernetes-access-gateway:v0.2.2
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}"
+    image_templates:
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+  # Example: twingate/kubernetes-access-gateway:v0
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}"
+    skip_push: auto
+    image_templates:
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+  # Example: twingate/kubernetes-access-gateway:v0.2
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}"
+    skip_push: auto
+    image_templates:
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+  #### Debug manifests
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}-debug"
+    image_templates:
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-debug"
+    image_templates:
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}-debug"
+    skip_push: auto
+    image_templates:
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}-debug"
+    skip_push: auto
+    image_templates:
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+
+
+archives:
+  - formats: [tar.gz]
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+  groups:
+    - title: "✨ Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "🐛 Bug fixes"
+      regexp: '^.*?bug(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "✅ Tests"
+      regexp: '^.*?test(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "🔧 Chores"
+      regexp: '^.*?chore(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: Others
+      order: 999
+
+release:
+  draft: true

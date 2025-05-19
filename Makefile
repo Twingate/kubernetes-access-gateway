@@ -1,9 +1,10 @@
 GOLANG_VERSION 		?= $(shell cat .tool-versions | grep golang | cut -d' ' -f2)
-VERSION 	 		?= latest
+VERSION 			?= $(shell go tool svu current)
 REGISTRY 			?= twingate
 IMAGE				:= kubernetes-gateway
 IMAGE_NAME			:= $(REGISTRY)/$(IMAGE)
-PLATFORMS 			?= linux/amd64,linux/arm/v7,linux/arm64
+PLATFORMS 			?= linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
+DOCKER_BUILDX_BUILDER ?= twingate-kubernetes-gateway-builder
 DOCKER_BUILDX_CACHE ?=
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
@@ -38,6 +39,11 @@ lint: ##@test Run Linter
 	@echo "Running Linter..."
 	golangci-lint run --fix ./...
 
+.PHONY: lint-dockerfile
+lint-dockerfile: ##@checks Lints Dockerfile
+	docker run --rm -i hadolint/hadolint < Dockerfile.goreleaser
+	docker run --rm -i hadolint/hadolint < Dockerfile.goreleaser-debug
+
 .PHONY: test-helm
 test-helm: ##@test Run helm-unittest
 	@echo "Running Helm unittest"
@@ -53,18 +59,24 @@ test: ##@test Run Tests
 	@echo "Running Tests..."
 	go test -race -v ./...
 
-.PHONY: build-local
-build-local: ##@build Build the container image locally
-	@echo Building $(IMAGE_NAME)
-	docker build --pull --target prod -t $(IMAGE_NAME):$(VERSION)-local . -f Dockerfile --build-arg GOLANG_VERSION=$(GOLANG_VERSION)
-	docker build --pull --target debug -t $(IMAGE_NAME):$(VERSION)-local-debug . -f Dockerfile --build-arg GOLANG_VERSION=$(GOLANG_VERSION)
+.PHONY: prepare-buildx
+prepare-buildx: ##@build Prepare buildx
+	@echo "Preparing buildx..."
+	docker buildx create --use --name $(DOCKER_BUILDX_BUILDER) --node=$(DOCKER_BUILDX_BUILDER)
 
 .PHONY: build
-build: ##@build Build the container image
-	@docker buildx create --use --name=${IMAGE} --node=${IMAGE} && \
-	docker buildx build -o "type=image,push=false" --platform=$(PLATFORMS) --pull $(PROD_TAGS) -t $(IMAGE_NAME):latest . -f Dockerfile  --target prod --build-arg GOLANG_VERSION=$(GOLANG_VERSION) $(DOCKER_BUILDX_CACHE)
+build: prepare-buildx ##@build Build the go binaries and container images
+	DOCKER_BUILDX_BUILDER=$(DOCKER_BUILDX_BUILDER) GOLANG_VERSION=$(GOLANG_VERSION) IMAGE_REGISTRY=$(REGISTRY) goreleaser release --snapshot --clean
 
-.PHONY: publish
-publish: ##@build Push the image to the remote registry
-	@docker buildx create --use --name=${IMAGE} --node=${IMAGE} && \
-	docker buildx build -o "type=image,push=true" --platform=$(PLATFORMS) --pull $(PROD_TAGS) -t $(IMAGE_NAME):latest . -f Dockerfile  --target prod --build-arg GOLANG_VERSION=$(GOLANG_VERSION) $(DOCKER_BUILDX_CACHE)
+.PHONY: cut-release-prod
+cut-release-prod: ##@release Cut a new release (create a version tagt and push it)
+	echo "🚀 Cutting a new release - $(shell go tool svu next)"
+	git tag "$(shell go tool svu next)"
+	git push --tags
+
+.PHONY: cut-release-dev
+cut-release: ##@release Cut a new release (create a version tagt and push it)
+	echo "🚀 Cutting a new release - $(shell go tool svu next)"
+	git tag "$(shell go tool svu next --prerelease dev --metadata $(shell git rev-parse --short HEAD))"
+	git push --tags
+

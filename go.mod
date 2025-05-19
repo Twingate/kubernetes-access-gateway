@@ -1,6 +1,6 @@
 module k8sgateway
 
-go 1.24.0
+go 1.24.3
 
 require (
 	github.com/MicahParks/keyfunc/v3 v3.3.11
@@ -16,12 +16,16 @@ require (
 )
 
 require (
+	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/MicahParks/jwkset v0.8.0 // indirect
+	github.com/caarlos0/go-version v0.2.0 // indirect
+	github.com/caarlos0/svu/v3 v3.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -52,3 +56,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+tool github.com/caarlos0/svu/v3
