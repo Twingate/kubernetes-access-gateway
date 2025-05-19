@@ -23,7 +23,6 @@ builds:
       - CGO_ENABLED=0
     targets:
       - linux_amd64
-      - linux_arm_v6
       - linux_arm_v7
       - linux_arm64
       - darwin_amd64
@@ -42,7 +41,6 @@ builds:
       - CGO_ENABLED=0
     targets:
       - linux_amd64
-      - linux_arm_v6
       - linux_arm_v7
       - linux_arm64
       - darwin_amd64
