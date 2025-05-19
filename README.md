@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Kubernetes cluster (1.16+)
+- Kubernetes cluster (1.31+)
 - Twingate account setup with a `Remote Network` for the Kubernetes cluster and
  connectors deployed (see the [Twingate Kubernetes Operator](https://github.com/Twingate/kubernetes-operator) or [the Helm chart](https://github.com/Twingate/helm-charts)
  if required)
