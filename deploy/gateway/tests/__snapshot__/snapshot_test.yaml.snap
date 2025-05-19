@@ -53,14 +53,11 @@ should render:
             helm.sh/chart: kubernetes-access-gateway-0.1.0
         spec:
           containers:
-            - args:
-                - start
-                - --network
-                - null
-                - --host
-                - twingate.host
-              command:
-                - ./main
+            - env:
+                - name: TWINGATE_NETWORK
+                  value: null
+                - name: HOST
+                  value: twingate.host
               image: twingate/kubernetes-gateway:latest-local
               imagePullPolicy: IfNotPresent
               livenessProbe:
@@ -70,7 +67,6 @@ should render:
                   scheme: HTTPS
                 initialDelaySeconds: 5
                 periodSeconds: 5
-                timeoutSeconds: 1
               name: kubernetes-access-gateway
               ports:
                 - containerPort: 8443
@@ -83,7 +79,6 @@ should render:
                   scheme: HTTPS
                 initialDelaySeconds: 5
                 periodSeconds: 5
-                timeoutSeconds: 1
               resources: {}
               securityContext:
                 allowPrivilegeEscalation: false

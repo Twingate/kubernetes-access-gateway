@@ -37,22 +37,6 @@
       },
       "additionalProperties": false
     },
-    "diagnosticMode": {
-      "type": "object",
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "command": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "image": {
-          "type": "object",
-          "properties": {
-            "tag": { "type": "string" }
-          }
-        }
-      }
-    },
     "command": {
       "type": "array",
       "items": { "type": "string" }

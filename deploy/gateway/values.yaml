@@ -17,24 +17,6 @@ twingate:
 clusterDomain: cluster.local
 
 # Gateway deployment
-diagnosticMode:
-  enabled: false
-  command:
-    - ./dlv
-    - exec
-    - ./main
-    - --headless
-    - --listen=:2345
-    - --api-version=2
-    - --accept-multiclient
-    - --continue
-    - --
-  image:
-    tag: "latest-local-debug"
-
-command:
-  - ./main
-
 replicaCount: 1
 
 image:

@@ -4,6 +4,8 @@
 [![Coverage Status](https://coveralls.io/repos/github/Twingate/kubernetes-access-gateway/badge.svg?branch=main&t=7BQPrK)](https://coveralls.io/github/Twingate/kubernetes-access-gateway?branch=main)
 [![Dockerhub](https://img.shields.io/badge/dockerhub-images-info.svg?logo=Docker)](https://hub.docker.com/r/twingate/kubernetes-access-gateway)
 
+The Twingate Kubernetes Access Gateway enables secure, zero-trust access to your Kubernetes cluster. It provides a seamless integration between Twingate's secure access platform and your Kubernetes infrastructure, allowing you to manage and control access to your cluster's services through Twingate's security policies.
+
 ## Prerequisites
 
 - Kubernetes cluster (1.31+)
@@ -15,8 +17,8 @@
 
 - Install [helm-unittest](https://github.com/helm-unittest/helm-unittest) plugin for unit-testing Helm chart
   ```
-  helm plugin install https://github.com/helm-unittest/helm-unittest.git
-  ```
+   helm plugin install https://github.com/helm-unittest/helm-unittest.git
+   ```
 
 ## Testing
 
@@ -41,11 +43,17 @@ You can debug the Gateway locally using Minikube or other Kubernetes environment
 
 2. **Build the Debug Image**
 
-   Build a debug-enabled image using the provided Makefile target:
+   Build a debug-enabled image using the provided Makefile target (make sure you have [goreleaser](https://goreleaser.com/install/) installed):
 
    ```sh
-   make build-local IMAGE_NAME=k8s-access-gateway
+   make build
    ```
+
+   It will create the `twingate/kubernetes-access-gateway` image with the following tags:
+    - `<version>-local-<hash>-linux-arm64`
+    - `<version>-local-<hash>-linux-amd64`
+    - `<version>-local-<hash>-linux-amd64-debug`
+    - `<version>-local-<hash>-linux-arm64-debug`
 
 3. **Update the Gateway Deployment**
 
@@ -53,8 +61,7 @@ You can debug the Gateway locally using Minikube or other Kubernetes environment
 
    ```sh
    helm upgrade <release-name> ./deploy/gateway/ --install -f <values.yaml> \
-     --set image.repository="k8s-access-gateway" \
-     --set diagnosticMode.enabled=true
+     --set image.tag="<one of the tags from previous step>" \
    ```
 
    > **Note:** Replace `<release-name>` and `<values.yaml>` with your actual release name and values file.
@@ -73,14 +80,14 @@ You can debug the Gateway locally using Minikube or other Kubernetes environment
 
 ---
 
-**What Happens When Diagnostic Mode Is Enabled?**
+### What Happens When Diagnostic Mode Is Enabled?
 
 - The gateway container will start with the Delve debugger in headless mode, listening on port 2345.
 - You can set breakpoints and debug the Go process remotely.
 
 ---
 
-**Troubleshooting**
+### Troubleshooting
 
 - If you have trouble connecting, ensure the pod is running and port 2345 is not already in use locally.
 - If you see connection errors, double-check that diagnostic mode is enabled and the correct image is deployed.
