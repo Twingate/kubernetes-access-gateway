@@ -3,7 +3,6 @@ VERSION 			?= $(shell go tool svu current)
 REGISTRY 			?= twingate
 IMAGE				:= kubernetes-gateway
 IMAGE_NAME			:= $(REGISTRY)/$(IMAGE)
-PLATFORMS 			?= linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
 DOCKER_BUILDX_BUILDER ?= twingate-kubernetes-gateway-builder
 DOCKER_BUILDX_CACHE ?=
 
@@ -17,7 +16,6 @@ HELP_FUN = \
     print "  ${YELLOW}GOLANG_VERSION${RESET} = ${GREEN}$(GOLANG_VERSION)${RESET}\n"; \
     print "  ${YELLOW}VERSION${RESET}        = ${GREEN}$(VERSION)${RESET}\n"; \
     print "  ${YELLOW}IMAGE_NAME${RESET}     = ${GREEN}$(IMAGE_NAME)${RESET}\n"; \
-    print "  ${YELLOW}PLATFORMS${RESET}      = ${GREEN}$(PLATFORMS)${RESET}\n\n"; \
     for (sort keys %help) { \
     print "${WHITE}$$_:${RESET}\n"; \
     for (@{$$help{$$_}}) { \
