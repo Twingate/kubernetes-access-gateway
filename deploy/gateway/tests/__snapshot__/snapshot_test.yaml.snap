@@ -58,7 +58,7 @@ should render:
                   value: null
                 - name: TWINGATE_HOST
                   value: twingate.host
-              image: twingate/kubernetes-gateway:latest-local
+              image: twingate/kubernetes-access-gateway:0.1.0
               imagePullPolicy: IfNotPresent
               livenessProbe:
                 httpGet:
