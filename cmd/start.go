@@ -99,8 +99,12 @@ func init() {
 	flags.StringVar(&startFlags.Host, "host", "twingate.com", "The Twingate service domain")
 	flags.BoolVarP(&startFlags.Debug, "debug", "d", viper.GetBool("DEBUG"), "Run in debug mode")
 
-	viper.BindPFlag("network", flags.Lookup("network"))
-	viper.BindPFlag("host", flags.Lookup("host"))
+	if err := viper.BindPFlag("network", flags.Lookup("network")); err != nil {
+		panic(fmt.Sprintf("failed to initialize: %v", err))
+	}
+	if err := viper.BindPFlag("host", flags.Lookup("host")); err != nil {
+		panic(fmt.Sprintf("failed to initialize: %v", err))
+	}
 
 	rootCmd.AddCommand(startCmd)
 }
