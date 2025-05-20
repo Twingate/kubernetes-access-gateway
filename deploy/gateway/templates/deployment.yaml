@@ -33,19 +33,12 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if .Values.diagnosticMode.enabled }}
-          image: "{{ .Values.image.repository }}:{{ .Values.diagnosticMode.image.tag }}"
-          command: {{- toYaml .Values.diagnosticMode.command | nindent 12 }}
-          {{- else }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          command: {{- toYaml .Values.command | nindent 12 }}
-          {{- end }}
-          args:
-            - "start"
-            - "--network"
-            - {{ .Values.twingate.network }}
-            - "--host"
-            - {{ include "gateway.twingate.host" . }}
+          env:
+            - name: TWINGATE_NETWORK
+              value: {{ .Values.twingate.network }}
+            - name: TWINGATE_HOST
+              value: {{ include "gateway.twingate.host" . }}
           ports:
             - name: https
               containerPort: {{ (.Values.containerPorts | default dict).https | default 8443 }}
@@ -57,7 +50,6 @@ spec:
               path: /healthz
             initialDelaySeconds: 5
             periodSeconds: 5
-            timeoutSeconds: {{ ternary 3600 1 .Values.diagnosticMode.enabled }}
           readinessProbe:
             httpGet:
               port: https
@@ -65,7 +57,6 @@ spec:
               path: /healthz
             initialDelaySeconds: 5
             periodSeconds: 5
-            timeoutSeconds: {{ ternary 3600 1 .Values.diagnosticMode.enabled }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:

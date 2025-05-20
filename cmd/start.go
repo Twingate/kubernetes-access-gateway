@@ -31,6 +31,9 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start Twingate Kubernetes Access Gateway",
 	RunE: func(_cmd *cobra.Command, _args []string) error {
+		startFlags.Network = viper.GetString("network")
+		startFlags.Host = viper.GetString("host")
+
 		newProxy := func(cfg httpproxy.Config) (httpproxy.ProxyService, error) {
 			return httpproxy.NewProxy(cfg)
 		}
@@ -85,14 +88,25 @@ func start(newProxy ProxyFactory) error {
 }
 
 func init() {
+	viper.SetEnvPrefix("TWINGATE")
 	viper.AutomaticEnv()
-	startCmd.Flags().StringVar(&startFlags.CA, "ca", "../../test/data/ca.crt", "Root CA certificate")
-	startCmd.Flags().StringVar(&startFlags.TLSKey, "tls.key", "../../test/data/domain.key", "TLS key")
-	startCmd.Flags().StringVar(&startFlags.TLSCert, "tls.cert", "../../test/data/domain.crt", "TLS certificate")
-	startCmd.Flags().StringVar(&startFlags.K8sAPIServerToken, "k8sAPIToken", "", "k8s API Server Token")
-	startCmd.Flags().StringVar(&startFlags.Network, "network", "", "Twingate network ID. For example, network ID is autoco if your URL is autoco.twingate.com")
-	startCmd.Flags().StringVar(&startFlags.Host, "host", "twingate.com", "The Twingate service domain")
-	startCmd.Flags().BoolVarP(&startFlags.Debug, "debug", "d", viper.GetBool("DEBUG"), "Run in debug mode")
+
+	flags := startCmd.Flags()
+	flags.StringVar(&startFlags.CA, "ca", "../../test/data/ca.crt", "Root CA certificate")
+	flags.StringVar(&startFlags.TLSKey, "tls.key", "../../test/data/domain.key", "TLS key")
+	flags.StringVar(&startFlags.TLSCert, "tls.cert", "../../test/data/domain.crt", "TLS certificate")
+	flags.StringVar(&startFlags.K8sAPIServerToken, "k8sAPIToken", "", "k8s API Server Token")
+	flags.StringVar(&startFlags.Network, "network", "", "Twingate network ID. For example, network ID is autoco if your URL is autoco.twingate.com")
+	flags.StringVar(&startFlags.Host, "host", "twingate.com", "The Twingate service domain")
+	flags.BoolVarP(&startFlags.Debug, "debug", "d", viper.GetBool("DEBUG"), "Run in debug mode")
+
+	if err := viper.BindPFlag("network", flags.Lookup("network")); err != nil {
+		panic(fmt.Sprintf("failed to initialize: %v", err))
+	}
+
+	if err := viper.BindPFlag("host", flags.Lookup("host")); err != nil {
+		panic(fmt.Sprintf("failed to initialize: %v", err))
+	}
 
 	rootCmd.AddCommand(startCmd)
 }
