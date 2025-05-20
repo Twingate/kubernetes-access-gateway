@@ -90,6 +90,7 @@ func start(newProxy ProxyFactory) error {
 func init() {
 	viper.SetEnvPrefix("TWINGATE")
 	viper.AutomaticEnv()
+
 	flags := startCmd.Flags()
 	flags.StringVar(&startFlags.CA, "ca", "../../test/data/ca.crt", "Root CA certificate")
 	flags.StringVar(&startFlags.TLSKey, "tls.key", "../../test/data/domain.key", "TLS key")
@@ -102,6 +103,7 @@ func init() {
 	if err := viper.BindPFlag("network", flags.Lookup("network")); err != nil {
 		panic(fmt.Sprintf("failed to initialize: %v", err))
 	}
+
 	if err := viper.BindPFlag("host", flags.Lookup("host")); err != nil {
 		panic(fmt.Sprintf("failed to initialize: %v", err))
 	}
