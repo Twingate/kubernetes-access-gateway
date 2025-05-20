@@ -56,7 +56,7 @@ should render:
             - env:
                 - name: TWINGATE_NETWORK
                   value: null
-                - name: HOST
+                - name: TWINGATE_HOST
                   value: twingate.host
               image: twingate/kubernetes-gateway:latest-local
               imagePullPolicy: IfNotPresent
