@@ -37,7 +37,7 @@ spec:
           env:
             - name: TWINGATE_NETWORK
               value: {{ .Values.twingate.network }}
-            - name: HOST
+            - name: TWINGATE_HOST
               value: {{ include "gateway.twingate.host" . }}
           ports:
             - name: https
