@@ -57,6 +57,12 @@ You can debug the Gateway locally using Minikube or other Kubernetes environment
 
 3. **Update the Gateway Deployment**
 
+   Load the image you want to run to minikube:
+
+   ```sh
+     minikube image load <the image:tag to from previous step>
+   ```
+
    Upgrade (or install) the gateway deployment to use your local debug image and enable diagnostic mode (Delve debugger):
 
    ```sh
