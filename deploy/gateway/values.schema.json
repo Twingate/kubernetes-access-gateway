@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/schema#",
   "type": "object",
   "title": "JSON schema for Twingate Gateway Helm Chart values",
-  "required": ["twingate", "tls"],
+  "required": ["twingate"],
   "properties": {
     "twingate": {
       "type": "object",
