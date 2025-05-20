@@ -13,7 +13,7 @@ The Twingate Kubernetes Access Gateway enables secure, zero-trust access to your
 
 - Kubernetes cluster (1.31+)
 - Twingate account setup with a `Remote Network` for the Kubernetes cluster and
- connectors deployed (see the [Twingate Kubernetes Access Gateway](https://github.com/Twingate/kubernetes-access-gateway) or [the Helm chart](https://github.com/Twingate/helm-charts)
+ connectors deployed (see the [Twingate Kubernetes Operator](https://github.com/Twingate/kubernetes-operator) or [the Helm chart](https://github.com/Twingate/helm-charts)
  if required)
 
 ## Installation
