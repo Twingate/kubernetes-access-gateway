@@ -5,9 +5,9 @@
 [![Dockerhub](https://img.shields.io/badge/dockerhub-images-info.svg?logo=Docker)](https://hub.docker.com/r/twingate/kubernetes-access-gateway)
 
 > [!IMPORTANT]
-> **Beta:** The Twingate Kubernetes Access Gateway is currently in beta
+> **Twingate Kubernetes Access is currently in beta.** Sign up for early access at https://www.twingate.com/product/kubernetes-access.
 
-The Twingate Kubernetes Access Gateway enables secure, zero-trust access to your Kubernetes cluster. It provides a seamless integration between Twingate's secure access platform and your Kubernetes infrastructure, allowing you to manage and control access to your cluster's services through Twingate's security policies.
+Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes cluster. It provides a seamless integration between Twingate's secure access platform and your Kubernetes infrastructure, allowing you to manage and control access to your cluster's services through Twingate's security policies.
 
 ## Prerequisites
 
