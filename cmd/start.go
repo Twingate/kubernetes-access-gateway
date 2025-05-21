@@ -80,7 +80,7 @@ func start(newProxy ProxyFactory) error {
 	return nil
 }
 
-func init() {
+func init() { //nolint:gochecknoinits
 	viper.SetEnvPrefix("TWINGATE")
 	viper.AutomaticEnv()
 
