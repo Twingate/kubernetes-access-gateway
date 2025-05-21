@@ -15,25 +15,12 @@ import (
 	"k8sgateway/internal/token"
 )
 
-type StartFlags = struct {
-	CA                string
-	TLSKey            string
-	TLSCert           string
-	K8sAPIServerToken string
-	Network           string
-	Host              string
-	Debug             bool
-}
-
-var startFlags = StartFlags{}
+var errRequiredConfig = errors.New("required configuration must be set")
 
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start Twingate Kubernetes Access Gateway",
 	RunE: func(_cmd *cobra.Command, _args []string) error {
-		startFlags.Network = viper.GetString("network")
-		startFlags.Host = viper.GetString("host")
-
 		newProxy := func(cfg httpproxy.Config) (httpproxy.ProxyService, error) {
 			return httpproxy.NewProxy(cfg)
 		}
@@ -45,39 +32,45 @@ var startCmd = &cobra.Command{
 type ProxyFactory func(httpproxy.Config) (httpproxy.ProxyService, error)
 
 func start(newProxy ProxyFactory) error {
-	f := startFlags
-	log.InitializeLogger("k8sgateway", f.Debug)
+	log.InitializeLogger("k8sgateway", viper.GetBool("debug"))
 
 	logger := zap.S()
-	logger.Infof("Gateway start called with: %+v", startFlags)
+	logger.Infof("Gateway start called: %+v", viper.AllSettings())
 
-	parser, err := token.NewParserWithRemotesJWKS(f.Network, f.Host)
+	network := viper.GetString("network")
+
+	if network == "" {
+		return fmt.Errorf("%w: network", errRequiredConfig)
+	}
+
+	parser, err := token.NewParserWithRemotesJWKS(network, viper.GetString("host"))
 	if err != nil {
 		return fmt.Errorf("failed to create token parser %w", err)
 	}
 
-	connectValidator := &connect.MessageValidator{
-		TokenParser: parser,
+	cfg := httpproxy.Config{
+		Port:              viper.GetInt("port"),
+		TLSKey:            viper.GetString("tlsKey"),
+		TLSCert:           viper.GetString("tlsCert"),
+		K8sAPIServerCA:    viper.GetString("k8sAPIServerCA"),
+		K8sAPIServerToken: viper.GetString("k8sAPIServerToken"),
+		ConnectValidator: &connect.MessageValidator{
+			TokenParser: parser,
+		},
 	}
 
 	if inClusterK8sCfg, _ := rest.InClusterConfig(); inClusterK8sCfg != nil {
-		logger.Infof("Using in-cluster configuration")
+		logger.Info("Using in-cluster configuration")
 
-		f.CA = inClusterK8sCfg.CAFile
-		f.K8sAPIServerToken = inClusterK8sCfg.BearerToken
-		f.TLSCert = "/etc/tls-secret-volume/tls.crt"
-		f.TLSKey = "/etc/tls-secret-volume/tls.key"
+		cfg.K8sAPIServerCA = inClusterK8sCfg.CAFile
+		cfg.K8sAPIServerToken = inClusterK8sCfg.BearerToken
+		cfg.TLSCert = "/etc/tls-secret-volume/tls.crt"
+		cfg.TLSKey = "/etc/tls-secret-volume/tls.key"
 	} else if !errors.Is(err, rest.ErrNotInCluster) {
 		logger.Errorf("failed to load in-cluster config: %v", err)
 	}
 
-	proxy, err := newProxy(httpproxy.Config{
-		CA:                f.CA,
-		TLSKey:            f.TLSKey,
-		TLSCert:           f.TLSCert,
-		K8sAPIServerToken: f.K8sAPIServerToken,
-		ConnectValidator:  connectValidator,
-	})
+	proxy, err := newProxy(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s gateway %w", err)
 	}
@@ -87,25 +80,30 @@ func start(newProxy ProxyFactory) error {
 	return nil
 }
 
-func init() {
+func init() { //nolint:gochecknoinits
 	viper.SetEnvPrefix("TWINGATE")
 	viper.AutomaticEnv()
 
 	flags := startCmd.Flags()
-	flags.StringVar(&startFlags.CA, "ca", "../../test/data/ca.crt", "Root CA certificate")
-	flags.StringVar(&startFlags.TLSKey, "tls.key", "../../test/data/domain.key", "TLS key")
-	flags.StringVar(&startFlags.TLSCert, "tls.cert", "../../test/data/domain.crt", "TLS certificate")
-	flags.StringVar(&startFlags.K8sAPIServerToken, "k8sAPIToken", "", "k8s API Server Token")
-	flags.StringVar(&startFlags.Network, "network", "", "Twingate network ID. For example, network ID is autoco if your URL is autoco.twingate.com")
-	flags.StringVar(&startFlags.Host, "host", "twingate.com", "The Twingate service domain")
-	flags.BoolVarP(&startFlags.Debug, "debug", "d", viper.GetBool("DEBUG"), "Run in debug mode")
 
-	if err := viper.BindPFlag("network", flags.Lookup("network")); err != nil {
-		panic(fmt.Sprintf("failed to initialize: %v", err))
-	}
+	// Twingate flags
+	flags.String("network", "", "Twingate network ID. For example, network ID is autoco if your URL is autoco.twingate.com")
+	flags.String("host", "twingate.com", "The Twingate service domain")
 
-	if err := viper.BindPFlag("host", flags.Lookup("host")); err != nil {
-		panic(fmt.Sprintf("failed to initialize: %v", err))
+	// Gateway flags
+	flags.String("port", "8443", "Port to listen on")
+	flags.String("tlsCert", "", "Path to the TLS certificate for the Gateway")
+	flags.String("tlsKey", "", "Path to the TLS key for the Gateway")
+
+	// Kubernetes flags
+	flags.String("k8sAPIServerCA", "", "Path to the CA certificate for the Kubernetes API server")
+	flags.String("k8sAPIServerToken", "", "Bearer token to authenticate to the Kubernetes API server")
+
+	// Misc flags
+	flags.BoolP("debug", "d", false, "Run in debug mode")
+
+	if err := viper.BindPFlags(flags); err != nil {
+		panic(fmt.Sprintf("failed to bind flags: %v", err))
 	}
 
 	rootCmd.AddCommand(startCmd)

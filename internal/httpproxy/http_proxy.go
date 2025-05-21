@@ -45,13 +45,12 @@ const (
 )
 
 type Config struct {
-	CA                string
 	TLSCert           string
 	TLSKey            string
 	K8sAPIServerToken string
-	K8sAPIServerURL   string
+	K8sAPIServerCA    string
 	ConnectValidator  connect.Validator
-	listenPort        int
+	Port              int
 }
 
 // custom Conn that wraps a net.Conn, adding the user identity field.
@@ -246,7 +245,7 @@ type Proxy struct {
 	httpServer          *http.Server
 	proxy               *httputil.ReverseProxy
 	downstreamTLSConfig *tls.Config
-	listenPort          string
+	port                int
 	connectValidator    connect.Validator
 	k8sAPIServerToken   string
 }
@@ -273,17 +272,17 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	}
 
 	// create TLS configuration for upstream
-	caCert, err := os.ReadFile(cfg.CA)
+	caCert, err := os.ReadFile(cfg.K8sAPIServerCA)
 	if err != nil {
-		logger.Fatalf("failed to read CA cert: %v", err)
+		logger.Fatalf("failed to read K8sAPIServerCA cert: %v", err)
 	}
 
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
-		logger.Fatalf("failed to append CA cert to pool")
+		logger.Fatalf("failed to append K8sAPIServerCA cert to pool")
 	}
 
-	logger.Infof("loaded upstream CA cert")
+	logger.Infof("loaded upstream K8sAPIServerCA cert")
 
 	upstreamTLSConfig := &tls.Config{
 		MinVersion: tls.VersionTLS13,
@@ -345,19 +344,11 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		},
 	}
 
-	// determine port to use, default 8443
-	var portString string
-	if cfg.listenPort == 0 {
-		portString = ":8443"
-	} else {
-		portString = fmt.Sprintf(":%d", cfg.listenPort)
-	}
-
 	p := &Proxy{
 		httpServer:          httpServer,
 		proxy:               proxy,
 		downstreamTLSConfig: downstreamTLSConfig,
-		listenPort:          portString,
+		port:                cfg.Port,
 		connectValidator:    cfg.ConnectValidator,
 		k8sAPIServerToken:   cfg.K8sAPIServerToken,
 	}
@@ -371,7 +362,7 @@ func (p *Proxy) Start(ready chan struct{}) {
 	logger := zap.S()
 
 	// create the TCP listener
-	listener, err := net.Listen("tcp", p.listenPort)
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", p.port))
 	if err != nil {
 		logger.Fatal(err)
 	}

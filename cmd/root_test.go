@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 
 	"k8sgateway/internal/log"
@@ -26,10 +27,11 @@ func TestRootCmd_StartCommandArgs(t *testing.T) {
 
 	cmd.SetArgs([]string{
 		"start",
-		"--k8sAPIToken", "test-token",
-		"--ca", "test-ca",
-		"--tls.key", "test-tls-key",
-		"--tls.cert", "test-tls-cert",
+		"--network", "acme",
+		"--tlsKey", "test-tls-key",
+		"--tlsCert", "test-tls-cert",
+		"--k8sAPIServerToken", "test-token",
+		"--k8sAPIServerCA", "test-ca",
 		"--debug",
 	})
 
@@ -37,10 +39,11 @@ func TestRootCmd_StartCommandArgs(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.True(t, startMockCalled)
 
-		assert.Equal(t, "test-token", startFlags.K8sAPIServerToken)
-		assert.Equal(t, "test-ca", startFlags.CA)
-		assert.Equal(t, "test-tls-key", startFlags.TLSKey)
-		assert.Equal(t, "test-tls-cert", startFlags.TLSCert)
-		assert.True(t, startFlags.Debug)
+		assert.Equal(t, "acme", viper.GetString("network"))
+		assert.Equal(t, "test-tls-key", viper.GetString("tlsKey"))
+		assert.Equal(t, "test-tls-cert", viper.GetString("tlsCert"))
+		assert.Equal(t, "test-token", viper.GetString("k8sAPIServerToken"))
+		assert.Equal(t, "test-ca", viper.GetString("k8sAPIServerCA"))
+		assert.True(t, viper.GetBool("debug"))
 	}
 }
