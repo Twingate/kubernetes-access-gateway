@@ -96,7 +96,7 @@ func init() { //nolint:gochecknoinits
 	flags.String("tlsKey", "", "Path to the TLS key for the Gateway")
 
 	// Kubernetes flags
-	flags.String("k8sAPIServerCA", "", "Path to the K8sAPIServerCA certificate for the Kubernetes API server")
+	flags.String("k8sAPIServerCA", "", "Path to the CA certificate for the Kubernetes API server")
 	flags.String("k8sAPIServerToken", "", "Bearer token to authenticate to the Kubernetes API server")
 
 	// Misc flags
