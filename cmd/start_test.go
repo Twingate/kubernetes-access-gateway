@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,40 +22,17 @@ func (m *mockProxy) Start(_ready chan struct{}) {
 func TestStart(t *testing.T) {
 	tests := []struct {
 		name           string
-		setFlags       func()
 		newProxyErr    error
 		wantErr        bool
 		wantErrMessage string
 	}{
 		{
-			name: "successful start",
-			setFlags: func() {
-				startFlags = StartFlags{
-					CA:                "test-ca",
-					TLSKey:            "test-key",
-					TLSCert:           "test-cert",
-					K8sAPIServerToken: "test-token",
-					Network:           "test-network",
-					Host:              "test-host.com",
-					Debug:             false,
-				}
-			},
+			name:        "successful start",
 			newProxyErr: nil,
 			wantErr:     false,
 		},
 		{
-			name: "gateway creation fails",
-			setFlags: func() {
-				startFlags = StartFlags{
-					CA:                "invalid-ca",
-					TLSKey:            "invalid-key",
-					TLSCert:           "invalid-cert",
-					K8sAPIServerToken: "invalid-token",
-					Network:           "invalid-network",
-					Host:              "invalid-host",
-					Debug:             true,
-				}
-			},
+			name:           "gateway creation fails",
 			newProxyErr:    errors.New("invalid configuration"),
 			wantErr:        true,
 			wantErrMessage: "failed to create k8s gateway invalid configuration",
@@ -63,7 +41,7 @@ func TestStart(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.setFlags()
+			viper.Set("network", "acme")
 
 			var mockProxyInstance *mockProxy
 

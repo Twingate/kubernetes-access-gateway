@@ -527,12 +527,11 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	// k8s proxy configuration
 	cfg := Config{
-		CA:                "../../test/data/api_server.crt",
+		K8sAPIServerCA:    "../../test/data/api_server.crt",
 		TLSCert:           "../../test/data/proxy_server.crt",
 		TLSKey:            "../../test/data/proxy_server.key",
-		K8sAPIServerURL:   apiServer.URL,
 		K8sAPIServerToken: "mock-token",
-		listenPort:        45678,
+		Port:              45678,
 		ConnectValidator:  mockValidator,
 	}
 
