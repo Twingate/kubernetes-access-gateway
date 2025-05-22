@@ -24,6 +24,12 @@ HELP_FUN = \
     }; \
     print "\n"; }
 
+COVPROFILE_UNIT := covprofile-unit
+COVPROFILE_INTEGRATION := covprofile-integration
+COVERED_PACKAGES := ./cmd/...,./internal/...
+UNIT_TEST_PACKAGES := ./cmd/... ./internal/...
+INTEGRATION_TEST_PACKAGES := ./test/integration/...
+
 .PHONY: help
 help: ##@other Shows this help.
 	@perl -e '$(HELP_FUN)' $(MAKEFILE_LIST)
@@ -53,9 +59,31 @@ test-helm-and-update-snapshots: ##@test Run helm-unittest and also update the te
 	helm unittest deploy/gateway -u
 
 .PHONY: test
-test: ##@test Run Tests
-	@echo "Running Tests..."
-	go test -race -v ./...
+test: ##@test Run unit tests
+	@echo "Running unit tests..."
+	go test -race -v $(UNIT_TEST_PACKAGES)
+
+.PHONY: test-with-coverage
+test-with-coverage: ##@test Run unit tests with coverage
+	@echo "Running unit tests with coverage..."
+	go test -race -covermode atomic -coverpkg="$(COVERED_PACKAGES)"	 -coverprofile=$(COVPROFILE_UNIT) $(UNIT_TEST_PACKAGES)
+
+.PHONY: test-integration
+test-integration: ##@test Run integration tests
+	@echo "Running integration tests..."
+	go test -race -v $(INTEGRATION_TEST_PACKAGES)
+
+.PHONY: test-integration-with-coverage
+test-integration-with-coverage: ##@test Run integration tests with coverage
+	@echo "Running integration tests with coverage..."
+	go test -race -covermode atomic -coverpkg="$(COVERED_PACKAGES)" -coverprofile=$(COVPROFILE_INTEGRATION) $(INTEGRATION_TEST_PACKAGES)
+
+.PHONY: coverall
+coverall: ##@test Send code coverage to Coveralls
+	@echo "Sending coverage to Coveralls..."
+	go install github.com/mattn/goveralls@latest
+	goveralls -coverprofile="$(COVPROFILE_UNIT),$(COVPROFILE_INTEGRATION)" -service=github
+
 
 .PHONY: prepare-buildx
 prepare-buildx: ##@build Prepare buildx
@@ -77,4 +105,3 @@ cut-release: ##@release Cut a new release (create a version tagt and push it)
 	echo "🚀 Cutting a new release - $(shell go tool svu next)"
 	git tag "$(shell go tool svu next --prerelease dev --metadata $(shell git rev-parse --short HEAD))"
 	git push --tags
-

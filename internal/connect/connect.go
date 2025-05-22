@@ -92,6 +92,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (claims *
 
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
+		// TODO: 400 Bad Request is more appropriate here
 		response = unauthorizedResponse
 
 		return nil, response, fmt.Errorf("failed to parse CONNECT destination: %w", err)
@@ -100,6 +101,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (claims *
 	if !strings.EqualFold(host, gatClaims.Resource.Address) {
 		response = unauthorizedResponse
 
+		// TODO: Remove `err`, it's nil here
 		return nil, response, fmt.Errorf("failed to verify CONNECT destination: %s(err: %w) with token resource address %s", host, err, gatClaims.Resource.Address)
 	}
 

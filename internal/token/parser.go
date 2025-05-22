@@ -13,6 +13,7 @@ var errInvalidTokenType = errors.New("token type is invalid")
 var allowedSigningMethods = []string{jwt.SigningMethodES256.Alg()}
 
 var allowedIssuerByHost = map[string]string{
+	"test.local":    "twingate-local",
 	"dev.opstg.com": "twingate-dev",
 	"stg.opstg.com": "twingate-stg",
 	"twingate.com":  "twingate",
@@ -27,8 +28,13 @@ type Parser struct {
 	keyfunc jwt.Keyfunc
 }
 
-func NewParserWithRemotesJWKS(network, host string) (*Parser, error) {
-	jwkURL := fmt.Sprintf("https://%s.%s/api/v1/jwk/ec", network, host)
+func NewParserWithRemotesJWKS(network, host, overrideURL string) (*Parser, error) {
+	var url = fmt.Sprintf("https://%s.%s", network, host)
+	if overrideURL != "" {
+		url = overrideURL
+	}
+
+	jwkURL := url + "/api/v1/jwk/ec"
 
 	jwks, err := keyfunc.NewDefault([]string{jwkURL})
 	if err != nil {
