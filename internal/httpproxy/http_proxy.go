@@ -31,7 +31,10 @@ type connContextKey string
 const healthCheckPath = "/healthz"
 const ConnContextKey connContextKey = "CONN_CONTEXT"
 
-const secretLen = 32
+const (
+	keyingMaterialLabel  = "EXPERIMENTAL_twingate_gat"
+	keyingMaterialLength = 32
+)
 
 const (
 	upgradeHeaderKey      = "Upgrade"
@@ -45,12 +48,17 @@ const (
 )
 
 type Config struct {
-	TLSCert           string
-	TLSKey            string
-	K8sAPIServerToken string
-	K8sAPIServerCA    string
-	ConnectValidator  connect.Validator
-	Port              int
+	TLSCert            string
+	TLSKey             string
+	K8sAPIServerToken  string
+	K8sAPIServerCA     string
+	K8sAPIServerCAData string
+	K8sAPIServerPort   int
+	K8sGatewayCertData string
+	K8sGatewayKeyData  string
+
+	ConnectValidator connect.Validator
+	Port             int
 }
 
 // custom Conn that wraps a net.Conn, adding the user identity field.
@@ -84,6 +92,12 @@ func (p *ProxyConn) Close() error {
 	}
 
 	return p.Conn.Close()
+}
+
+func ExportKeyingMaterial(conn *tls.Conn) ([]byte, error) {
+	cs := conn.ConnectionState()
+
+	return cs.ExportKeyingMaterial(keyingMaterialLabel, nil, keyingMaterialLength)
 }
 
 // custom listener to handle HTTP CONNECT and then upgrade to HTTPS.
@@ -151,9 +165,7 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 	}
 
 	// get the keying material for the TLS session
-	cs := tlsConnectConn.ConnectionState()
-
-	ekm, err := cs.ExportKeyingMaterial("EXPERIMENTAL_twingate_gat", nil, secretLen)
+	ekm, err := ExportKeyingMaterial(tlsConnectConn)
 	if err != nil {
 		logger.Errorf("failed to get keying material: %v", err)
 		tlsConnectConn.Close()
@@ -272,9 +284,12 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	}
 
 	// create TLS configuration for upstream
-	caCert, err := os.ReadFile(cfg.K8sAPIServerCA)
-	if err != nil {
-		logger.Fatalf("failed to read K8sAPIServerCA cert: %v", err)
+	var caCert = []byte(cfg.K8sAPIServerCAData)
+	if cfg.K8sAPIServerCA != "" {
+		caCert, err = os.ReadFile(cfg.K8sAPIServerCA)
+		if err != nil {
+			logger.Fatalf("failed to read CA cert: %v", err)
+		}
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -288,6 +303,16 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		MinVersion: tls.VersionTLS13,
 		RootCAs:    caCertPool,
 	}
+
+	if cfg.K8sGatewayCertData != "" && cfg.K8sGatewayKeyData != "" {
+		cert, err := tls.X509KeyPair([]byte(cfg.K8sGatewayCertData), []byte(cfg.K8sGatewayKeyData))
+		if err != nil {
+			logger.Fatalf("failed to load k8s gateway client TLS certificate: %v", err)
+		}
+
+		upstreamTLSConfig.Certificates = []tls.Certificate{cert}
+	}
+
 	transport := &http.Transport{
 		TLSClientConfig: upstreamTLSConfig,
 	}
@@ -301,9 +326,13 @@ func NewProxy(cfg Config) (*Proxy, error) {
 				return
 			}
 
+			apiServerAddress := conn.claims.Resource.Address
+			if cfg.K8sAPIServerPort != 0 {
+				apiServerAddress = fmt.Sprintf("%s:%d", conn.claims.Resource.Address, cfg.K8sAPIServerPort)
+			}
 			targetURL := &url.URL{
 				Scheme: "https",
-				Host:   conn.claims.Resource.Address,
+				Host:   apiServerAddress,
 			}
 			r.SetURL(targetURL)
 
@@ -320,7 +349,9 @@ func NewProxy(cfg Config) (*Proxy, error) {
 
 			// Set authorization and impersonation header to impersonate the user
 			// identified from downstream.
-			r.Out.Header.Set("Authorization", "Bearer "+cfg.K8sAPIServerToken)
+			if cfg.K8sAPIServerToken != "" {
+				r.Out.Header.Set("Authorization", "Bearer "+cfg.K8sAPIServerToken)
+			}
 			r.Out.Header.Set("Impersonate-User", conn.claims.User.Username)
 			for _, group := range conn.claims.User.Groups {
 				r.Out.Header.Add("Impersonate-Group", group)

@@ -117,7 +117,7 @@ func TestParser_ParseWithClaims(t *testing.T) {
 }
 
 func TestNewParserWithRemotesJWKS(t *testing.T) {
-	parser, err := NewParserWithRemotesJWKS("acme", "twingate.com")
+	parser, err := NewParserWithRemotesJWKS("acme", "twingate.com", "")
 	require.NoError(t, err)
 	require.NotNil(t, parser)
 }

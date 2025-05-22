@@ -71,14 +71,19 @@ jobs:
           go-version: ${{ env.GOLANG_VERSION }}
 
       - name: Run Tests
-        run: go test -race -covermode atomic -coverpkg=./... -coverprofile=covprofile ./...
+        run: make test-with-coverage
+
+      - name: Setup Docker
+        uses: docker/setup-docker-action@v4
+      - name: Run Integration Tests
+        run: make test-integration-with-coverage
 
       - name: Send coverage to Coveralls
         env:
           COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
         run: |
           go install github.com/mattn/goveralls@latest
-          goveralls -coverprofile=covprofile -service=github
+          make coverall
 
 
   build:
