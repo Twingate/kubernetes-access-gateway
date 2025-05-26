@@ -18,12 +18,18 @@ Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes 
 
 ## Installation
 
+- Install [`asdf`](https://github.com/asdf-vm/asdf), [`asdf-golang`](https://github.com/asdf-community/asdf-golang), [`asdf-kind`](https://github.com/reegnz/asdf-kind). Then run `asdf install` to install the required versions in `.tool-versions`.
 - Install [helm-unittest](https://github.com/helm-unittest/helm-unittest) plugin for unit-testing Helm chart
   ```
-   helm plugin install https://github.com/helm-unittest/helm-unittest.git
-   ```
+  helm plugin install https://github.com/helm-unittest/helm-unittest.git
+  ```
 
 ## Testing
+
+### Integration testing
+
+- Integration tests are located in `test/integration` directory. The test would setup [a KinD cluster](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) and run the tests. However, you need to have Docker runtime so that the KinD cluster can be created automatically.
+- Run `make test-integration` to run integration tests.
 
 ### Helm testing
 

@@ -5,7 +5,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/asn1"
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
@@ -30,9 +29,7 @@ func (c client) getPublicKey() token.PublicKey {
 
 func (c client) sign(t string) string {
 	hash := sha256.Sum256([]byte(t))
-	r, s, _ := ecdsa.Sign(rand.Reader, c.privateKey, hash[:])
-
-	signature, _ := asn1.Marshal(ECDSASignature{R: r, S: s})
+	signature, _ := ecdsa.SignASN1(rand.Reader, c.privateKey, hash[:])
 
 	return base64.StdEncoding.EncodeToString(signature)
 }
