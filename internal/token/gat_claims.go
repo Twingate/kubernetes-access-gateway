@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -59,6 +60,18 @@ type User struct {
 	ID       string   `json:"id"`
 	Username string   `json:"username"`
 	Groups   []string `json:"groups"`
+}
+
+func (u User) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("id", u.ID)
+	enc.AddString("username", u.Username)
+	enc.AddArray("groups", zapcore.ArrayMarshalerFunc(func(arrayEnc zapcore.ArrayEncoder) error {
+		for _, group := range u.Groups {
+			arrayEnc.AppendString(group)
+		}
+		return nil
+	}))
+	return nil
 }
 
 type Device struct {

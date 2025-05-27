@@ -386,23 +386,29 @@ func (p *Proxy) Start(ready chan struct{}) {
 }
 
 func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := zap.S()
+	logger := zap.L().With(
+		zap.String("request_id", uuid.New().String()),
+		zap.String("method", r.Method),
+		zap.String("url", r.URL.String()),
+		zap.String("remote_addr", r.RemoteAddr),
+	)
 	conn, ok := r.Context().Value(ConnContextKey).(*ProxyConn)
 
 	if !ok {
-		logger.Errorf("Failed to retrieve net.Conn from context")
+		logger.Error("Failed to retrieve net.Conn from context")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 
 		return
 	}
 
-	// create request ID
-	requestID := uuid.New().String()
+	logger = logger.With(
+		zap.Object("user", conn.claims.User),
+	)
 
 	// read the body, consuming the data
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		logger.Errorf("failed to read request body: %w", err)
+		logger.Error("failed to read request body", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 
 		return
@@ -410,7 +416,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// close and recreate the body reader
 	if err := r.Body.Close(); err != nil {
-		logger.Errorf("failed to process request body: %w", err)
+		logger.Error("failed to process request body", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 
 		return
@@ -421,15 +427,10 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	// truncate the body log if it's too large
 	logReqBody := truncateBody(bodyBytes)
 
-	logger.Infow("request",
-		"request_id", requestID,
-		"method", r.Method,
-		"url", r.URL.String(),
-		"remote_addr", r.RemoteAddr,
-		"header", r.Header,
-		"body", logReqBody,
-		"user", conn.claims.User.Username,
-		"groups", conn.claims.User.Groups,
+	logger.Info("API request",
+		zap.Namespace("request"),
+		zap.Any("header", r.Header),
+		zap.String("body", logReqBody),
 	)
 
 	if r.Header.Get(upgradeHeaderKey) == upgradeWebsocketValue {
@@ -439,7 +440,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// start hijacker which will parse websocket messages and record the session
 			recorderFactory := func() wsproxy.Recorder {
-				return wsproxy.NewRecorder()
+				return wsproxy.NewRecorder(logger)
 			}
 			wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
 			p.proxy.ServeHTTP(wsHijacker, r)
@@ -451,12 +452,11 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			// truncate the body log if it's too large
 			logResBody := truncateBody(responseLogger.body.Bytes())
 
-			logger.Infow("response",
-				"request_id", requestID,
-				"url", r.URL.String(),
-				"status code", responseLogger.statusCode,
-				"headers", responseLogger.headers,
-				"body", logResBody,
+			logger.Info("API response",
+				zap.Namespace("response"),
+				zap.Int("status_code", responseLogger.statusCode),
+				zap.Any("header", responseLogger.headers),
+				zap.String("body", logResBody),
 			)
 		}()
 
