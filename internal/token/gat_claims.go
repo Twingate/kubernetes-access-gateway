@@ -65,13 +65,15 @@ type User struct {
 func (u User) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("id", u.ID)
 	enc.AddString("username", u.Username)
-	enc.AddArray("groups", zapcore.ArrayMarshalerFunc(func(arrayEnc zapcore.ArrayEncoder) error {
+	err := enc.AddArray("groups", zapcore.ArrayMarshalerFunc(func(arrayEnc zapcore.ArrayEncoder) error {
 		for _, group := range u.Groups {
 			arrayEnc.AppendString(group)
 		}
+
 		return nil
 	}))
-	return nil
+
+	return err
 }
 
 type Device struct {
