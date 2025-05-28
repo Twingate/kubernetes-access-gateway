@@ -55,13 +55,15 @@ const (
 )
 
 type AsciinemaRecorder struct {
+	logger        *zap.Logger
 	start         time.Time
 	state         State
 	recordedLines []string
 }
 
-func NewRecorder() *AsciinemaRecorder {
+func NewRecorder(logger *zap.Logger) *AsciinemaRecorder {
 	return &AsciinemaRecorder{
+		logger:        logger,
 		start:         time.Now(),
 		recordedLines: []string{},
 	}
@@ -92,9 +94,7 @@ func (r *AsciinemaRecorder) IsStarted() bool {
 }
 
 func (r *AsciinemaRecorder) Stop() {
-	logger := zap.S()
-	logger.Info(strings.Join(r.recordedLines, "\n"))
-
+	r.logger.Info("session finished", zap.String("asciinema_data", strings.Join(r.recordedLines, "\n")))
 	r.state = FinishedState
 }
 

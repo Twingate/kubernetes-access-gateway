@@ -7,15 +7,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestRecorder_NewRecorder(t *testing.T) {
-	r := NewRecorder()
+	r := NewRecorder(zap.NewNop())
 	assert.NotNil(t, r, "NewRecorder should return a non-nil recording")
 }
 
 func TestRecorder_WriteOutputEvent(t *testing.T) {
-	r := NewRecorder()
+	r := NewRecorder(zap.NewNop())
 
 	err := r.WriteOutputEvent([]byte("test output"))
 	require.NoError(t, err, "WriteOutputEvent should not return an error")
@@ -39,7 +40,7 @@ func TestRecorder_WriteOutputEvent(t *testing.T) {
 }
 
 func TestRecorder_WriteResizeEvent(t *testing.T) {
-	r := NewRecorder()
+	r := NewRecorder(zap.NewNop())
 
 	err := r.WriteResizeEvent(80, 24)
 	require.NoError(t, err, "WriteResizeEvent should not return an error")
@@ -63,7 +64,7 @@ func TestRecorder_WriteResizeEvent(t *testing.T) {
 }
 
 func TestRecorder_WriteHeader(t *testing.T) {
-	r := NewRecorder()
+	r := NewRecorder(zap.NewNop())
 
 	header := asciinemaHeader{
 		Version:   2,
@@ -92,7 +93,7 @@ func TestRecorder_WriteHeader(t *testing.T) {
 }
 
 func TestRecorder_MultipleEvents(t *testing.T) {
-	r := NewRecorder()
+	r := NewRecorder(zap.NewNop())
 
 	header := asciinemaHeader{
 		Version: 2,
@@ -123,7 +124,7 @@ func TestRecorder_MultipleEvents(t *testing.T) {
 }
 
 func TestRecorder_StoreEventAfterStop(t *testing.T) {
-	r := NewRecorder()
+	r := NewRecorder(zap.NewNop())
 
 	// Write an event
 	require.NoError(t, r.WriteOutputEvent([]byte("test")))
@@ -145,7 +146,7 @@ func TestRecorder_StoreEventAfterStop(t *testing.T) {
 }
 
 func TestRecorderFlow(t *testing.T) {
-	r := NewRecorder()
+	r := NewRecorder(zap.NewNop())
 
 	// Verify start time is recent
 	assert.WithinDuration(t, time.Now(), r.start, 1*time.Second, "Recorder start time should be recent")
@@ -207,7 +208,7 @@ func TestK8sMetadata(t *testing.T) {
 }
 
 func TestRecorder_WriteJSON_Error(t *testing.T) {
-	r := NewRecorder()
+	r := NewRecorder(zap.NewNop())
 
 	// Create a value that cannot be marshaled to JSON, a function
 	badValue := struct {
@@ -223,7 +224,7 @@ func TestRecorder_WriteJSON_Error(t *testing.T) {
 }
 
 func TestRecorder_StoreEvent_Error(t *testing.T) {
-	r := NewRecorder()
+	r := NewRecorder(zap.NewNop())
 	r.state = FinishedState
 
 	err := r.storeEvent("test event")

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type mockHijackerResponseWriter struct {
@@ -67,7 +69,7 @@ func mockNewConn(conn net.Conn, _ Recorder, _ asciinemaHeader, _ bool) net.Conn 
 }
 
 func mockNewRecorder() *AsciinemaRecorder {
-	return NewRecorder()
+	return NewRecorder(zap.NewNop())
 }
 
 func TestHijacker_New(t *testing.T) {
