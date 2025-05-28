@@ -1,6 +1,7 @@
 package wsproxy
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -93,7 +94,18 @@ func (r *AsciinemaRecorder) IsStarted() bool {
 
 func (r *AsciinemaRecorder) Stop() {
 	logger := zap.S()
-	logger.Info(strings.Join(r.recordedLines, "\n"))
+	recordingData := strings.Join(r.recordedLines, "\n")
+
+	logger.Info(recordingData)
+
+	encoded := base64.URLEncoding.EncodeToString([]byte(recordingData))
+
+	// Chrome supports up to 2MB. 100_000 is a conservative truncation
+	if len(encoded) < 100_000 {
+		asciinemaURL := "https://www.twingate.com/asciinema?q=" + encoded
+
+		logger.Info("View this asciinema cast at: " + asciinemaURL)
+	}
 
 	r.state = FinishedState
 }

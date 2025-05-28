@@ -2,11 +2,14 @@ package wsproxy
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestRecorder_NewRecorder(t *testing.T) {
@@ -229,4 +232,84 @@ func TestRecorder_StoreEvent_Error(t *testing.T) {
 	err := r.storeEvent("test event")
 	require.Error(t, err, "storeEvent should return error when recording is finished")
 	assert.Equal(t, errAlreadyFinished, err)
+}
+
+func TestRecorder_Stop_EncodesSmallRecordings(t *testing.T) {
+	originalLogger := zap.L()
+	defer zap.ReplaceGlobals(originalLogger)
+
+	r := NewRecorder()
+	err := r.WriteOutputEvent([]byte("test output"))
+
+	require.NoError(t, err, "WriteOutputEvent should not return an error")
+
+	// Setup in-memory logger to capture output
+	core, recorded := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	zap.ReplaceGlobals(logger)
+
+	r.Stop()
+
+	logs := recorded.All()
+	assert.GreaterOrEqual(t, len(logs), 2, "Should have at least 2 log entries")
+
+	found := false
+	urlFound := false
+
+	for _, log := range logs {
+		if strings.Contains(log.Message, "test output") {
+			found = true
+		}
+
+		if strings.Contains(log.Message, "View this asciinema cast at: https://www.twingate.com/asciinema?q=") {
+			urlFound = true
+			// Verify the URL contains base64-encoded data
+			assert.Regexp(t, `https://www\.twingate\.com/asciinema\?q=[A-Za-z0-9_-]+`, log.Message,
+				"URL should contain base64url-encoded data")
+		}
+	}
+
+	assert.True(t, found, "Log should contain the recording data")
+	assert.True(t, urlFound, "Log should contain the asciinema URL")
+}
+
+func TestRecorder_Stop_SkipsURLForLargeRecordings(t *testing.T) {
+	originalLogger := zap.L()
+	defer zap.ReplaceGlobals(originalLogger)
+
+	r := NewRecorder()
+
+	// Generate a large payload that will exceed the 100,000 character limit when encoded
+	largeData := make([]byte, 80000)
+	for i := range largeData {
+		largeData[i] = byte(i % 256)
+	}
+
+	err := r.WriteOutputEvent(largeData)
+
+	require.NoError(t, err, "WriteOutputEvent should not return an error")
+
+	// Setup in-memory logger to capture output
+	core, recorded := observer.New(zap.InfoLevel)
+	logger := zap.New(core)
+	zap.ReplaceGlobals(logger)
+
+	r.Stop()
+
+	logs := recorded.All()
+	assert.GreaterOrEqual(t, len(logs), 1, "Should have at least 1 log entry")
+
+	urlFound := false
+
+	for _, log := range logs {
+		if strings.Contains(log.Message, "View this asciinema cast at:") {
+			urlFound = true
+
+			break
+		}
+	}
+
+	assert.False(t, urlFound, "Log should not contain the asciinema URL for large recordings")
+
+	assert.Equal(t, FinishedState, r.state, "State should be set to FinishedState")
 }
