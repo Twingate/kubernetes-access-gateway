@@ -26,8 +26,8 @@ import (
 
 // Client simulates a Twingate Client, authenticating and forwarding kubectl requests to the Gateway.
 //
-// Client is implemented as a TCP proxy. On receiving a connection, it opens a connection to the Gateway,
-// authenticates using a CONNECT request, and then forwards TCP data.
+// Client is implemented as a TCP proxy. On receiving a connection, it opens a connection to the
+// Gateway, authenticates using a CONNECT request, and then forwards TCP data.
 //
 // kubectl CLI needs to connect to this Client's listener address.
 type Client struct {
@@ -71,6 +71,11 @@ func NewClient(user *token.User, proxyAddress, controllerURL, apiServerURL strin
 	return c
 }
 
+// Close gracefully shuts down the client.
+//
+// It will close the listener and wait for all existing connections to complete. It does not
+// terminate existing connections forcibly i.e. it might hang indefinitely if the downstream
+// connection is not properly closed.
 func (c *Client) Close() {
 	c.cancel()
 	c.Listener.Close()

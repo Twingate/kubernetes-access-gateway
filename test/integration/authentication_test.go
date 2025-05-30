@@ -28,10 +28,7 @@ import (
 
 const network = "acme"
 
-// // Parse random port instead.
-// const kindAPIServerPort = 54321
-
-var kindClusterYaml = `
+const kindClusterYaml = `
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -51,12 +48,12 @@ func TestKubernetesAuthentication(t *testing.T) {
 		t.Fatalf("Failed to parse API server URL: %v", err)
 	}
 
-	// Start the controller
+	// Start the Controller
 	controller := fake.NewController(network)
 	defer controller.Close()
 	t.Log("Controller is serving at", controller.URL)
 
-	// Start the proxy
+	// Start the Gateway
 	go func() {
 		rootCmd := cmd.GetRootCommand()
 		rootCmd.SetArgs([]string{
@@ -97,7 +94,7 @@ func TestKubernetesAuthentication(t *testing.T) {
 
 	defer zap.ReplaceGlobals(originalLogger) // Restore original logger
 
-	// Create client
+	// Start a client
 	user := &token.User{
 		ID:       "user-1",
 		Username: "alex@acme.com",
