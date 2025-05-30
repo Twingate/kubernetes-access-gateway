@@ -4,14 +4,13 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"time"
 
 	"github.com/MicahParks/jwkset"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 
 	"k8sgateway/internal/token"
 )
@@ -32,13 +31,13 @@ type requestBody struct {
 // - /api/v1/jwk/ec: Returns the JWK Set that is used to verify GAT tokens.
 // - /api/v1/gat: Returns a GAT token for a client.
 func NewController(network string) *httptest.Server {
-	logger := log.New(os.Stdout, "fake-controller:", log.LstdFlags)
+	logger := zap.Must(zap.NewDevelopment()).Named("controller")
 
 	controllerKey, _ := ReadECKey("../data/controller/key.pem")
 
 	jwkSetJSON, err := createJWKSet(controllerKey)
 	if err != nil {
-		logger.Printf("Failed to create JWK Set: %s", err)
+		logger.Error("Failed to create JWK Set", zap.Error(err))
 
 		return nil
 	}
@@ -49,12 +48,12 @@ func NewController(network string) *httptest.Server {
 
 		_, err := writer.Write(jwkSetJSON)
 		if err != nil {
-			logger.Printf("Failed to respond with JWK Set JSON: %s", err)
+			logger.Error("Failed to respond with JWK Set JSON", zap.Error(err))
 
 			return
 		}
 
-		logger.Println("JWK returned")
+		logger.Info("JWK returned")
 	})
 	mux.HandleFunc("/api/v1/gat", func(writer http.ResponseWriter, request *http.Request) {
 		// Read and parse the request body
@@ -62,12 +61,13 @@ func NewController(network string) *httptest.Server {
 
 		decoder := json.NewDecoder(request.Body)
 		if err := decoder.Decode(&requestBody); err != nil {
-			logger.Printf("Failed to parse request body: %s", err)
+			logger.Error("Failed to parse request body", zap.Error(err))
 			writer.WriteHeader(http.StatusBadRequest)
+
 			return
 		}
 
-		logger.Printf("Received GAT request. User %+v, Device %+v, Resource %+v", &requestBody.User, &requestBody.Device, &requestBody.Resource)
+		logger.Info("Received GAT request", zap.Any("user", &requestBody.User), zap.Any("device", &requestBody.Device), zap.Any("resource", &requestBody.Resource))
 
 		claims := token.GATClaims{
 			RegisteredClaims: jwt.RegisteredClaims{
@@ -96,19 +96,19 @@ func NewController(network string) *httptest.Server {
 
 		tokenString, err := token.SignedString(controllerKey)
 		if err != nil {
-			logger.Printf("Failed to sign JWT. %s", err)
+			logger.Error("Failed to sign JWT", zap.Error(err))
 
 			return
 		}
 
 		_, err = writer.Write([]byte(tokenString))
 		if err != nil {
-			logger.Printf("Failed to respond with JWT: %s", err)
+			logger.Error("Failed to respond with JWT", zap.Error(err))
 
 			return
 		}
 
-		logger.Println("JWT generated.")
+		logger.Info("JWT generated")
 	})
 
 	return httptest.NewServer(mux)

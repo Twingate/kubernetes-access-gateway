@@ -3,6 +3,7 @@ package fake
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
@@ -12,60 +13,102 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
+	"sync"
+
+	"go.uber.org/zap"
 
 	"k8sgateway/internal/httpproxy"
 	"k8sgateway/internal/token"
 )
 
-const localAddress = "127.0.0.1:9000"
+// Client simulates a Twingate Client, authenticating and forwarding kubectl requests to the Gateway.
+//
+// Client is implemented as a TCP proxy. On receiving a connection, it opens a connection to the Gateway,
+// authenticates using a CONNECT request, and then forwards TCP data.
+//
+// kubectl CLI needs to connect to this Client's listener address.
+type Client struct {
+	Listener net.Listener
+	URL      string
 
-// TODO: Return client and support shutdown
-// type Client struct {
-// 	Listener net.Listener
-// }
+	user          *token.User
+	proxyAddress  string
+	controllerURL string
+	apiServerURL  string
 
-func NewClient(proxyAddress, controllerURL, apiServerURL string) {
-	// TODO: use zap development
-	logger := log.New(os.Stdout, "fake-client:", log.LstdFlags)
+	cancel context.CancelFunc
+	wg     *sync.WaitGroup
 
-	gat := fetchGAT(controllerURL, logger)
-	//if gat == "" {
-	//	return nil
-	//}
-
-	// Listen for incoming connections
-	// TODO: listen to a random port
-	listener, err := net.Listen("tcp", localAddress)
-	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
-	}
-	//defer listener.Close()
-	log.Printf("Listening on %s, forwarding to %s", localAddress, proxyAddress)
-
-	go func() {
-		for {
-			// Accept new connection
-			clientConn, err := listener.Accept()
-			if err != nil {
-				log.Printf("Failed to accept connection: %v", err)
-				continue
-			}
-
-			// Handle connection in a goroutine
-			go handleConnection(proxyAddress, apiServerURL, clientConn, string(gat))
-		}
-	}()
+	logger *zap.Logger
 }
 
-func handleConnection(proxyAddress, apiServerURL string, clientConn net.Conn, gat string) {
+func NewClient(user *token.User, proxyAddress, controllerURL, apiServerURL string) *Client {
+	logger := zap.Must(zap.NewDevelopment()).Named(fmt.Sprintf("client-%s-%s", user.ID, user.Username))
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		logger.Fatal("Failed to listen", zap.Error(err))
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	c := &Client{
+		Listener:      listener,
+		URL:           "https://" + listener.Addr().String(),
+		proxyAddress:  proxyAddress,
+		controllerURL: controllerURL,
+		apiServerURL:  apiServerURL,
+		user:          user,
+		cancel:        cancel,
+		wg:            &sync.WaitGroup{},
+		logger:        logger,
+	}
+	go c.serve(ctx)
+
+	return c
+}
+
+func (c *Client) Close() {
+	c.cancel()
+	c.Listener.Close()
+	c.wg.Wait()
+}
+
+func (c *Client) serve(ctx context.Context) {
+	gat := c.fetchGAT()
+	if gat == "" {
+		c.logger.Error("Failed to fetch GAT")
+
+		return
+	}
+
+	for {
+		clientConn, err := c.Listener.Accept()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				c.logger.Error("Failed to accept connection", zap.Error(err))
+			}
+
+			continue
+		}
+
+		c.wg.Add(1)
+		go c.handleConnection(ctx, clientConn, gat)
+	}
+}
+
+func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat string) {
 	defer clientConn.Close()
+	defer c.wg.Done()
 
 	// Proxy certs
-	caCert, _ := os.ReadFile("../data/proxy/cert.pem")
+	caCert, _ := os.ReadFile("../data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -76,25 +119,25 @@ func handleConnection(proxyAddress, apiServerURL string, clientConn net.Conn, ga
 	}
 
 	// Manually create a TCP connection
-	conn, err := net.Dial("tcp", proxyAddress)
+	conn, err := net.Dial("tcp", c.proxyAddress)
 	if err != nil {
-		fmt.Printf("Failed to connect to proxy: %v", err)
+		c.logger.Error("Failed to connect to proxy", zap.Error(err))
 	}
 	defer conn.Close()
 
 	// Enable outer TLS (between Twingate client and proxy)
 	proxyTLSConn := tls.Client(conn, tlsConfig)
 	if err := proxyTLSConn.Handshake(); err != nil {
-		fmt.Printf("TLS handshake failed(proxy): %v", err)
+		c.logger.Error("TLS handshake failed(proxy)", zap.Error(err))
 	}
 
 	// Create CONNECT request
-	connectReq, err := http.NewRequest(http.MethodConnect, apiServerURL, nil)
+	connectReq, err := http.NewRequest(http.MethodConnect, c.apiServerURL, nil)
 	if err != nil {
-		fmt.Printf("Failed to create request: %v", err)
+		c.logger.Error("Failed to create request", zap.Error(err))
 	}
 
-	connectReq.Header.Set("Proxy-Authorization", fmt.Sprintf("Bearer %s", gat))
+	connectReq.Header.Set("Proxy-Authorization", "Bearer "+gat)
 
 	clientKey, _ := ReadECKey("../data/client/key.pem")
 	ekm, _ := httpproxy.ExportKeyingMaterial(proxyTLSConn)
@@ -105,40 +148,47 @@ func handleConnection(proxyAddress, apiServerURL string, clientConn net.Conn, ga
 
 	// Send CONNECT request
 	if err := connectReq.Write(proxyTLSConn); err != nil {
-		fmt.Printf("Failed to write CONNECT request: %v", err)
+		c.logger.Error("Failed to write CONNECT request", zap.Error(err))
+
+		return
 	}
 
 	// Read CONNECT response
 	connectResp, err := http.ReadResponse(bufio.NewReader(proxyTLSConn), connectReq)
 	if err != nil {
-		fmt.Printf("Failed to read CONNECT response: %v", err)
-	}
+		c.logger.Error("Failed to read CONNECT response", zap.Error(err))
 
-	fmt.Println("Response", connectResp.StatusCode)
+		return
+	}
+	defer connectResp.Body.Close()
+
+	c.logger.Info("Connect response", zap.Int("status code", connectResp.StatusCode))
 
 	// Set up bidirectional copy
+	copyCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	go func() {
-		if _, err := io.Copy(proxyTLSConn, clientConn); err != nil {
-			log.Printf("Error copying client->proxy: %v", err)
-		}
+		_, _ = io.Copy(proxyTLSConn, clientConn)
+
+		cancel()
+	}()
+	go func() {
+		_, _ = io.Copy(clientConn, proxyTLSConn)
+
+		cancel()
 	}()
 
-	if _, err := io.Copy(clientConn, proxyTLSConn); err != nil {
-		log.Printf("Error copying proxy->client: %v", err)
-	}
+	<-copyCtx.Done()
 }
 
-func fetchGAT(controllerURL string, logger *log.Logger) string {
+func (c *Client) fetchGAT() string {
 	clientPublicKey, _ := ReadECKey("../data/client/key.pem")
 	requestBody := requestBody{
 		ClientPublicKey: &token.PublicKey{
 			PublicKey: clientPublicKey.PublicKey,
 		},
-		User: &token.User{
-			ID:       "user-1",
-			Username: "alex@acme.com",
-			Groups:   []string{"OnCall", "Engineering"},
-		},
+		User: c.user,
 		Device: &token.Device{
 			ID: "device-1",
 		},
@@ -150,13 +200,14 @@ func fetchGAT(controllerURL string, logger *log.Logger) string {
 
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
-		logger.Printf("Failed to marshal request body: %v", err)
+		c.logger.Error("Failed to marshal request body", zap.Error(err))
+
 		return ""
 	}
 
-	resp, err := http.Post(controllerURL+"/api/v1/gat", "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(c.controllerURL+"/api/v1/gat", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		logger.Printf("Failed to fetch GAT: %v", err)
+		c.logger.Error("Failed to fetch GAT", zap.Error(err))
 
 		return ""
 	}
@@ -164,7 +215,7 @@ func fetchGAT(controllerURL string, logger *log.Logger) string {
 
 	gat, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logger.Printf("Failed to read GAT response: %v", err)
+		c.logger.Error("Failed to read GAT response", zap.Error(err))
 
 		return ""
 	}

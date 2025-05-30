@@ -3,58 +3,228 @@ package integration
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"os/exec"
-	"strconv"
+	"net/url"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
-
-	"github.com/stretchr/testify/assert"
-
-	authv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/kind/pkg/cluster"
 
+	authv1 "k8s.io/api/authentication/v1"
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 
 	"k8sgateway/cmd"
+	"k8sgateway/internal/token"
 	"k8sgateway/test/fake"
 )
 
 const network = "acme"
 
-// Parse random port instead
-const kindAPIServerPort = 54321
+// // Parse random port instead.
+// const kindAPIServerPort = 54321
 
-var kindClusterYaml = fmt.Sprintf(`
+var kindClusterYaml = `
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-networking:
-  apiServerPort: %d
-`, kindAPIServerPort)
+nodes:
+- role: control-plane
+  extraMounts:
+    - hostPath: ../data/api_server/tls.crt
+      containerPath: /etc/kubernetes/pki/ca.crt
+    - hostPath: ../data/api_server/tls.key
+      containerPath: /etc/kubernetes/pki/ca.key
+`
 
 func TestKubernetesAuthentication(t *testing.T) {
+	kindKubectl, kindKubeConfig, kindBearerToken := setupKinD(t)
+
+	kindURL, err := url.Parse(kindKubeConfig.Host)
+	if err != nil {
+		t.Fatalf("Failed to parse API server URL: %v", err)
+	}
+
+	// Start the controller
+	controller := fake.NewController(network)
+	defer controller.Close()
+	t.Log("Controller is serving at", controller.URL)
+
+	// Start the proxy
+	go func() {
+		rootCmd := cmd.GetRootCommand()
+		rootCmd.SetArgs([]string{
+			"start",
+			"--host",
+			"twingate.local",
+			"--network",
+			network,
+			"--tlsKey",
+			"../data/proxy/tls.key",
+			"--tlsCert",
+			"../data/proxy/tls.crt",
+			"--k8sAPIServerPort",
+			kindURL.Port(),
+			"--k8sAPIServerCA",
+			"../data/api_server/tls.crt",
+			"--k8sAPIServerToken",
+			kindBearerToken,
+			"--fakeControllerURL",
+			controller.URL,
+		})
+
+		err := rootCmd.Execute()
+		t.Logf("Failed to start Gateway: %v", err)
+	}()
+
+	gatewayHealthCheck(t)
+
+	// Setup a test logger to capture log output
+	// This must be done after the proxy is started because
+	// the proxy also set the global logger.
+	core, logs := observer.New(zap.DebugLevel)
+	logger := zap.New(core)
+	logger.Named("test")
+
+	originalLogger := zap.L()
+	zap.ReplaceGlobals(logger)
+
+	defer zap.ReplaceGlobals(originalLogger) // Restore original logger
+
+	// Create client
+	user := &token.User{
+		ID:       "user-1",
+		Username: "alex@acme.com",
+		Groups:   []string{"OnCall", "Engineering"},
+	}
+
+	client := fake.NewClient(
+		user,
+		"127.0.0.1:8443",
+		controller.URL,
+		kindKubeConfig.Host,
+	)
+	defer client.Close()
+
+	clientKubectl := createClientKubectl(t, kindKubectl, client.URL)
+
+	// Test `kubectl auth whoami`
+	output, err := clientKubectl.Command("auth", "whoami", "-o", "json")
+	if err != nil {
+		t.Fatalf("Failed to execute kubectl auth whoami: %v", err)
+	}
+
+	assertWhoAmI(t, output, user.Username, append(user.Groups, "system:authenticated"))
+
+	expectedUser := map[string]any{
+		"id":       "user-1",
+		"username": "alex@acme.com",
+		"groups":   []any{"OnCall", "Engineering"},
+	}
+	assertLogsForREST(t, logs, "/apis/authentication.k8s.io/v1/selfsubjectreviews", expectedUser)
+
+	// Test `kubectl exec`
+	output, err = clientKubectl.Command("exec", "test-pod", "--", "cat", "/etc/hostname")
+	if err != nil {
+		t.Fatalf("Failed to execute kubectl exec: %v", err)
+	}
+
+	assert.Equal(t, "test-pod\n", string(output))
+	assertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", "test-pod", expectedUser)
+}
+
+const setupYaml = `
+# Setup default service account for impersonation
+#
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gateway-impersonation
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - users
+  - groups
+  - serviceaccounts
+  verbs:
+  - impersonate
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gateway-impersonation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gateway-impersonation
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gateway-default-service-account
+  annotations:
+    kubernetes.io/service-account.name: default
+type: kubernetes.io/service-account-token
+---
+
+# Setup a test pod
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+spec:
+  containers:
+  - name: test-pod
+    image: busybox
+    command: ["sleep", "3600"]
+---
+
+# Setup role binding for test user
+#
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gateway-test-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: edit
+subjects:
+- kind: User
+  name: "alex@acme.com"
+  apiGroup: rbac.authorization.k8s.io
+`
+
+func setupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
+	t.Helper()
+
 	provider := cluster.NewProvider(cluster.ProviderWithLogger(kindcmd.NewLogger()))
-	clusterName := "k8s-gateway-test-integration"
+	clusterName := "kind-gateway-integration-test"
 
 	// Create the cluster
-	//if err := provider.Create(clusterName, cluster.CreateWithRawConfig([]byte(kindClusterYaml))); err != nil {
-	//	t.Fatalf("failed to create kind cluster: %v", err)
-	//}
-	//
-	//defer func() {
-	//	// Clean up the cluster after test
-	//	if err := provider.Delete(clusterName, ""); err != nil {
-	//		t.Errorf("failed to delete kind cluster: %v", err)
-	//	}
-	//}()
+	if err := provider.Create(clusterName, cluster.CreateWithRawConfig([]byte(kindClusterYaml))); err != nil {
+		t.Fatalf("failed to create kind cluster: %v", err)
+	}
 
-	// Get kubeconfig content for KinD context
+	t.Cleanup(func() {
+		if err := provider.Delete(clusterName, ""); err != nil {
+			t.Errorf("failed to delete kind cluster: %v", err)
+		}
+	})
+
+	// Get kubeconfig for KinD context
 	kubeConfigStr, err := provider.KubeConfig(clusterName, false)
 	if err != nil {
 		t.Fatalf("failed to get kubeconfig: %v", err)
@@ -65,155 +235,81 @@ func TestKubernetesAuthentication(t *testing.T) {
 		t.Fatalf("failed to build config from kubeconfig: %v", err)
 	}
 
-	t.Log("KinD cluster is ready at ", kubeConfig.Host)
+	t.Log("KinD cluster was created at ", kubeConfig.Host)
 
-	// Start controller
-	controller := fake.NewController(network)
-	defer controller.Close()
-	t.Log("controller is serving at", controller.URL)
-
-	// Get the root command
-	rootCmd := cmd.GetRootCommand()
-	rootCmd.SetArgs([]string{
-		"start",
-		"--host",
-		"twingate.local",
-		"--network",
-		network,
-		"--tlsKey",
-		"../data/proxy/key.pem",
-		"--tlsCert",
-		"../data/proxy/cert.pem",
-		"--k8sAPIServerPort",
-		strconv.Itoa(kindAPIServerPort),
-		"--k8sAPIServerCAData",
-		string(kubeConfig.CAData),
-		"--k8sGatewayCertData",
-		string(kubeConfig.CertData),
-		"--k8sGatewayKeyData",
-		string(kubeConfig.KeyData),
-		"--fakeControllerURL",
-		controller.URL,
-	})
-
-	go func() {
-		// TODO: need to gracefully stop the proxy
-		err = rootCmd.Execute()
-		t.Logf("Failed to start Gateway: %v", err)
-	}()
-
-	gatewayHealthCheck(t)
-
-	// Setup a test logger to capture log output
-	core, logs := observer.New(zap.DebugLevel)
-	logger := zap.New(core)
-	logger.Named("test")
-
-	// Replace the global logger
-	originalLogger := zap.L()
-	zap.ReplaceGlobals(logger)
-	defer fmt.Println(logs.All())
-	defer zap.ReplaceGlobals(originalLogger) // Restore original logger
-
-	// Create client
-	fake.NewClient("127.0.0.1:8443", controller.URL, kubeConfig.Host)
-	//defer client.Close()
-
-	// Set up context with timeout
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel() // Create cluster role binding for the test user
-
-	t.Log("Creating cluster role binding for alex@acme.com...")
-	//kubectlCreateRoleBinding := exec.CommandContext(ctx, "kubectl", "--context=kind-k8s-gateway-test-integration", "create", "clusterrolebinding",
-	//	"test-user-binding",
-	//	"--clusterrole=edit",
-	//	"--user=alex@acme.com")
-	//if roleBindingOutput, err := kubectlCreateRoleBinding.CombinedOutput(); err != nil {
-	//	t.Fatalf("Failed to create cluster role binding: %v, output: %s", err, string(roleBindingOutput))
-	//}
-
-	// TODO: make sure serviceacount/default is ready
-
-	// Start a busybox pod to test kubectl access
-	t.Log("Starting a busybox pod for testing kubectl access...")
-	kubectlCreateBusybox := exec.CommandContext(ctx, "kubectl", "--context=kind-k8s-gateway-test-integration", "run", "busybox", "--image=busybox", "--restart=Never", "--", "sleep", "3600")
-	if busyboxOutput, err := kubectlCreateBusybox.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to create busybox pod: %v, output: %s", err, string(busyboxOutput))
+	k := &Kubectl{
+		context: "kind-" + clusterName,
 	}
 
-	// Wait for the pod to be ready
-	t.Log("Waiting for busybox pod to be ready...")
-	kubectlWaitPod := exec.CommandContext(ctx, "kubectl", "wait", "--for=condition=Ready", "pod/busybox", "--timeout=60s")
-	if waitOutput, err := kubectlWaitPod.CombinedOutput(); err != nil {
-		t.Fatalf("Failed waiting for busybox pod: %v, output: %s", err, string(waitOutput))
-	}
+	// It takes a while for KinD to create the `default` service account...
+	t.Log("Waiting for default service account to be created...")
 
-	t.Log("Busybox pod is ready")
-
-	// Configure kubectl to use our proxy
-	kubectlSetCluster := exec.CommandContext(ctx, "kubectl", "config", "set-cluster", "gateway-integration-test",
-		"--certificate-authority=../data/proxy/cert.pem",
-		"--server=https://127.0.0.1:9000")
-
-	if setClusterOutput, err := kubectlSetCluster.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to configure kubectl: %v, output: %s", err, string(setClusterOutput))
-	}
-
-	kubectlSetUser := exec.CommandContext(ctx, "kubectl", "config", "set-credentials", "gateway-integration-test", "--token=void")
-
-	if setUserOutput, err := kubectlSetUser.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to configure kubectl: %v, output: %s", err, string(setUserOutput))
-	}
-
-	kubectlSetContext := exec.CommandContext(ctx, "kubectl", "config", "set-context", "gateway-integration-test", "--cluster=gateway-integration-test", "--user=gateway-integration-test")
-
-	if setContextOutput, err := kubectlSetContext.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to configure kubectl: %v, output: %s", err, string(setContextOutput))
-	}
-
-	kubectlSetCurrentContext := exec.CommandContext(ctx, "kubectl", "config", "use-context", "gateway-integration-test")
-
-	if setCurrentContextOutput, err := kubectlSetCurrentContext.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to configure kubectl: %v, output: %s", err, string(setCurrentContextOutput))
-	}
-
-	t.Log("Successfully configured kubectl to use gateway proxy")
-
-	// Execute kubectl auth whoami with JSON output
-	cmd := exec.CommandContext(ctx, "kubectl", "auth", "whoami", "-o", "json")
-
-	output, err := cmd.Output()
-	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			t.Fatalf("kubectl auth whoami failed with stderr: %s", string(exitError.Stderr))
+	err = wait.PollUntilContextTimeout(t.Context(), time.Second, 30*time.Second, true, func(_ctx context.Context) (bool, error) {
+		_, err = k.Command("get", "serviceaccount", "default")
+		if err != nil {
+			return false, nil //nolint:nilerr
 		}
-		t.Fatalf("Failed to execute kubectl auth whoami: %v", err)
+
+		return true, nil
+	})
+	if err != nil {
+		t.Fatalf("Failed waiting for default service account: %v", err)
 	}
 
-	// Parse JSON output using official Kubernetes types
-	var whoami authv1.SelfSubjectReview
-	if err := json.Unmarshal(output, &whoami); err != nil {
-		t.Fatalf("Failed to parse kubectl auth whoami output: %v", err)
+	_, err = k.WithInput(setupYaml).Command("apply", "-f", "-")
+	if err != nil {
+		t.Fatalf("Failed to apply setup YAML: %v", err)
 	}
 
-	// Assert API server receives correct identity
-	username := whoami.Status.UserInfo.Username
-	groups := whoami.Status.UserInfo.Groups
-	assert.Equal(t, "alex@acme.com", username)
-	assert.Equal(t, []string{"OnCall", "Engineering", "system:authenticated"}, groups)
-
-	//assert.Equal(t, logs.Len(), 10)
-
-	// Test kubectl exec into the busybox pod
-	t.Log("Testing kubectl exec into busybox pod...")
-	// kubectlExec := exec.CommandContext(ctx, "kubectl", "exec", "-it", "busybox", "--", "/bin/sh", "-c", "echo 'Hello from busybox'")
-	kubectlExec := exec.CommandContext(ctx, "kubectl", "exec", "-it", "busybox", "--", "cat", "/etc/hostname")
-	if execOutput, err := kubectlExec.CombinedOutput(); err != nil {
-		t.Fatalf("Failed to exec into busybox pod: %v, output: %s", err, string(execOutput))
+	b64BearerToken, err := k.Command("get", "secret", "gateway-default-service-account", "-o", "jsonpath={.data.token}")
+	if err != nil {
+		t.Fatalf("Failed to get default service account's bearer token: %v", err)
 	}
-	t.Log("Successfully executed command in busybox pod")
 
-	// TODO: assert exec output
+	bearerToken, err := base64.StdEncoding.DecodeString(string(b64BearerToken))
+	if err != nil {
+		t.Fatalf("Failed to decode bearer token: %v", err)
+	}
+
+	t.Log("Waiting for test-pod to be ready...")
+
+	_, err = k.Command("wait", "--for=condition=Ready", "pod/test-pod", "--timeout=30s")
+	if err != nil {
+		t.Fatalf("Failed waiting for busybox pod: %v", err)
+	}
+
+	return k, kubeConfig, string(bearerToken)
+}
+
+// Create a Kubectl instance that mimics the end-user's kubectl CLI
+//
+// This Kubectl instance uses a kubecontext that points to the mock client.
+func createClientKubectl(t *testing.T, kindKubectl *Kubectl, clientURL string) *Kubectl {
+	t.Helper()
+
+	contextName := "gateway-integration-test-mock-client"
+
+	_, err := kindKubectl.Command("config", "set-cluster", contextName,
+		"--certificate-authority=../data/proxy/tls.crt",
+		"--server="+clientURL,
+	)
+	if err != nil {
+		t.Fatalf("Failed to configure kubectl: %v", err)
+	}
+
+	_, err = kindKubectl.Command("config", "set-credentials", contextName, "--token=void")
+	if err != nil {
+		t.Fatalf("Failed to configure kubectl: %v", err)
+	}
+
+	_, err = kindKubectl.Command("config", "set-context", contextName, "--cluster="+contextName, "--user="+contextName)
+	if err != nil {
+		t.Fatalf("Failed to configure kubectl: %v", err)
+	}
+
+	return &Kubectl{
+		context: contextName,
+	}
 }
 
 func gatewayHealthCheck(t *testing.T) {
@@ -253,4 +349,58 @@ func gatewayHealthCheck(t *testing.T) {
 
 		time.Sleep(backoff)
 	}
+}
+
+func assertWhoAmI(t *testing.T, output []byte, expectedUsername string, expectedGroups []string) {
+	t.Helper()
+
+	var whoami authv1.SelfSubjectReview
+	if err := json.Unmarshal(output, &whoami); err != nil {
+		t.Fatalf("Failed to parse kubectl auth whoami output: %v", err)
+	}
+
+	username := whoami.Status.UserInfo.Username
+	groups := whoami.Status.UserInfo.Groups
+
+	assert.Equal(t, expectedUsername, username)
+	assert.Equal(t, expectedGroups, groups)
+}
+
+func assertLogsForREST(t *testing.T, logs *observer.ObservedLogs, expectedURL string, expectedUser map[string]any) {
+	t.Helper()
+
+	expectedLogs := logs.FilterField(zap.String("url", expectedURL)).All()
+	assert.Len(t, expectedLogs, 2)
+
+	firstLog := expectedLogs[0]
+	assert.Equal(t, "API request", firstLog.Message)
+	assert.Equal(t, expectedUser, firstLog.ContextMap()["user"])
+	assert.NotEmpty(t, firstLog.ContextMap()["request"])
+
+	secondLog := expectedLogs[1]
+	assert.Equal(t, "API response", secondLog.Message)
+	assert.Equal(t, expectedUser, secondLog.ContextMap()["user"])
+	assert.NotEmpty(t, secondLog.ContextMap()["response"])
+
+	// Request and response logs must have the same request ID
+	assert.Equal(t, firstLog.ContextMap()["request_id"], secondLog.ContextMap()["request_id"])
+}
+
+func assertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL, expectedOutput string, expectedUser map[string]any) {
+	t.Helper()
+
+	expectedLogs := logs.FilterField(zap.String("url", expectedURL)).All()
+	assert.Len(t, expectedLogs, 2)
+
+	firstLog := expectedLogs[0]
+	assert.Equal(t, "API request", firstLog.Message)
+	assert.Equal(t, expectedUser, firstLog.ContextMap()["user"])
+
+	secondLog := expectedLogs[1]
+	assert.Equal(t, "session finished", secondLog.Message)
+	assert.Equal(t, expectedUser, secondLog.ContextMap()["user"])
+	assert.Contains(t, secondLog.ContextMap()["asciinema_data"], expectedOutput)
+
+	// Request and response logs must have the same request ID
+	assert.Equal(t, firstLog.ContextMap()["request_id"], secondLog.ContextMap()["request_id"])
 }

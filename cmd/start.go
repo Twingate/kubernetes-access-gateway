@@ -49,15 +49,12 @@ func start(newProxy ProxyFactory) error {
 	}
 
 	cfg := httpproxy.Config{
-		Port:               viper.GetInt("port"),
-		TLSKey:             viper.GetString("tlsKey"),
-		TLSCert:            viper.GetString("tlsCert"),
-		K8sAPIServerCA:     viper.GetString("k8sAPIServerCA"),
-		K8sAPIServerCAData: viper.GetString("k8sAPIServerCAData"),
-		K8sAPIServerToken:  viper.GetString("k8sAPIServerToken"),
-		K8sAPIServerPort:   viper.GetInt("k8sAPIServerPort"),
-		K8sGatewayCertData: viper.GetString("k8sGatewayCertData"),
-		K8sGatewayKeyData:  viper.GetString("k8sGatewayKeyData"),
+		Port:              viper.GetInt("port"),
+		TLSKey:            viper.GetString("tlsKey"),
+		TLSCert:           viper.GetString("tlsCert"),
+		K8sAPIServerCA:    viper.GetString("k8sAPIServerCA"),
+		K8sAPIServerToken: viper.GetString("k8sAPIServerToken"),
+		K8sAPIServerPort:  viper.GetInt("k8sAPIServerPort"),
 		ConnectValidator: &connect.MessageValidator{
 			TokenParser: parser,
 		},
@@ -101,11 +98,8 @@ func init() { //nolint:gochecknoinits
 
 	// Kubernetes flags
 	flags.String("k8sAPIServerCA", "", "Path to the CA certificate for the Kubernetes API server")
-	flags.String("k8sAPIServerCAData", "", "Content of the CA certificate for the Kubernetes API server")
 	flags.String("k8sAPIServerToken", "", "Bearer token to authenticate to the Kubernetes API server")
 	flags.Int("k8sAPIServerPort", 0, "K8s API Server port, used in local development and testing to override 443 port")
-	flags.String("k8sGatewayCertData", "", "Content of Gateway certificate to authenticate with Kubernetes API server")
-	flags.String("k8sGatewayKeyData", "", "Content of Gateway key to authenticate with Kubernetes API server")
 
 	// Misc flags
 	flags.BoolP("debug", "d", false, "Run in debug mode")

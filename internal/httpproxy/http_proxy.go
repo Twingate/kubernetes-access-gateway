@@ -48,14 +48,11 @@ const (
 )
 
 type Config struct {
-	TLSCert            string
-	TLSKey             string
-	K8sAPIServerToken  string
-	K8sAPIServerCA     string
-	K8sAPIServerCAData string
-	K8sAPIServerPort   int
-	K8sGatewayCertData string
-	K8sGatewayKeyData  string
+	TLSCert           string
+	TLSKey            string
+	K8sAPIServerToken string
+	K8sAPIServerCA    string
+	K8sAPIServerPort  int
 
 	ConnectValidator connect.Validator
 	Port             int
@@ -284,12 +281,9 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	}
 
 	// create TLS configuration for upstream
-	var caCert = []byte(cfg.K8sAPIServerCAData)
-	if cfg.K8sAPIServerCA != "" {
-		caCert, err = os.ReadFile(cfg.K8sAPIServerCA)
-		if err != nil {
-			logger.Fatalf("failed to read CA cert: %v", err)
-		}
+	caCert, err := os.ReadFile(cfg.K8sAPIServerCA)
+	if err != nil {
+		logger.Fatalf("failed to read CA cert: %v", err)
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -303,20 +297,9 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		MinVersion: tls.VersionTLS13,
 		RootCAs:    caCertPool,
 	}
-
-	if cfg.K8sGatewayCertData != "" && cfg.K8sGatewayKeyData != "" {
-		cert, err := tls.X509KeyPair([]byte(cfg.K8sGatewayCertData), []byte(cfg.K8sGatewayKeyData))
-		if err != nil {
-			logger.Fatalf("failed to load k8s gateway client TLS certificate: %v", err)
-		}
-
-		upstreamTLSConfig.Certificates = []tls.Certificate{cert}
-	}
-
 	transport := &http.Transport{
 		TLSClientConfig: upstreamTLSConfig,
 	}
-
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			conn, ok := r.In.Context().Value(ConnContextKey).(*ProxyConn)
@@ -349,9 +332,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 
 			// Set authorization and impersonation header to impersonate the user
 			// identified from downstream.
-			if cfg.K8sAPIServerToken != "" {
-				r.Out.Header.Set("Authorization", "Bearer "+cfg.K8sAPIServerToken)
-			}
+			r.Out.Header.Set("Authorization", "Bearer "+cfg.K8sAPIServerToken)
 			r.Out.Header.Set("Impersonate-User", conn.claims.User.Username)
 			for _, group := range conn.claims.User.Groups {
 				r.Out.Header.Add("Impersonate-Group", group)
