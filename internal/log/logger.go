@@ -5,6 +5,8 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"k8sgateway/internal/version"
 )
 
 // Used to allow testing.
@@ -29,7 +31,7 @@ func InitializeLogger(name string, debug bool) {
 		logger = logger.Named(name)
 	}
 
-	logger = logger.With(zap.String("version", "0.0.1")) // TODO: version
+	logger = logger.With(zap.String("version", version.Version))
 
 	undoGlobals := zapReplaceGlobals(logger)
 	undoStd := zapRedirectStdLog(logger)
