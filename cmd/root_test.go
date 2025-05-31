@@ -12,7 +12,7 @@ import (
 )
 
 func TestRootCmd_StartCommandArgs(t *testing.T) {
-	log.InitializeLogger("k8sgatewaytest", false)
+	log.InitializeLogger("gateway", false)
 
 	startMockCalled := false
 	startCmd.RunE = func(_cmd *cobra.Command, _args []string) error {
