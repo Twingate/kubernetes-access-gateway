@@ -208,7 +208,7 @@ func setupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 	t.Helper()
 
 	provider := cluster.NewProvider(cluster.ProviderWithLogger(kindcmd.NewLogger()))
-	clusterName := "kind-gateway-integration-test"
+	clusterName := "gateway-integration-test"
 
 	// Create the cluster
 	if err := provider.Create(clusterName, cluster.CreateWithRawConfig([]byte(kindClusterYaml))); err != nil {
@@ -285,6 +285,23 @@ func createClientKubectl(t *testing.T, kindKubectl *Kubectl, clientURL string) *
 	t.Helper()
 
 	contextName := "gateway-integration-test-mock-client"
+
+	t.Cleanup(func() {
+		_, err := kindKubectl.Command("config", "delete-context", contextName)
+		if err != nil {
+			t.Errorf("Failed to delete context %s: %v", contextName, err)
+		}
+
+		_, err = kindKubectl.Command("config", "delete-cluster", contextName)
+		if err != nil {
+			t.Errorf("Failed to delete cluster %s: %v", contextName, err)
+		}
+
+		_, err = kindKubectl.Command("config", "delete-user", contextName)
+		if err != nil {
+			t.Errorf("Failed to delete user %s: %v", contextName, err)
+		}
+	})
 
 	_, err := kindKubectl.Command("config", "set-cluster", contextName,
 		"--certificate-authority=../data/proxy/tls.crt",
