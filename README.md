@@ -18,7 +18,10 @@ Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes 
 
 ## Installation
 
-- Install [`asdf`](https://github.com/asdf-vm/asdf), [`asdf-golang`](https://github.com/asdf-community/asdf-golang), [`asdf-kind`](https://github.com/reegnz/asdf-kind). Then run `asdf install` to install the required versions in `.tool-versions`.
+- Install [`asdf`](https://github.com/asdf-vm/asdf) and [`asdf-golang`](https://github.com/asdf-community/asdf-golang). Then run `asdf install` to install the required versions in `.tool-versions`.
+- Install [Docker](https://docs.docker.com/get-started/get-docker/) to run KinD
+- Install [KinD](https://kind.sigs.k8s.io/docs/user/quick-start#installation) to setup a local Kubernetes cluster
+- Install [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) to interact with the cluster
 - Install [helm-unittest](https://github.com/helm-unittest/helm-unittest) plugin for unit-testing Helm chart
   ```
   helm plugin install https://github.com/helm-unittest/helm-unittest.git
@@ -28,7 +31,7 @@ Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes 
 
 ### Integration testing
 
-- Integration tests are located in `test/integration` directory. The test would setup [a KinD cluster](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) and run the tests. However, you need to have Docker runtime so that the KinD cluster can be created automatically.
+- Integration tests are located in `test/integration` directory. The test would setup [a KinD cluster](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) and use [`kubectl`](https://kubernetes.io/docs/reference/kubectl/kubectl/) CLI to run the tests. Make sure you have Docker runtime so that the KinD cluster can be created automatically.
 - Run `make test-integration` to run integration tests.
 
 ### Helm testing
