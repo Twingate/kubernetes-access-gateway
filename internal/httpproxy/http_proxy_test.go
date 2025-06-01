@@ -48,11 +48,13 @@ func TestNewProxyConn(t *testing.T) {
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(50 * time.Millisecond)),
 		},
 	}
+	connID := "conn-id-1"
 
-	proxyConn := NewProxyConn(conn, claims)
+	proxyConn := NewProxyConn(conn, connID, claims)
 
 	assert.NotNil(t, proxyConn)
 	assert.Equal(t, claims, proxyConn.claims)
+	assert.Equal(t, connID, proxyConn.connID)
 	assert.Equal(t, conn, proxyConn.Conn)
 
 	// Wait for timer to happen, the connection should be closed
@@ -180,12 +182,13 @@ type mockValidator struct {
 	shouldFail       bool
 	ProxyAuth        string
 	TokenSig         string
+	ConnID           string
 	apiServerAddress string
 }
 
-func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (claims *token.GATClaims, response string, err error) {
+func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (claims *token.GATClaims, connID string, response string, err error) {
 	if m.shouldFail {
-		return nil, "HTTP/1.1 407 Proxy Authentication Required\r\n\r\n", errors.New("failed to validate token")
+		return nil, "", "HTTP/1.1 407 Proxy Authentication Required\r\n\r\n", errors.New("failed to validate token")
 	}
 
 	claims = &token.GATClaims{
@@ -201,8 +204,9 @@ func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (claims *token
 	}
 	m.ProxyAuth = req.Header.Get(connect.AuthHeaderKey)
 	m.TokenSig = req.Header.Get(connect.AuthSignatureHeaderKey)
+	m.ConnID = req.Header.Get(connect.ConnIDHeaderKey)
 
-	return claims, "HTTP/1.1 200 Connection Established\r\n\r\n", nil
+	return claims, m.ConnID, "HTTP/1.1 200 Connection Established\r\n\r\n", nil
 }
 
 func startMockListener(t *testing.T) (net.Listener, string) {
@@ -392,8 +396,8 @@ func TestTCPListener_Accept_ValidConnectRequest(t *testing.T) {
 		}
 
 		// send a valid CONNECT request
-		fmt.Fprintf(proxyTLSConn, "CONNECT example.com:443 HTTP/1.1\r\n%s: gat_token\r\n%s: auth_sig\r\n\r\n",
-			connect.AuthHeaderKey, connect.AuthSignatureHeaderKey)
+		fmt.Fprintf(proxyTLSConn, "CONNECT example.com:443 HTTP/1.1\r\n%s: gat_token\r\n%s: auth_sig\r\n%s: conn-id-1\r\n\r\n",
+			connect.AuthHeaderKey, connect.AuthSignatureHeaderKey, connect.ConnIDHeaderKey)
 
 		// expect 200 Connection Established back
 		resp, err := bufio.NewReader(proxyTLSConn).ReadString('\n')
@@ -421,6 +425,7 @@ func TestTCPListener_Accept_ValidConnectRequest(t *testing.T) {
 	assert.ElementsMatch(t, []string{"Everyone", "Engineering"}, proxyConn.claims.User.Groups)
 	assert.Equal(t, "gat_token", mockValidator.ProxyAuth)
 	assert.Equal(t, "auth_sig", mockValidator.TokenSig)
+	assert.Equal(t, "conn-id-1", mockValidator.ConnID)
 
 	<-done
 }
@@ -474,8 +479,8 @@ func TestTCPListener_Accept_FailedValidation(t *testing.T) {
 			return
 		}
 
-		fmt.Fprintf(proxyTLSConn, "CONNECT example.com:443 HTTP/1.1\r\n%s: bad_token\r\n%s: auth_sig\r\n\r\n",
-			connect.AuthHeaderKey, connect.AuthSignatureHeaderKey)
+		fmt.Fprintf(proxyTLSConn, "CONNECT example.com:443 HTTP/1.1\r\n%s: bad_token\r\n%s: auth_sig\r\n%s: conn-id-1\r\n\r\n",
+			connect.AuthHeaderKey, connect.AuthSignatureHeaderKey, connect.ConnIDHeaderKey)
 
 		resp, err := bufio.NewReader(proxyTLSConn).ReadString('\n')
 		assert.NoError(t, err)
@@ -577,6 +582,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	connectReq.Header.Set("Proxy-Authorization", "token")
 	connectReq.Header.Set("X-Token-Signature", "signature")
+	connectReq.Header.Set("X-Connection-Id", "conn-id")
 
 	// send request
 	if err := connectReq.Write(proxyTLSConn); err != nil {

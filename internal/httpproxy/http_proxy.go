@@ -56,14 +56,16 @@ type Config struct {
 // custom Conn that wraps a net.Conn, adding the user identity field.
 type ProxyConn struct {
 	net.Conn
+	connID string
 	claims *token.GATClaims
 	timer  *time.Timer
 	mu     sync.Mutex
 }
 
-func NewProxyConn(conn net.Conn, claims *token.GATClaims) *ProxyConn {
+func NewProxyConn(conn net.Conn, connID string, claims *token.GATClaims) *ProxyConn {
 	p := &ProxyConn{
 		Conn:   conn,
+		connID: connID,
 		claims: claims,
 	}
 	p.mu.Lock()
@@ -163,7 +165,17 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 
 	// Parse and validate HTTP request, expecting CONNECT with
 	// valid token and signature
-	claims, responseStr, err := l.ConnectValidator.ParseConnect(req, ekm)
+	claims, connID, responseStr, err := l.ConnectValidator.ParseConnect(req, ekm)
+
+	if claims != nil {
+		logger = logger.With(
+			zap.Object("user", claims.User),
+		)
+	}
+
+	logger = logger.With(
+		zap.String("conn_id", connID),
+	)
 
 	_, writeErr := tlsConnectConn.Write([]byte(responseStr))
 	if writeErr != nil {
@@ -190,7 +202,7 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 
 	// add auth information to the net.Conn by using ProxyConn which wraps net.Conn with
 	// a field for the user identity
-	proxyConn := NewProxyConn(tlsConn, claims)
+	proxyConn := NewProxyConn(tlsConn, connID, claims)
 
 	// return the wrapped and 'upgraded to TLS' net.Conn (ProxyConn) to the caller
 	return proxyConn, nil
@@ -403,6 +415,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger = logger.With(
 		zap.Object("user", conn.claims.User),
+		zap.String("conn_id", conn.connID),
 	)
 
 	// read the body, consuming the data
