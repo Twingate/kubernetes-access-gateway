@@ -352,7 +352,7 @@ func TestHTTPError_Error(t *testing.T) {
 		want    string
 	}{
 		{
-			name:    "404 Not Found",
+			name:    "Not Found",
 			code:    404,
 			message: "Not Found",
 			want:    "404: Not Found",
