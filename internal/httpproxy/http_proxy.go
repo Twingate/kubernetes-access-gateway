@@ -178,7 +178,7 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 		if errors.As(err, &httpErr) {
 			response = httpResponseString(httpErr.Code)
 		} else {
-			logger.Errorf("failed to parse CONNECT: %v", err)
+			logger.Error("failed to parse CONNECT:", zap.Error(err))
 
 			response = httpResponseString(http.StatusBadRequest)
 		}
