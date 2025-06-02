@@ -61,9 +61,6 @@ linters:
             - allowRegex: "^_"
         - name: unused-receiver
           disabled: true
-        - name: function-result-limit
-          arguments:
-            - 4
 
 formatters:
   enable:

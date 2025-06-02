@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -44,6 +45,10 @@ const (
 	bodyLogMaxSizeWithSuffix = bodyLogMaxSize - len(bodyLogTruncationSuffix)
 )
 
+func httpResponseString(httpCode int) string {
+	return fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", httpCode, http.StatusText(httpCode))
+}
+
 type Config struct {
 	TLSCert           string
 	TLSKey            string
@@ -56,7 +61,7 @@ type Config struct {
 // custom Conn that wraps a net.Conn, adding the user identity field.
 type ProxyConn struct {
 	net.Conn
-	connID string
+	id     string
 	claims *token.GATClaims
 	timer  *time.Timer
 	mu     sync.Mutex
@@ -65,7 +70,7 @@ type ProxyConn struct {
 func NewProxyConn(conn net.Conn, connID string, claims *token.GATClaims) *ProxyConn {
 	p := &ProxyConn{
 		Conn:   conn,
-		connID: connID,
+		id:     connID,
 		claims: claims,
 	}
 	p.mu.Lock()
@@ -165,19 +170,31 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 
 	// Parse and validate HTTP request, expecting CONNECT with
 	// valid token and signature
-	claims, connID, responseStr, err := l.ConnectValidator.ParseConnect(req, ekm)
+	response := httpResponseString(http.StatusOK)
 
-	if claims != nil {
+	connectInfo, err := l.ConnectValidator.ParseConnect(req, ekm)
+	if err != nil {
+		var httpErr *connect.HTTPError
+		if errors.As(err, &httpErr) {
+			response = httpResponseString(httpErr.Code)
+		} else {
+			logger.Errorf("failed to parse CONNECT: %v", err)
+
+			response = httpResponseString(http.StatusBadRequest)
+		}
+	}
+
+	if connectInfo.Claims != nil {
 		logger = logger.With(
-			zap.Object("user", claims.User),
+			zap.Object("user", connectInfo.Claims.User),
 		)
 	}
 
 	logger = logger.With(
-		zap.String("conn_id", connID),
+		zap.String("conn_id", connectInfo.ConnID),
 	)
 
-	_, writeErr := tlsConnectConn.Write([]byte(responseStr))
+	_, writeErr := tlsConnectConn.Write([]byte(response))
 	if writeErr != nil {
 		logger.Errorf("failed to write response: %v", writeErr)
 		tlsConnectConn.Close()
@@ -202,7 +219,7 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 
 	// add auth information to the net.Conn by using ProxyConn which wraps net.Conn with
 	// a field for the user identity
-	proxyConn := NewProxyConn(tlsConn, connID, claims)
+	proxyConn := NewProxyConn(tlsConn, connectInfo.ConnID, connectInfo.Claims)
 
 	// return the wrapped and 'upgraded to TLS' net.Conn (ProxyConn) to the caller
 	return proxyConn, nil
@@ -415,7 +432,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger = logger.With(
 		zap.Object("user", conn.claims.User),
-		zap.String("conn_id", conn.connID),
+		zap.String("conn_id", conn.id),
 	)
 
 	// read the body, consuming the data

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -54,7 +53,7 @@ func TestNewProxyConn(t *testing.T) {
 
 	assert.NotNil(t, proxyConn)
 	assert.Equal(t, claims, proxyConn.claims)
-	assert.Equal(t, connID, proxyConn.connID)
+	assert.Equal(t, connID, proxyConn.id)
 	assert.Equal(t, conn, proxyConn.Conn)
 
 	// Wait for timer to happen, the connection should be closed
@@ -186,12 +185,19 @@ type mockValidator struct {
 	apiServerAddress string
 }
 
-func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (claims *token.GATClaims, connID string, response string, err error) {
+func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (connectInfo connect.Info, err error) {
 	if m.shouldFail {
-		return nil, "", "HTTP/1.1 407 Proxy Authentication Required\r\n\r\n", errors.New("failed to validate token")
+		// return nil, "", "HTTP/1.1 407 Proxy Authentication Required\r\n\r\n", errors.New("failed to validate token")
+		return connect.Info{
+				Claims: nil,
+				ConnID: "",
+			}, &connect.HTTPError{
+				Code:    http.StatusProxyAuthRequired,
+				Message: "failed to validate token",
+			}
 	}
 
-	claims = &token.GATClaims{
+	claims := &token.GATClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
 		},
@@ -206,7 +212,7 @@ func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (claims *token
 	m.TokenSig = req.Header.Get(connect.AuthSignatureHeaderKey)
 	m.ConnID = req.Header.Get(connect.ConnIDHeaderKey)
 
-	return claims, m.ConnID, "HTTP/1.1 200 Connection Established\r\n\r\n", nil
+	return connect.Info{Claims: claims, ConnID: m.ConnID}, nil
 }
 
 func startMockListener(t *testing.T) (net.Listener, string) {
@@ -402,7 +408,7 @@ func TestTCPListener_Accept_ValidConnectRequest(t *testing.T) {
 		// expect 200 Connection Established back
 		resp, err := bufio.NewReader(proxyTLSConn).ReadString('\n')
 		assert.NoError(t, err)
-		assert.Equal(t, "HTTP/1.1 200 Connection Established\r\n", resp)
+		assert.Equal(t, "HTTP/1.1 200 OK\r\n", resp)
 
 		// establish second TLS (as downstream client)
 		clientTLSConn := tls.Client(proxyTLSConn, clientTLSConfig)
