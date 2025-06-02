@@ -106,7 +106,7 @@ Create the existing alternative names hash of the TLS secret
 Create the Twingate host
 */}}
 {{- define "gateway.twingate.host" -}}
-{{- default "twingate.host" .Values.twingate.host }}
+{{- default "twingate.com" .Values.twingate.host }}
 {{- end }}
 
 
