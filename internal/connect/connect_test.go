@@ -366,8 +366,8 @@ func TestHTTPError_Error(t *testing.T) {
 		{
 			name:    "Bad Request",
 			code:    400,
-			message: "",
-			want:    "400: ",
+			message: "Bad Request",
+			want:    "400: Bad Request",
 		},
 	}
 

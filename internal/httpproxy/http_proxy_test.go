@@ -187,7 +187,6 @@ type mockValidator struct {
 
 func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (connectInfo connect.Info, err error) {
 	if m.shouldFail {
-		// return nil, "", "HTTP/1.1 407 Proxy Authentication Required\r\n\r\n", errors.New("failed to validate token")
 		return connect.Info{
 				Claims: nil,
 				ConnID: "",
