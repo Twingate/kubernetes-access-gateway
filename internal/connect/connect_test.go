@@ -310,7 +310,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 
 		require.NoError(t, httpErr.Err)
 		require.Error(t, httpErr)
-		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
+		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to verify CONNECT destination")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
 		assert.Equal(t, "conn-id", connectInfo.ConnID)

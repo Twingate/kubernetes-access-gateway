@@ -147,7 +147,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 				Claims: gatClaims,
 				ConnID: connID,
 			}, &HTTPError{
-				Code:    http.StatusUnauthorized,
+				Code:    http.StatusBadRequest,
 				Message: fmt.Sprintf("failed to verify CONNECT destination: %s with token resource address %s", host, gatClaims.Resource.Address),
 				Err:     nil,
 			}
