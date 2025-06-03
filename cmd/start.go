@@ -32,7 +32,7 @@ var startCmd = &cobra.Command{
 type ProxyFactory func(httpproxy.Config) (httpproxy.ProxyService, error)
 
 func start(newProxy ProxyFactory) error {
-	log.InitializeLogger("k8sgateway", viper.GetBool("debug"))
+	log.InitializeLogger("gateway", viper.GetBool("debug"))
 
 	logger := zap.S()
 	logger.Infof("Gateway start called: %+v", viper.AllSettings())

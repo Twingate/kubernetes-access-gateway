@@ -31,9 +31,7 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
+      - -X k8sgateway/internal/version.Version={{.Version}}
     mod_timestamp: '{{ .CommitTimestamp }}'
   - id: gateway-debug
     binary: gateway-debug
@@ -48,9 +46,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
+      - -X k8sgateway/internal/version.Version={{.Version}}
     mod_timestamp: '{{ .CommitTimestamp }}'
 
 dockers:

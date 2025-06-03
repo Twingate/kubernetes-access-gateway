@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -47,6 +48,10 @@ const (
 	bodyLogMaxSizeWithSuffix = bodyLogMaxSize - len(bodyLogTruncationSuffix)
 )
 
+func httpResponseString(httpCode int) string {
+	return fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", httpCode, http.StatusText(httpCode))
+}
+
 type Config struct {
 	TLSCert           string
 	TLSKey            string
@@ -61,14 +66,16 @@ type Config struct {
 // custom Conn that wraps a net.Conn, adding the user identity field.
 type ProxyConn struct {
 	net.Conn
+	id     string
 	claims *token.GATClaims
 	timer  *time.Timer
 	mu     sync.Mutex
 }
 
-func NewProxyConn(conn net.Conn, claims *token.GATClaims) *ProxyConn {
+func NewProxyConn(conn net.Conn, connID string, claims *token.GATClaims) *ProxyConn {
 	p := &ProxyConn{
 		Conn:   conn,
+		id:     connID,
 		claims: claims,
 	}
 	p.mu.Lock()
@@ -172,9 +179,31 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 
 	// Parse and validate HTTP request, expecting CONNECT with
 	// valid token and signature
-	claims, responseStr, err := l.ConnectValidator.ParseConnect(req, ekm)
+	response := httpResponseString(http.StatusOK)
 
-	_, writeErr := tlsConnectConn.Write([]byte(responseStr))
+	connectInfo, err := l.ConnectValidator.ParseConnect(req, ekm)
+	if err != nil {
+		var httpErr *connect.HTTPError
+		if errors.As(err, &httpErr) {
+			response = httpResponseString(httpErr.Code)
+		} else {
+			logger.Error("failed to parse CONNECT:", zap.Error(err))
+
+			response = httpResponseString(http.StatusBadRequest)
+		}
+	}
+
+	if connectInfo.Claims != nil {
+		logger = logger.With(
+			zap.Object("user", connectInfo.Claims.User),
+		)
+	}
+
+	logger = logger.With(
+		zap.String("conn_id", connectInfo.ConnID),
+	)
+
+	_, writeErr := tlsConnectConn.Write([]byte(response))
 	if writeErr != nil {
 		logger.Errorf("failed to write response: %v", writeErr)
 		tlsConnectConn.Close()
@@ -199,7 +228,7 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 
 	// add auth information to the net.Conn by using ProxyConn which wraps net.Conn with
 	// a field for the user identity
-	proxyConn := NewProxyConn(tlsConn, claims)
+	proxyConn := NewProxyConn(tlsConn, connectInfo.ConnID, connectInfo.Claims)
 
 	// return the wrapped and 'upgraded to TLS' net.Conn (ProxyConn) to the caller
 	return proxyConn, nil
@@ -398,7 +427,7 @@ func (p *Proxy) Start(ready chan struct{}) {
 }
 
 func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := zap.L().With(
+	auditLogger := zap.L().Named("audit").With(
 		zap.String("request_id", uuid.New().String()),
 		zap.String("method", r.Method),
 		zap.String("url", r.URL.String()),
@@ -407,20 +436,21 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, ok := r.Context().Value(ConnContextKey).(*ProxyConn)
 
 	if !ok {
-		logger.Error("Failed to retrieve net.Conn from context")
+		auditLogger.Error("Failed to retrieve net.Conn from context")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 
 		return
 	}
 
-	logger = logger.With(
+	auditLogger = auditLogger.With(
 		zap.Object("user", conn.claims.User),
+		zap.String("conn_id", conn.id),
 	)
 
 	// read the body, consuming the data
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		logger.Error("failed to read request body", zap.Error(err))
+		auditLogger.Error("failed to read request body", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 
 		return
@@ -428,7 +458,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// close and recreate the body reader
 	if err := r.Body.Close(); err != nil {
-		logger.Error("failed to process request body", zap.Error(err))
+		auditLogger.Error("failed to process request body", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 
 		return
@@ -439,7 +469,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	// truncate the body log if it's too large
 	logReqBody := truncateBody(bodyBytes)
 
-	logger.Info("API request",
+	auditLogger.Info("API request",
 		zap.Namespace("request"),
 		zap.Any("header", r.Header),
 		zap.String("body", logReqBody),
@@ -452,7 +482,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// start hijacker which will parse websocket messages and record the session
 			recorderFactory := func() wsproxy.Recorder {
-				return wsproxy.NewRecorder(logger)
+				return wsproxy.NewRecorder(auditLogger)
 			}
 			wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
 			p.proxy.ServeHTTP(wsHijacker, r)
@@ -464,7 +494,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			// truncate the body log if it's too large
 			logResBody := truncateBody(responseLogger.body.Bytes())
 
-			logger.Info("API response",
+			auditLogger.Info("API response",
 				zap.Namespace("response"),
 				zap.Int("status_code", responseLogger.statusCode),
 				zap.Any("header", responseLogger.headers),

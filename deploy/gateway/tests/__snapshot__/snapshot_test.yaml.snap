@@ -57,7 +57,7 @@ should render:
                 - name: TWINGATE_NETWORK
                   value: null
                 - name: TWINGATE_HOST
-                  value: twingate.host
+                  value: twingate.com
               image: twingate/kubernetes-access-gateway:0.1.0
               imagePullPolicy: IfNotPresent
               livenessProbe:
