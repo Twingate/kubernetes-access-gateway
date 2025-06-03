@@ -415,7 +415,7 @@ func (p *Proxy) Start(ready chan struct{}) {
 }
 
 func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := zap.L().With(
+	auditLogger := zap.L().Named("audit").With(
 		zap.String("request_id", uuid.New().String()),
 		zap.String("method", r.Method),
 		zap.String("url", r.URL.String()),
@@ -424,13 +424,13 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, ok := r.Context().Value(ConnContextKey).(*ProxyConn)
 
 	if !ok {
-		logger.Error("Failed to retrieve net.Conn from context")
+		auditLogger.Error("Failed to retrieve net.Conn from context")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 
 		return
 	}
 
-	logger = logger.With(
+	auditLogger = auditLogger.With(
 		zap.Object("user", conn.claims.User),
 		zap.String("conn_id", conn.id),
 	)
@@ -438,7 +438,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	// read the body, consuming the data
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		logger.Error("failed to read request body", zap.Error(err))
+		auditLogger.Error("failed to read request body", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 
 		return
@@ -446,7 +446,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// close and recreate the body reader
 	if err := r.Body.Close(); err != nil {
-		logger.Error("failed to process request body", zap.Error(err))
+		auditLogger.Error("failed to process request body", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 
 		return
@@ -457,7 +457,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	// truncate the body log if it's too large
 	logReqBody := truncateBody(bodyBytes)
 
-	logger.Info("API request",
+	auditLogger.Info("API request",
 		zap.Namespace("request"),
 		zap.Any("header", r.Header),
 		zap.String("body", logReqBody),
@@ -470,7 +470,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// start hijacker which will parse websocket messages and record the session
 			recorderFactory := func() wsproxy.Recorder {
-				return wsproxy.NewRecorder(logger)
+				return wsproxy.NewRecorder(auditLogger)
 			}
 			wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
 			p.proxy.ServeHTTP(wsHijacker, r)
@@ -482,7 +482,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			// truncate the body log if it's too large
 			logResBody := truncateBody(responseLogger.body.Bytes())
 
-			logger.Info("API response",
+			auditLogger.Info("API response",
 				zap.Namespace("response"),
 				zap.Int("status_code", responseLogger.statusCode),
 				zap.Any("header", responseLogger.headers),

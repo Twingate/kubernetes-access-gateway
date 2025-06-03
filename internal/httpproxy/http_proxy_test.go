@@ -226,7 +226,7 @@ func startMockListener(t *testing.T) (net.Listener, string) {
 }
 
 func TestTCPListener_Accept_BadRequest(t *testing.T) {
-	log.InitializeLogger("k8sproxytest", false)
+	log.InitializeLogger("gateway", false)
 
 	listener, addr := startMockListener(t)
 	defer listener.Close()
@@ -292,7 +292,7 @@ func TestTCPListener_Accept_BadRequest(t *testing.T) {
 }
 
 func TestTCPListener_Accept_Healthcheck(t *testing.T) {
-	log.InitializeLogger("k8sproxytest", false)
+	log.InitializeLogger("gateway", false)
 
 	listener, addr := startMockListener(t)
 	defer listener.Close()
@@ -352,7 +352,7 @@ func TestTCPListener_Accept_Healthcheck(t *testing.T) {
 }
 
 func TestTCPListener_Accept_ValidConnectRequest(t *testing.T) {
-	log.InitializeLogger("k8sproxytest", false)
+	log.InitializeLogger("gateway", false)
 
 	listener, addr := startMockListener(t)
 	defer listener.Close()
@@ -436,7 +436,7 @@ func TestTCPListener_Accept_ValidConnectRequest(t *testing.T) {
 }
 
 func TestTCPListener_Accept_FailedValidation(t *testing.T) {
-	log.InitializeLogger("k8sproxytest", false)
+	log.InitializeLogger("gateway", false)
 
 	listener, addr := startMockListener(t)
 	defer listener.Close()
@@ -502,7 +502,7 @@ func TestTCPListener_Accept_FailedValidation(t *testing.T) {
 }
 
 func TestProxy_ForwardRequest(t *testing.T) {
-	log.InitializeLogger("k8sproxytest", false)
+	log.InitializeLogger("gateway", false)
 
 	// create mock API server (upstream)
 	apiServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -90,7 +90,7 @@ func createParserAndGATToken(t *testing.T, claims token.GATClaims) (*token.Parse
 }
 
 func TestConnectValidator_ParseConnect(t *testing.T) {
-	log.InitializeLogger("k8sproxytest", false)
+	log.InitializeLogger("gateway", false)
 
 	c := newClient()
 	gatClaims := newGATTokenClaims(c.getPublicKey())
