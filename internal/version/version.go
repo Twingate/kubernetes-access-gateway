@@ -1,6 +1,7 @@
 package version
 
 var (
-	// Version is the current version of the application.
+	// Version represents the application version, set at build time via ldflags.
+	// Defaults to "dev" during development.
 	Version = "dev"
 )
