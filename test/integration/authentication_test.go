@@ -253,7 +253,7 @@ func setupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 		t.Fatalf("Failed waiting for default service account: %v", err)
 	}
 
-	_, err = k.WithInput(setupYaml).Command("apply", "-f", "-")
+	_, err = k.CommandWithInput(setupYaml, "apply", "-f", "-")
 	if err != nil {
 		t.Fatalf("Failed to apply setup YAML: %v", err)
 	}
