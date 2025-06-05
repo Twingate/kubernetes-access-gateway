@@ -5,17 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"math/big"
 	"net"
 	"net/http"
 	"strings"
 
 	"k8sgateway/internal/token"
 )
-
-type ECDSASignature struct {
-	R, S *big.Int
-}
 
 // header that contains the auth token.
 const AuthHeaderKey string = "Proxy-Authorization"
