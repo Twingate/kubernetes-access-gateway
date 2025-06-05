@@ -6,8 +6,8 @@ github.com/Masterminds/semver/v3 v3.3.1 h1:QtNSWtVZ3nBfk8mAOu/B6v7FMJ+NHTIgUPi7r
 github.com/Masterminds/semver/v3 v3.3.1/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/MicahParks/jwkset v0.8.0 h1:jHtclI38Gibmu17XMI6+6/UB59srp58pQVxePHRK5o8=
 github.com/MicahParks/jwkset v0.8.0/go.mod h1:fVrj6TmG1aKlJEeceAz7JsXGTXEn72zP1px3us53JrA=
-github.com/MicahParks/keyfunc/v3 v3.3.11 h1:eA6wNltwdSRX2gtpTwZseBCC9nGeBkI9KxHtTyZbDbo=
-github.com/MicahParks/keyfunc/v3 v3.3.11/go.mod h1:y6Ed3dMgNKTcpxbaQHD8mmrYDUZWJAxteddA6OQj+ag=
+github.com/MicahParks/keyfunc/v3 v3.4.0 h1:g03TXq6NjhZyO/UkODl//abm4KiLLNRi0VhW7vGOHyg=
+github.com/MicahParks/keyfunc/v3 v3.4.0/go.mod h1:y6Ed3dMgNKTcpxbaQHD8mmrYDUZWJAxteddA6OQj+ag=
 github.com/caarlos0/go-version v0.2.0 h1:TTD5dF3PBAtRHbfCKRE173SrVVpbE0yX95EDQ4BwTGs=
 github.com/caarlos0/go-version v0.2.0/go.mod h1:X+rI5VAtJDpcjCjeEIXpxGa5+rTcgur1FK66wS0/944=
 github.com/caarlos0/svu/v3 v3.2.3 h1:+gWgODqVY90ZBSY/mzKSuQ92uFdQb9wqHaSGfS8YcKE=
