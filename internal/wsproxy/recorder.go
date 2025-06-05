@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"go.uber.org/zap"
 )
 
@@ -59,13 +61,65 @@ type AsciinemaRecorder struct {
 	start         time.Time
 	state         State
 	recordedLines []string
+	// total size (in bytes) of the recorded lines
+	totalSize int
+	// limit (in bytes) of the recorded lines to flush
+	flushSizeLimit int
+	// interval to flush
+	flushInterval time.Duration
+	// number of flushes
+	flushCount int
+	// ticker for periodic flush
+	flushTicker clockwork.Ticker
+	// signal that the recorder is stopped
+	stopped chan struct{}
+
+	// clock for testing
+	clock clockwork.Clock
+
+	mu sync.Mutex
 }
 
-func NewRecorder(logger *zap.Logger) *AsciinemaRecorder {
-	return &AsciinemaRecorder{
-		logger:        logger,
-		start:         time.Now(),
-		recordedLines: []string{},
+func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder {
+	r := &AsciinemaRecorder{
+		logger:         logger,
+		start:          time.Now(),
+		recordedLines:  []string{},
+		totalSize:      0,
+		flushSizeLimit: 64000,
+		flushCount:     0,
+		flushInterval:  time.Minute,
+		stopped:        make(chan struct{}),
+		clock:          clockwork.NewRealClock(),
+	}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	r.flushTicker = r.clock.NewTicker(r.flushInterval)
+	go r.periodicFlush()
+
+	return r
+}
+
+type RecorderOption func(*AsciinemaRecorder)
+
+func WithFlushSizeLimit(limit int) RecorderOption {
+	return func(r *AsciinemaRecorder) {
+		r.flushSizeLimit = limit
+	}
+}
+
+func WithFlushInterval(interval time.Duration) RecorderOption {
+	return func(r *AsciinemaRecorder) {
+		r.flushInterval = interval
+	}
+}
+
+func WithClock(clock clockwork.Clock) RecorderOption {
+	return func(r *AsciinemaRecorder) {
+		r.clock = clock
 	}
 }
 
@@ -94,8 +148,14 @@ func (r *AsciinemaRecorder) IsStarted() bool {
 }
 
 func (r *AsciinemaRecorder) Stop() {
-	r.logger.Info("session finished", zap.String("asciinema_data", strings.Join(r.recordedLines, "\n")))
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.flushTicker.Stop()
+	close(r.stopped)
+
 	r.state = FinishedState
+	r.flush(true)
 }
 
 func (r *AsciinemaRecorder) writeJSON(data any) error {
@@ -116,8 +176,50 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 		return errAlreadyFinished
 	}
 
-	// TODO: do we want to cap or truncate this at some point?
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.recordedLines = append(r.recordedLines, event)
+	r.totalSize += len(event)
+
+	if r.totalSize >= r.flushSizeLimit {
+		r.flush(false)
+	}
 
 	return nil
+}
+
+func (r *AsciinemaRecorder) periodicFlush() {
+	for {
+		select {
+		case <-r.flushTicker.Chan():
+			r.mu.Lock()
+			r.flush(false)
+			r.mu.Unlock()
+		case <-r.stopped:
+			return
+		}
+	}
+}
+
+func (r *AsciinemaRecorder) flush(sessionFinished bool) {
+	if !sessionFinished && len(r.recordedLines) == 0 {
+		return
+	}
+
+	var message string
+	if sessionFinished {
+		message = "session finished"
+	} else {
+		message = "session recording"
+	}
+
+	r.flushCount++
+	r.logger.Info(message,
+		zap.String("asciinema_data", strings.Join(r.recordedLines, "\n")),
+		zap.Int("asciinema_sequence_num", r.flushCount),
+	)
+
+	r.recordedLines = r.recordedLines[:0]
+	r.totalSize = 0
 }
