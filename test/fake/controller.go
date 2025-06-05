@@ -97,6 +97,7 @@ func NewController(network string) *httptest.Server {
 		tokenString, err := token.SignedString(controllerKey)
 		if err != nil {
 			logger.Error("Failed to sign JWT", zap.Error(err))
+			writer.WriteHeader(http.StatusInternalServerError)
 
 			return
 		}

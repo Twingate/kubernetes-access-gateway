@@ -51,6 +51,8 @@ func NewClient(user *token.User, proxyAddress, controllerURL, apiServerURL strin
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		logger.Fatal("Failed to listen", zap.Error(err))
+
+		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -83,9 +85,9 @@ func (c *Client) Close() {
 }
 
 func (c *Client) serve(ctx context.Context) {
-	gat := c.fetchGAT()
-	if gat == "" {
-		c.logger.Error("Failed to fetch GAT")
+	gat, err := c.fetchGAT()
+	if err != nil {
+		c.logger.Error("Failed to fetch GAT", zap.Error(err))
 
 		return
 	}
@@ -134,12 +136,17 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	proxyTLSConn := tls.Client(conn, tlsConfig)
 	if err := proxyTLSConn.Handshake(); err != nil {
 		c.logger.Error("TLS handshake failed(proxy)", zap.Error(err))
+
+		return
 	}
+	defer proxyTLSConn.Close()
 
 	// Create CONNECT request
 	connectReq, err := http.NewRequest(http.MethodConnect, c.apiServerURL, nil)
 	if err != nil {
 		c.logger.Error("Failed to create request", zap.Error(err))
+
+		return
 	}
 
 	connectReq.Header.Set("Proxy-Authorization", "Bearer "+gat)
@@ -187,7 +194,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	<-copyCtx.Done()
 }
 
-func (c *Client) fetchGAT() string {
+func (c *Client) fetchGAT() (string, error) {
 	clientPublicKey, _ := ReadECKey("../data/client/key.pem")
 	requestBody := requestBody{
 		ClientPublicKey: &token.PublicKey{
@@ -207,14 +214,14 @@ func (c *Client) fetchGAT() string {
 	if err != nil {
 		c.logger.Error("Failed to marshal request body", zap.Error(err))
 
-		return ""
+		return "", err
 	}
 
 	resp, err := http.Post(c.controllerURL+"/api/v1/gat", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		c.logger.Error("Failed to fetch GAT", zap.Error(err))
 
-		return ""
+		return "", err
 	}
 	defer resp.Body.Close()
 
@@ -222,8 +229,8 @@ func (c *Client) fetchGAT() string {
 	if err != nil {
 		c.logger.Error("Failed to read GAT response", zap.Error(err))
 
-		return ""
+		return "", err
 	}
 
-	return string(gat)
+	return string(gat), nil
 }
