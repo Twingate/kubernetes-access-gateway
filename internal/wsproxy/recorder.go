@@ -155,7 +155,7 @@ func (r *AsciinemaRecorder) Stop() {
 	close(r.stopped)
 
 	r.state = FinishedState
-	r.flush(true)
+	r.flushLocked(true)
 }
 
 func (r *AsciinemaRecorder) writeJSON(data any) error {
@@ -183,7 +183,7 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 	r.totalSize += len(event)
 
 	if r.totalSize >= r.flushSizeLimit {
-		r.flush(false)
+		r.flushLocked(false)
 	}
 
 	return nil
@@ -194,7 +194,7 @@ func (r *AsciinemaRecorder) periodicFlush() {
 		select {
 		case <-r.flushTicker.Chan():
 			r.mu.Lock()
-			r.flush(false)
+			r.flushLocked(false)
 			r.mu.Unlock()
 		case <-r.stopped:
 			return
@@ -202,7 +202,9 @@ func (r *AsciinemaRecorder) periodicFlush() {
 	}
 }
 
-func (r *AsciinemaRecorder) flush(sessionFinished bool) {
+// flushLocked flushes the recorded lines to the logger and reset the recorded lines.
+// Caller must hold the lock.
+func (r *AsciinemaRecorder) flushLocked(sessionFinished bool) {
 	if !sessionFinished && len(r.recordedLines) == 0 {
 		return
 	}
