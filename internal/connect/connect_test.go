@@ -70,13 +70,14 @@ func createParserAndGATToken(t *testing.T, claims token.GATClaims) (*token.Parse
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	parser := token.NewParser(
-		"acme",
-		"twingate.com",
-		func(_token *jwt.Token) (any, error) {
+	parser, err := token.NewParser(token.ParserConfig{
+		Network: "acme",
+		Host:    "twingate.com",
+		Keyfunc: func(_token *jwt.Token) (any, error) {
 			return &privateKey.PublicKey, nil
 		},
-	)
+	})
+	require.NoError(t, err)
 
 	gatToken := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 	gatToken.Header["typ"] = "GAT"

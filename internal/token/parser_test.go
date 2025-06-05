@@ -68,7 +68,11 @@ func (c *CustomClaims) getHeaderType() string {
 
 func TestParser_ParseWithClaims(t *testing.T) {
 	tokenService := newTokenService()
-	parser := NewParser("acme", "twingate.com", tokenService.keyfunc)
+	parser, _ := NewParser(ParserConfig{
+		Network: "acme",
+		Host:    "twingate.com",
+		Keyfunc: tokenService.keyfunc,
+	})
 
 	t.Run("Valid token type", func(t *testing.T) {
 		claims := &CustomClaims{}
@@ -116,16 +120,16 @@ func TestParser_ParseWithClaims(t *testing.T) {
 	}
 }
 
-func TestNewParserWithRemotesJWKS(t *testing.T) {
-	parser, err := NewParserWithRemotesJWKS("acme", "twingate.com", "")
-	require.NoError(t, err)
-	require.NotNil(t, parser)
-}
-
 func TestNewParser(t *testing.T) {
 	tokenService := newTokenService()
 
-	parser := NewParser("acme", "twingate.com", tokenService.keyfunc)
+	parser, err := NewParser(ParserConfig{
+		Network: "acme",
+		Host:    "twingate.com",
+		Keyfunc: tokenService.keyfunc,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, parser)
 
 	t.Run("Valid token", func(t *testing.T) {
 		tokenStr, err := tokenService.signToken(jwt.MapClaims{}, nil)

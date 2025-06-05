@@ -43,7 +43,11 @@ func start(newProxy ProxyFactory) error {
 		return fmt.Errorf("%w: network", errRequiredConfig)
 	}
 
-	parser, err := token.NewParserWithRemotesJWKS(network, viper.GetString("host"), viper.GetString("fakeControllerURL"))
+	parser, err := token.NewParser(token.ParserConfig{
+		Network: network,
+		Host:    viper.GetString("host"),
+		URL:     viper.GetString("fakeControllerURL"),
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create token parser %w", err)
 	}

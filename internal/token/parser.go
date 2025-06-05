@@ -23,42 +23,52 @@ type ClaimsWithHeaderType interface {
 	getHeaderType() string
 }
 
+type ParserConfig struct {
+	// Twingate network ID
+	Network string
+	// Twingate service domain
+	Host string
+	// URL which issues JWKs to verify token. Default to `https://<Network>.<Host>`
+	URL string
+	// Keyfunc to verify token. Default to using remote JWKs
+	Keyfunc jwt.Keyfunc
+}
+
 type Parser struct {
-	parser  *jwt.Parser
-	keyfunc jwt.Keyfunc
+	parser *jwt.Parser
+	config ParserConfig
 }
 
-func NewParserWithRemotesJWKS(network, host, overrideURL string) (*Parser, error) {
-	var url = fmt.Sprintf("https://%s.%s", network, host)
-	if overrideURL != "" {
-		url = overrideURL
+func NewParser(config ParserConfig) (*Parser, error) {
+	if config.Keyfunc == nil {
+		if config.URL == "" {
+			config.URL = fmt.Sprintf("https://%s.%s", config.Network, config.Host)
+		}
+
+		jwkURL := config.URL + "/api/v1/jwk/ec"
+
+		jwks, err := keyfunc.NewDefault([]string{jwkURL})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWKS store: %w", err)
+		}
+
+		config.Keyfunc = jwks.Keyfunc
 	}
 
-	jwkURL := url + "/api/v1/jwk/ec"
-
-	jwks, err := keyfunc.NewDefault([]string{jwkURL})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JWKS store: %w", err)
-	}
-
-	return NewParser(network, host, jwks.Keyfunc), nil
-}
-
-func NewParser(network, host string, keyfunc jwt.Keyfunc) *Parser {
 	return &Parser{
 		parser: jwt.NewParser(
 			jwt.WithValidMethods(allowedSigningMethods),
-			jwt.WithIssuer(allowedIssuerByHost[host]),
-			jwt.WithAudience(network),
+			jwt.WithIssuer(allowedIssuerByHost[config.Host]),
+			jwt.WithAudience(config.Network),
 			jwt.WithIssuedAt(),
 			jwt.WithExpirationRequired(),
 		),
-		keyfunc: keyfunc,
-	}
+		config: config,
+	}, nil
 }
 
 func (p *Parser) ParseWithClaims(tokenString string, claims jwt.Claims) (*jwt.Token, error) {
-	token, err := p.parser.ParseWithClaims(tokenString, claims, p.keyfunc)
+	token, err := p.parser.ParseWithClaims(tokenString, claims, p.config.Keyfunc)
 	if err != nil {
 		return nil, err
 	}
