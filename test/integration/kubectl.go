@@ -17,7 +17,7 @@ func (k *Kubectl) Command(cmdOptions ...string) ([]byte, error) {
 	return k.executeKubectl(nil, cmdOptions...)
 }
 
-// WithInput is a general func to run kubectl commands with input.
+// CommandWithInput is a general func to run kubectl commands with stdin input.
 func (k *Kubectl) CommandWithInput(stdinInput string, cmdOptions ...string) ([]byte, error) {
 	return k.executeKubectl(strings.NewReader(stdinInput), cmdOptions...)
 }
