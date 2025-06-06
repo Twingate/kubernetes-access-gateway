@@ -63,8 +63,8 @@ func start(newProxy ProxyFactory) error {
 		ConnectValidator: &connect.MessageValidator{
 			TokenParser: parser,
 		},
-		LogFlushSizeLimit: viper.GetInt("logFlushSizeLimit"),
-		LogFlushInterval:  viper.GetDuration("logFlushInterval"),
+		LogFlushSizeThreshold: viper.GetInt("logFlushSizeThreshold"),
+		LogFlushInterval:      viper.GetDuration("logFlushInterval"),
 	}
 
 	if inClusterK8sCfg, _ := rest.InClusterConfig(); inClusterK8sCfg != nil {
@@ -102,7 +102,7 @@ func init() { //nolint:gochecknoinits
 	flags.String("port", "8443", "Port to listen on")
 	flags.String("tlsCert", "", "Path to the TLS certificate for the Gateway")
 	flags.String("tlsKey", "", "Path to the TLS key for the Gateway")
-	flags.Int("logFlushSizeLimit", 64000, "Maximum size (in bytes) to flush logs")
+	flags.Int("logFlushSizeThreshold", 64000, "Threshold (in bytes) of the recorded lines to flush")
 	flags.Duration("logFlushInterval", time.Minute, "Interval to flush logs e.g. 30s, 1m, 1h")
 
 	// Kubernetes flags

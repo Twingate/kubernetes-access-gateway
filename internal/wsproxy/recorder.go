@@ -63,8 +63,8 @@ type AsciinemaRecorder struct {
 	recordedLines []string
 	// total size (in bytes) of the recorded lines
 	totalSize int
-	// limit (in bytes) of the recorded lines to flush
-	flushSizeLimit int
+	// threshold (in bytes) of the recorded lines to flush
+	flushSizeThreshold int
 	// interval to flush
 	flushInterval time.Duration
 	// number of flushes
@@ -82,15 +82,15 @@ type AsciinemaRecorder struct {
 
 func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder {
 	r := &AsciinemaRecorder{
-		logger:         logger,
-		start:          time.Now(),
-		recordedLines:  []string{},
-		totalSize:      0,
-		flushSizeLimit: 64000,
-		flushCount:     0,
-		flushInterval:  time.Minute,
-		stopped:        make(chan struct{}),
-		clock:          clockwork.NewRealClock(),
+		logger:             logger,
+		start:              time.Now(),
+		recordedLines:      []string{},
+		totalSize:          0,
+		flushSizeThreshold: 64000,
+		flushCount:         0,
+		flushInterval:      time.Minute,
+		stopped:            make(chan struct{}),
+		clock:              clockwork.NewRealClock(),
 	}
 
 	for _, opt := range opts {
@@ -105,9 +105,9 @@ func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder 
 
 type RecorderOption func(*AsciinemaRecorder)
 
-func WithFlushSizeLimit(limit int) RecorderOption {
+func WithFlushSizeThreshold(limit int) RecorderOption {
 	return func(r *AsciinemaRecorder) {
-		r.flushSizeLimit = limit
+		r.flushSizeThreshold = limit
 	}
 }
 
@@ -182,7 +182,7 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 	r.recordedLines = append(r.recordedLines, event)
 	r.totalSize += len(event)
 
-	if r.totalSize >= r.flushSizeLimit {
+	if r.totalSize >= r.flushSizeThreshold {
 		r.flushLocked(false)
 	}
 

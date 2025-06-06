@@ -276,7 +276,7 @@ func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeLimit(t *testing.T) {
 	core, logs := observer.New(zap.DebugLevel)
 	r := NewRecorder(zap.New(core))
 	r.totalSize = 0
-	r.flushSizeLimit = 15
+	r.flushSizeThreshold = 15
 
 	_ = r.writeJSON([]any{0, "o", "a"}) // 11 bytes
 

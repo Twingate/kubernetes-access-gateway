@@ -58,8 +58,8 @@ type Config struct {
 	ConnectValidator connect.Validator
 	Port             int
 
-	LogFlushSizeLimit int
-	LogFlushInterval  time.Duration
+	LogFlushSizeThreshold int
+	LogFlushInterval      time.Duration
 }
 
 // custom Conn that wraps a net.Conn, adding the user identity field.
@@ -484,7 +484,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		recorderFactory := func() wsproxy.Recorder {
 			return wsproxy.NewRecorder(
 				auditLogger,
-				wsproxy.WithFlushSizeLimit(p.config.LogFlushSizeLimit),
+				wsproxy.WithFlushSizeThreshold(p.config.LogFlushSizeThreshold),
 				wsproxy.WithFlushInterval(p.config.LogFlushInterval),
 			)
 		}
