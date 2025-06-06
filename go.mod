@@ -15,7 +15,7 @@ require (
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
 	k8s.io/client-go v0.33.1
-	sigs.k8s.io/kind v0.28.0
+	sigs.k8s.io/kind v0.29.0
 )
 
 require (
