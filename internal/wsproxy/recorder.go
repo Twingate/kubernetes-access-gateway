@@ -151,14 +151,15 @@ func (r *AsciinemaRecorder) IsHeaderWritten() bool {
 }
 
 func (r *AsciinemaRecorder) Stop() {
-	if r.isStopped() {
-		return
-	}
-
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	close(r.stopped)
+	select {
+	case <-r.stopped:
+		return
+	default:
+		close(r.stopped)
+	}
 
 	if r.flushTicker != nil {
 		r.flushTicker.Stop()
@@ -203,6 +204,9 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 }
 
 func (r *AsciinemaRecorder) isStopped() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	select {
 	case <-r.stopped:
 		return true
