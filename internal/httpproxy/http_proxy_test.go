@@ -645,7 +645,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	assert.Equal(t, "Upstream API Server Response!", string(body))
 }
 
-func TestShouldAuditRESTRequest(t *testing.T) {
+func TestShouldSkipRESTRequest(t *testing.T) {
 	tests := []struct {
 		name     string
 		request  *http.Request
@@ -676,7 +676,7 @@ func TestShouldAuditRESTRequest(t *testing.T) {
 	}
 }
 
-func TestShouldAuditWebSocketRequest(t *testing.T) {
+func TestShouldSkipWebSocketRequest(t *testing.T) {
 	tests := []struct {
 		name         string
 		newRequestFn func() *http.Request
