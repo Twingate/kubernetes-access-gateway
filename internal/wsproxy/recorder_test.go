@@ -280,7 +280,6 @@ func TestRecorderr_WriteJSON_NoFlushWhenFlushSizeThresholdIsZero(t *testing.T) {
 	_ = r.writeJSON([]any{0, "o", "a"}) // 11 bytes
 
 	assert.Equal(t, 0, logs.Len(), "No logs should be written when flush size threshold is zero")
-
 }
 
 func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeThreshold(t *testing.T) {

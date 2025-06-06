@@ -190,6 +190,7 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 
 	r.recordedLines = append(r.recordedLines, event)
 	totalSize := 0
+
 	for _, line := range r.recordedLines {
 		totalSize += len(line)
 	}
