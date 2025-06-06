@@ -161,7 +161,7 @@ func TestRecorder_PeriodicFlush(t *testing.T) {
 
 	// Create recorder with fake clock
 	core, logs := observer.New(zap.DebugLevel)
-	r := NewRecorder(zap.New(core), WithClock(fakeClock))
+	r := NewRecorder(zap.New(core), WithClock(fakeClock), WithFlushInterval(time.Minute))
 
 	// 1st interval
 
@@ -272,19 +272,29 @@ func TestK8sMetadata(t *testing.T) {
 	assert.Equal(t, "test-container", metadata.Container)
 }
 
-func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeLimit(t *testing.T) {
+func TestRecorderr_WriteJSON_NoFlushWhenFlushSizeThresholdIsZero(t *testing.T) {
 	core, logs := observer.New(zap.DebugLevel)
 	r := NewRecorder(zap.New(core))
-	r.totalSize = 0
-	r.flushSizeThreshold = 15
+	r.config.flushSizeThreshold = 0
 
 	_ = r.writeJSON([]any{0, "o", "a"}) // 11 bytes
 
-	assert.Equal(t, 0, logs.Len(), "No logs should be written when total size is below limit")
+	assert.Equal(t, 0, logs.Len(), "No logs should be written when flush size threshold is zero")
+
+}
+
+func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeThreshold(t *testing.T) {
+	core, logs := observer.New(zap.DebugLevel)
+	r := NewRecorder(zap.New(core))
+	r.config.flushSizeThreshold = 15
+
+	_ = r.writeJSON([]any{0, "o", "a"}) // 11 bytes
+
+	assert.Equal(t, 0, logs.Len(), "No logs should be written when total size is below threshold")
 
 	_ = r.writeJSON([]any{0, "o", "b"}) // 11 bytes
 
-	assert.Equal(t, 1, logs.Len(), "One log should be written when total size exceeds limit")
+	assert.Equal(t, 1, logs.Len(), "One log should be written when total size exceeds threshold")
 
 	log := logs.TakeAll()[0]
 	assert.Equal(t, "session recording", log.Message)
@@ -292,7 +302,7 @@ func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeLimit(t *testing.T) {
 
 	_ = r.writeJSON([]any{0, "o", "c"}) // 11 bytes
 
-	assert.Equal(t, 0, logs.Len(), "No logs should be written when total size is below limit")
+	assert.Equal(t, 0, logs.Len(), "No logs should be written when total size is below threshold")
 
 	// Stop the recording should flush the logs
 	r.Stop()

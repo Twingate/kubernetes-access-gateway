@@ -56,17 +56,29 @@ const (
 	FinishedState
 )
 
+type config struct {
+	// Logger to use for logging
+	logger *zap.Logger
+
+	// Clock to use for time
+	clock clockwork.Clock
+
+	// Threshold (in bytes) of the recorded lines to flush.
+	// If 0, no threshold is used.
+	flushSizeThreshold int
+
+	// Interval to flush
+	// If 0, never flush periodically.
+	flushInterval time.Duration
+}
+
 type AsciinemaRecorder struct {
-	logger        *zap.Logger
+	config config
+
 	start         time.Time
 	state         State
 	recordedLines []string
-	// total size (in bytes) of the recorded lines
-	totalSize int
-	// threshold (in bytes) of the recorded lines to flush
-	flushSizeThreshold int
-	// interval to flush
-	flushInterval time.Duration
+
 	// number of flushes
 	flushCount int
 	// ticker for periodic flush
@@ -74,31 +86,29 @@ type AsciinemaRecorder struct {
 	// signal that the recorder is stopped
 	stopped chan struct{}
 
-	// clock for testing
-	clock clockwork.Clock
-
 	mu sync.Mutex
 }
 
 func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder {
 	r := &AsciinemaRecorder{
-		logger:             logger,
-		start:              time.Now(),
-		recordedLines:      []string{},
-		totalSize:          0,
-		flushSizeThreshold: 64000,
-		flushCount:         0,
-		flushInterval:      time.Minute,
-		stopped:            make(chan struct{}),
-		clock:              clockwork.NewRealClock(),
+		start:         time.Now(),
+		recordedLines: []string{},
+		config: config{
+			logger: logger,
+			clock:  clockwork.NewRealClock(),
+		},
+		flushCount: 0,
+		stopped:    make(chan struct{}),
 	}
 
 	for _, opt := range opts {
 		opt(r)
 	}
 
-	r.flushTicker = r.clock.NewTicker(r.flushInterval)
-	go r.periodicFlush()
+	if r.config.flushInterval > 0 {
+		r.flushTicker = r.config.clock.NewTicker(r.config.flushInterval)
+		go r.periodicFlush()
+	}
 
 	return r
 }
@@ -107,19 +117,19 @@ type RecorderOption func(*AsciinemaRecorder)
 
 func WithFlushSizeThreshold(limit int) RecorderOption {
 	return func(r *AsciinemaRecorder) {
-		r.flushSizeThreshold = limit
+		r.config.flushSizeThreshold = limit
 	}
 }
 
 func WithFlushInterval(interval time.Duration) RecorderOption {
 	return func(r *AsciinemaRecorder) {
-		r.flushInterval = interval
+		r.config.flushInterval = interval
 	}
 }
 
 func WithClock(clock clockwork.Clock) RecorderOption {
 	return func(r *AsciinemaRecorder) {
-		r.clock = clock
+		r.config.clock = clock
 	}
 }
 
@@ -151,7 +161,10 @@ func (r *AsciinemaRecorder) Stop() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.flushTicker.Stop()
+	if r.flushTicker != nil {
+		r.flushTicker.Stop()
+	}
+
 	close(r.stopped)
 
 	r.state = FinishedState
@@ -180,9 +193,12 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 	defer r.mu.Unlock()
 
 	r.recordedLines = append(r.recordedLines, event)
-	r.totalSize += len(event)
+	totalSize := 0
+	for _, line := range r.recordedLines {
+		totalSize += len(line)
+	}
 
-	if r.totalSize >= r.flushSizeThreshold {
+	if r.config.flushSizeThreshold > 0 && totalSize >= r.config.flushSizeThreshold {
 		r.flushLocked(false)
 	}
 
@@ -217,11 +233,10 @@ func (r *AsciinemaRecorder) flushLocked(sessionFinished bool) {
 	}
 
 	r.flushCount++
-	r.logger.Info(message,
+	r.config.logger.Info(message,
 		zap.String("asciinema_data", strings.Join(r.recordedLines, "\n")),
 		zap.Int("asciinema_sequence_num", r.flushCount),
 	)
 
 	r.recordedLines = r.recordedLines[:0]
-	r.totalSize = 0
 }
