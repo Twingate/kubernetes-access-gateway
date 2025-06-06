@@ -225,7 +225,7 @@ func TestRecorderFlow(t *testing.T) {
 	require.NoError(t, r.WriteHeader(header))
 
 	// Check state flag after writing header
-	assert.Equal(t, StartedState, r.state, "state should be StartedState after WriteHeader")
+	assert.True(t, r.IsHeaderWritten(), "state should be StartedState after WriteHeader")
 
 	// Write some events
 	require.NoError(t, r.WriteOutputEvent([]byte("output 1")))
@@ -251,13 +251,13 @@ func TestRecorderFlow(t *testing.T) {
 	assert.Less(t, time2, time3, "Events should have increasing timestamps")
 
 	// Check state before stopping
-	assert.Equal(t, StartedState, r.state, "state should be Started before Stop")
+	assert.True(t, r.IsHeaderWritten(), "state should be Started before Stop")
 
 	// Stop the recording
 	r.Stop()
 
 	// Check state after stopping
-	assert.Equal(t, FinishedState, r.state, "state should be Finished after Stop")
+	assert.True(t, r.isStopped(), "state should be Finished after Stop")
 }
 
 func TestK8sMetadata(t *testing.T) {
@@ -332,7 +332,7 @@ func TestRecorder_WriteJSON_Error(t *testing.T) {
 
 func TestRecorder_StoreEvent_Error(t *testing.T) {
 	r := NewRecorder(zap.NewNop())
-	r.state = FinishedState
+	r.Stop()
 
 	err := r.storeEvent("test event")
 	require.Error(t, err, "storeEvent should return error when recording is finished")

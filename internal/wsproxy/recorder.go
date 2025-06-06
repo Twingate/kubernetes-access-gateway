@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -44,17 +45,9 @@ type Recorder interface {
 	WriteHeader(h asciinemaHeader) error
 	WriteOutputEvent(data []byte) error
 	WriteResizeEvent(width int, height int) error
-	IsStarted() bool
+	IsHeaderWritten() bool
 	Stop()
 }
-
-type State int
-
-const (
-	NoneState State = iota
-	StartedState
-	FinishedState
-)
 
 type config struct {
 	// Logger to use for logging
@@ -76,7 +69,7 @@ type AsciinemaRecorder struct {
 	config config
 
 	start         time.Time
-	state         State
+	headerWritten atomic.Bool
 	recordedLines []string
 
 	// number of flushes
@@ -134,7 +127,7 @@ func WithClock(clock clockwork.Clock) RecorderOption {
 }
 
 func (r *AsciinemaRecorder) WriteHeader(h asciinemaHeader) error {
-	r.state = StartedState
+	r.headerWritten.Store(true)
 
 	return r.writeJSON(h)
 }
@@ -153,21 +146,24 @@ func (r *AsciinemaRecorder) WriteResizeEvent(width int, height int) (err error) 
 		fmt.Sprintf("%dx%d", width, height)})
 }
 
-func (r *AsciinemaRecorder) IsStarted() bool {
-	return r.state == StartedState
+func (r *AsciinemaRecorder) IsHeaderWritten() bool {
+	return r.headerWritten.Load()
 }
 
 func (r *AsciinemaRecorder) Stop() {
+	if r.isStopped() {
+		return
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	close(r.stopped)
 
 	if r.flushTicker != nil {
 		r.flushTicker.Stop()
 	}
 
-	close(r.stopped)
-
-	r.state = FinishedState
 	r.flushLocked(true)
 }
 
@@ -185,7 +181,7 @@ func (r *AsciinemaRecorder) writeJSON(data any) error {
 }
 
 func (r *AsciinemaRecorder) storeEvent(event string) error {
-	if r.state == FinishedState {
+	if r.isStopped() {
 		return errAlreadyFinished
 	}
 
@@ -203,6 +199,15 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 	}
 
 	return nil
+}
+
+func (r *AsciinemaRecorder) isStopped() bool {
+	select {
+	case <-r.stopped:
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *AsciinemaRecorder) periodicFlush() {
