@@ -14,6 +14,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -32,11 +33,9 @@ type connContextKey string
 const healthCheckPath = "/healthz"
 const ConnContextKey connContextKey = "CONN_CONTEXT"
 
-const secretLen = 32
-
 const (
-	upgradeHeaderKey      = "Upgrade"
-	upgradeWebsocketValue = "websocket"
+	keyingMaterialLabel  = "EXPERIMENTAL_twingate_gat"
+	keyingMaterialLength = 32
 )
 
 const (
@@ -54,8 +53,10 @@ type Config struct {
 	TLSKey            string
 	K8sAPIServerToken string
 	K8sAPIServerCA    string
-	ConnectValidator  connect.Validator
-	Port              int
+	K8sAPIServerPort  int
+
+	ConnectValidator connect.Validator
+	Port             int
 
 	LogFlushSizeLimit int
 	LogFlushInterval  time.Duration
@@ -94,6 +95,12 @@ func (p *ProxyConn) Close() error {
 	}
 
 	return p.Conn.Close()
+}
+
+func ExportKeyingMaterial(conn *tls.Conn) ([]byte, error) {
+	cs := conn.ConnectionState()
+
+	return cs.ExportKeyingMaterial(keyingMaterialLabel, nil, keyingMaterialLength)
 }
 
 // custom listener to handle HTTP CONNECT and then upgrade to HTTPS.
@@ -161,9 +168,7 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 	}
 
 	// get the keying material for the TLS session
-	cs := tlsConnectConn.ConnectionState()
-
-	ekm, err := cs.ExportKeyingMaterial("EXPERIMENTAL_twingate_gat", nil, secretLen)
+	ekm, err := ExportKeyingMaterial(tlsConnectConn)
 	if err != nil {
 		logger.Errorf("failed to get keying material: %v", err)
 		tlsConnectConn.Close()
@@ -307,7 +312,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	// create TLS configuration for upstream
 	caCert, err := os.ReadFile(cfg.K8sAPIServerCA)
 	if err != nil {
-		logger.Fatalf("failed to read K8sAPIServerCA cert: %v", err)
+		logger.Fatalf("failed to read CA cert: %v", err)
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -324,7 +329,6 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	transport := &http.Transport{
 		TLSClientConfig: upstreamTLSConfig,
 	}
-
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			conn, ok := r.In.Context().Value(ConnContextKey).(*ProxyConn)
@@ -334,9 +338,13 @@ func NewProxy(cfg Config) (*Proxy, error) {
 				return
 			}
 
+			apiServerAddress := conn.claims.Resource.Address
+			if cfg.K8sAPIServerPort != 0 {
+				apiServerAddress = fmt.Sprintf("%s:%d", conn.claims.Resource.Address, cfg.K8sAPIServerPort)
+			}
 			targetURL := &url.URL{
 				Scheme: "https",
-				Host:   conn.claims.Resource.Address,
+				Host:   apiServerAddress,
 			}
 			r.SetURL(targetURL)
 
@@ -468,24 +476,22 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		zap.String("body", logReqBody),
 	)
 
-	if r.Header.Get(upgradeHeaderKey) == upgradeWebsocketValue {
-		// check for websocket with tunneling subprotocol and treat as regular TCP traffic without recording
-		if wsstream.IsWebSocketRequestWithTunnelingProtocol(r) {
-			p.proxy.ServeHTTP(w, r)
-		} else {
-			// start hijacker which will parse websocket messages and record the session
-			recorderFactory := func() wsproxy.Recorder {
-				return wsproxy.NewRecorder(
-					auditLogger,
-					wsproxy.WithFlushSizeLimit(p.config.LogFlushSizeLimit),
-					wsproxy.WithFlushInterval(p.config.LogFlushInterval),
-				)
-			}
-			wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
-			p.proxy.ServeHTTP(wsHijacker, r)
+	isWebSocketRequest := wsstream.IsWebSocketRequest(r)
+
+	switch {
+	case isWebSocketRequest && !shouldSkipWebSocketRequest(r):
+		// Audit Websocket streaming session
+		recorderFactory := func() wsproxy.Recorder {
+			return wsproxy.NewRecorder(
+				auditLogger,
+				wsproxy.WithFlushSizeLimit(p.config.LogFlushSizeLimit),
+				wsproxy.WithFlushInterval(p.config.LogFlushInterval),
+			)
 		}
-	} else {
-		// for HTTP we want to log the response
+		wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
+		p.proxy.ServeHTTP(wsHijacker, r)
+	case !isWebSocketRequest && !shouldSkipRESTRequest(r):
+		// Audit REST API response
 		responseLogger := &responseLogger{ResponseWriter: w, statusCode: http.StatusOK, body: &bytes.Buffer{}}
 		defer func() {
 			// truncate the body log if it's too large
@@ -498,7 +504,25 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 				zap.String("body", logResBody),
 			)
 		}()
-
 		p.proxy.ServeHTTP(responseLogger, r)
+	default:
+		// No audit
+		p.proxy.ServeHTTP(w, r)
 	}
+}
+
+var podLogPattern = regexp.MustCompile(`^/api/v1/namespaces/[^/]+/pods/[^/]+/log$`)
+
+func shouldSkipWebSocketRequest(r *http.Request) bool {
+	// Skip tunneling requests (e.g. `kubectl proxy`)
+	return wsstream.IsWebSocketRequestWithTunnelingProtocol(r) ||
+		// Skip file transferring from `kubectl cp`
+		r.Header.Get("Kubectl-Command") == "kubectl cp" ||
+		// Skip executing `tar` command
+		r.URL.Query().Get("command") == "tar"
+}
+
+func shouldSkipRESTRequest(r *http.Request) bool {
+	// Skip requests for pod logs
+	return podLogPattern.MatchString(r.URL.Path)
 }

@@ -644,3 +644,86 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	// check response
 	assert.Equal(t, "Upstream API Server Response!", string(body))
 }
+
+func TestShouldSkipRESTRequest(t *testing.T) {
+	tests := []struct {
+		name     string
+		request  *http.Request
+		expected bool
+	}{
+		{
+			name:     "Get a pod log request",
+			request:  httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/pods/pod-1/log", nil),
+			expected: true,
+		},
+		{
+			name:     "Get a pod request",
+			request:  httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/pods/pod-1", nil),
+			expected: false,
+		},
+		{
+			name:     "Get a namespace request",
+			request:  httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default", nil),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := shouldSkipRESTRequest(tt.request)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestShouldSkipWebSocketRequest(t *testing.T) {
+	tests := []struct {
+		name         string
+		newRequestFn func() *http.Request
+		expected     bool
+	}{
+		{
+			name: "WebSocket request with tunneling protocol",
+			newRequestFn: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/", nil)
+				r.Header.Set("Upgrade", "websocket")
+				r.Header.Set("Connection", "upgrade")
+				r.Header.Set("Sec-WebSocket-Protocol", "SPDY/3.1+portforward.k8s.io")
+
+				return r
+			},
+			expected: true,
+		},
+		{
+			name: "WebSocket request with `kubectl cp` command",
+			newRequestFn: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/", nil)
+				r.Header.Set("Kubectl-Command", "kubectl cp")
+
+				return r
+			},
+			expected: true,
+		},
+		{
+			name: "WebSocket request with tar command",
+			newRequestFn: func() *http.Request {
+				return httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/pods/pod-1/exec?command=tar", nil)
+			},
+			expected: true,
+		},
+		{
+			name: "WebSocket request with other command",
+			newRequestFn: func() *http.Request {
+				return httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/pods/pod-1/exec?command=ls", nil)
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := shouldSkipWebSocketRequest(tt.newRequestFn())
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

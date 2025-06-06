@@ -13,6 +13,7 @@ var errInvalidTokenType = errors.New("token type is invalid")
 var allowedSigningMethods = []string{jwt.SigningMethodES256.Alg()}
 
 var allowedIssuerByHost = map[string]string{
+	"test.local":    "twingate-local",
 	"dev.opstg.com": "twingate-dev",
 	"stg.opstg.com": "twingate-stg",
 	"twingate.com":  "twingate",
@@ -22,37 +23,52 @@ type ClaimsWithHeaderType interface {
 	getHeaderType() string
 }
 
-type Parser struct {
-	parser  *jwt.Parser
-	keyfunc jwt.Keyfunc
+type ParserConfig struct {
+	// Twingate network ID
+	Network string
+	// Twingate service domain
+	Host string
+	// URL which issues JWKs to verify token. Default to `https://<Network>.<Host>`
+	URL string
+	// Keyfunc to verify token. Default to using remote JWKs
+	Keyfunc jwt.Keyfunc
 }
 
-func NewParserWithRemotesJWKS(network, host string) (*Parser, error) {
-	jwkURL := fmt.Sprintf("https://%s.%s/api/v1/jwk/ec", network, host)
+type Parser struct {
+	parser *jwt.Parser
+	config ParserConfig
+}
 
-	jwks, err := keyfunc.NewDefault([]string{jwkURL})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JWKS store: %w", err)
+func NewParser(config ParserConfig) (*Parser, error) {
+	if config.Keyfunc == nil {
+		if config.URL == "" {
+			config.URL = fmt.Sprintf("https://%s.%s", config.Network, config.Host)
+		}
+
+		jwkURL := config.URL + "/api/v1/jwk/ec"
+
+		jwks, err := keyfunc.NewDefault([]string{jwkURL})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWKS store: %w", err)
+		}
+
+		config.Keyfunc = jwks.Keyfunc
 	}
 
-	return NewParser(network, host, jwks.Keyfunc), nil
-}
-
-func NewParser(network, host string, keyfunc jwt.Keyfunc) *Parser {
 	return &Parser{
 		parser: jwt.NewParser(
 			jwt.WithValidMethods(allowedSigningMethods),
-			jwt.WithIssuer(allowedIssuerByHost[host]),
-			jwt.WithAudience(network),
+			jwt.WithIssuer(allowedIssuerByHost[config.Host]),
+			jwt.WithAudience(config.Network),
 			jwt.WithIssuedAt(),
 			jwt.WithExpirationRequired(),
 		),
-		keyfunc: keyfunc,
-	}
+		config: config,
+	}, nil
 }
 
 func (p *Parser) ParseWithClaims(tokenString string, claims jwt.Claims) (*jwt.Token, error) {
-	token, err := p.parser.ParseWithClaims(tokenString, claims, p.keyfunc)
+	token, err := p.parser.ParseWithClaims(tokenString, claims, p.config.Keyfunc)
 	if err != nil {
 		return nil, err
 	}

@@ -44,7 +44,11 @@ func start(newProxy ProxyFactory) error {
 		return fmt.Errorf("%w: network", errRequiredConfig)
 	}
 
-	parser, err := token.NewParserWithRemotesJWKS(network, viper.GetString("host"))
+	parser, err := token.NewParser(token.ParserConfig{
+		Network: network,
+		Host:    viper.GetString("host"),
+		URL:     viper.GetString("fakeControllerURL"),
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create token parser %w", err)
 	}
@@ -55,6 +59,7 @@ func start(newProxy ProxyFactory) error {
 		TLSCert:           viper.GetString("tlsCert"),
 		K8sAPIServerCA:    viper.GetString("k8sAPIServerCA"),
 		K8sAPIServerToken: viper.GetString("k8sAPIServerToken"),
+		K8sAPIServerPort:  viper.GetInt("k8sAPIServerPort"),
 		ConnectValidator: &connect.MessageValidator{
 			TokenParser: parser,
 		},
@@ -103,9 +108,11 @@ func init() { //nolint:gochecknoinits
 	// Kubernetes flags
 	flags.String("k8sAPIServerCA", "", "Path to the CA certificate for the Kubernetes API server")
 	flags.String("k8sAPIServerToken", "", "Bearer token to authenticate to the Kubernetes API server")
+	flags.Int("k8sAPIServerPort", 0, "K8s API Server port, used in local development and testing to override 443 port")
 
 	// Misc flags
 	flags.BoolP("debug", "d", false, "Run in debug mode")
+	flags.String("fakeControllerURL", "", "URL of fake Controller which issues and verifies GAT. Used for testing")
 
 	if err := viper.BindPFlags(flags); err != nil {
 		panic(fmt.Sprintf("failed to bind flags: %v", err))

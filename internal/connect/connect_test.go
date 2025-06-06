@@ -5,7 +5,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/asn1"
 	"encoding/base64"
 	"errors"
 	"net/http"
@@ -31,9 +30,7 @@ func (c client) getPublicKey() token.PublicKey {
 
 func (c client) sign(t string) string {
 	hash := sha256.Sum256([]byte(t))
-	r, s, _ := ecdsa.Sign(rand.Reader, c.privateKey, hash[:])
-
-	signature, _ := asn1.Marshal(ECDSASignature{R: r, S: s})
+	signature, _ := ecdsa.SignASN1(rand.Reader, c.privateKey, hash[:])
 
 	return base64.StdEncoding.EncodeToString(signature)
 }
@@ -73,13 +70,14 @@ func createParserAndGATToken(t *testing.T, claims token.GATClaims) (*token.Parse
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	parser := token.NewParser(
-		"acme",
-		"twingate.com",
-		func(_token *jwt.Token) (any, error) {
+	parser, err := token.NewParser(token.ParserConfig{
+		Network: "acme",
+		Host:    "twingate.com",
+		Keyfunc: func(_token *jwt.Token) (any, error) {
 			return &privateKey.PublicKey, nil
 		},
-	)
+	})
+	require.NoError(t, err)
 
 	gatToken := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 	gatToken.Header["typ"] = "GAT"

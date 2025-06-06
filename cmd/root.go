@@ -16,3 +16,7 @@ func Execute() {
 		logger.Fatal(err)
 	}
 }
+
+func GetRootCommand() *cobra.Command {
+	return rootCmd
+}
