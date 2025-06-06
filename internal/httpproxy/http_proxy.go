@@ -14,6 +14,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -35,11 +36,6 @@ const ConnContextKey connContextKey = "CONN_CONTEXT"
 const (
 	keyingMaterialLabel  = "EXPERIMENTAL_twingate_gat"
 	keyingMaterialLength = 32
-)
-
-const (
-	upgradeHeaderKey      = "Upgrade"
-	upgradeWebsocketValue = "websocket"
 )
 
 const (
@@ -475,20 +471,18 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		zap.String("body", logReqBody),
 	)
 
-	if r.Header.Get(upgradeHeaderKey) == upgradeWebsocketValue {
-		// check for websocket with tunneling subprotocol and treat as regular TCP traffic without recording
-		if wsstream.IsWebSocketRequestWithTunnelingProtocol(r) {
-			p.proxy.ServeHTTP(w, r)
-		} else {
-			// start hijacker which will parse websocket messages and record the session
-			recorderFactory := func() wsproxy.Recorder {
-				return wsproxy.NewRecorder(auditLogger)
-			}
-			wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
-			p.proxy.ServeHTTP(wsHijacker, r)
+	isWebSocketRequest := wsstream.IsWebSocketRequest(r)
+
+	switch {
+	case isWebSocketRequest && !shouldSkipWebSocketRequest(r):
+		// Audit Websocket streaming session
+		recorderFactory := func() wsproxy.Recorder {
+			return wsproxy.NewRecorder(auditLogger)
 		}
-	} else {
-		// for HTTP we want to log the response
+		wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
+		p.proxy.ServeHTTP(wsHijacker, r)
+	case !isWebSocketRequest && !shouldSkipRESTRequest(r):
+		// Audit REST API response
 		responseLogger := &responseLogger{ResponseWriter: w, statusCode: http.StatusOK, body: &bytes.Buffer{}}
 		defer func() {
 			// truncate the body log if it's too large
@@ -501,7 +495,25 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 				zap.String("body", logResBody),
 			)
 		}()
-
 		p.proxy.ServeHTTP(responseLogger, r)
+	default:
+		// No audit
+		p.proxy.ServeHTTP(w, r)
 	}
+}
+
+var podLogPattern = regexp.MustCompile(`^/api/v1/namespaces/[^/]+/pods/[^/]+/log$`)
+
+func shouldSkipWebSocketRequest(r *http.Request) bool {
+	// Skip tunneling requests (e.g. `kubectl proxy`)
+	return wsstream.IsWebSocketRequestWithTunnelingProtocol(r) ||
+		// Skip file transferring from `kubectl cp`
+		r.Header.Get("Kubectl-Command") == "kubectl cp" ||
+		// Skip executing `tar` command
+		r.URL.Query().Get("command") == "tar"
+}
+
+func shouldSkipRESTRequest(r *http.Request) bool {
+	// Skip requests for pod logs
+	return podLogPattern.MatchString(r.URL.Path)
 }
