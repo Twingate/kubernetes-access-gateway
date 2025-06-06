@@ -32,7 +32,10 @@ type connContextKey string
 const healthCheckPath = "/healthz"
 const ConnContextKey connContextKey = "CONN_CONTEXT"
 
-const secretLen = 32
+const (
+	keyingMaterialLabel  = "EXPERIMENTAL_twingate_gat"
+	keyingMaterialLength = 32
+)
 
 const (
 	upgradeHeaderKey      = "Upgrade"
@@ -54,8 +57,10 @@ type Config struct {
 	TLSKey            string
 	K8sAPIServerToken string
 	K8sAPIServerCA    string
-	ConnectValidator  connect.Validator
-	Port              int
+	K8sAPIServerPort  int
+
+	ConnectValidator connect.Validator
+	Port             int
 }
 
 // custom Conn that wraps a net.Conn, adding the user identity field.
@@ -91,6 +96,12 @@ func (p *ProxyConn) Close() error {
 	}
 
 	return p.Conn.Close()
+}
+
+func ExportKeyingMaterial(conn *tls.Conn) ([]byte, error) {
+	cs := conn.ConnectionState()
+
+	return cs.ExportKeyingMaterial(keyingMaterialLabel, nil, keyingMaterialLength)
 }
 
 // custom listener to handle HTTP CONNECT and then upgrade to HTTPS.
@@ -158,9 +169,7 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 	}
 
 	// get the keying material for the TLS session
-	cs := tlsConnectConn.ConnectionState()
-
-	ekm, err := cs.ExportKeyingMaterial("EXPERIMENTAL_twingate_gat", nil, secretLen)
+	ekm, err := ExportKeyingMaterial(tlsConnectConn)
 	if err != nil {
 		logger.Errorf("failed to get keying material: %v", err)
 		tlsConnectConn.Close()
@@ -303,7 +312,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	// create TLS configuration for upstream
 	caCert, err := os.ReadFile(cfg.K8sAPIServerCA)
 	if err != nil {
-		logger.Fatalf("failed to read K8sAPIServerCA cert: %v", err)
+		logger.Fatalf("failed to read CA cert: %v", err)
 	}
 
 	caCertPool := x509.NewCertPool()
@@ -320,7 +329,6 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	transport := &http.Transport{
 		TLSClientConfig: upstreamTLSConfig,
 	}
-
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			conn, ok := r.In.Context().Value(ConnContextKey).(*ProxyConn)
@@ -330,9 +338,13 @@ func NewProxy(cfg Config) (*Proxy, error) {
 				return
 			}
 
+			apiServerAddress := conn.claims.Resource.Address
+			if cfg.K8sAPIServerPort != 0 {
+				apiServerAddress = fmt.Sprintf("%s:%d", conn.claims.Resource.Address, cfg.K8sAPIServerPort)
+			}
 			targetURL := &url.URL{
 				Scheme: "https",
-				Host:   conn.claims.Resource.Address,
+				Host:   apiServerAddress,
 			}
 			r.SetURL(targetURL)
 
