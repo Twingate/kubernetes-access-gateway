@@ -78,7 +78,7 @@ func (m *mockRecorder) Stop() {
 	m.stopped = true
 }
 
-func (m *mockRecorder) IsStarted() bool {
+func (m *mockRecorder) IsHeaderWritten() bool {
 	return m.headerWritten
 }
 

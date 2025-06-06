@@ -57,6 +57,9 @@ type Config struct {
 
 	ConnectValidator connect.Validator
 	Port             int
+
+	LogFlushSizeThreshold int
+	LogFlushInterval      time.Duration
 }
 
 // custom Conn that wraps a net.Conn, adding the user identity field.
@@ -276,6 +279,7 @@ type ProxyService interface {
 }
 
 type Proxy struct {
+	config              Config
 	httpServer          *http.Server
 	proxy               *httputil.ReverseProxy
 	downstreamTLSConfig *tls.Config
@@ -388,6 +392,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		port:                cfg.Port,
 		connectValidator:    cfg.ConnectValidator,
 		k8sAPIServerToken:   cfg.K8sAPIServerToken,
+		config:              cfg,
 	}
 	mux.HandleFunc("/", p.serveHTTP)
 	mux.HandleFunc("GET /api/v1/namespaces/{namespace}/pods/{pod}/exec", p.serveHTTP)
@@ -477,7 +482,11 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	case isWebSocketRequest && !shouldSkipWebSocketRequest(r):
 		// Audit Websocket streaming session
 		recorderFactory := func() wsproxy.Recorder {
-			return wsproxy.NewRecorder(auditLogger)
+			return wsproxy.NewRecorder(
+				auditLogger,
+				wsproxy.WithFlushSizeThreshold(p.config.LogFlushSizeThreshold),
+				wsproxy.WithFlushInterval(p.config.LogFlushInterval),
+			)
 		}
 		wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
 		p.proxy.ServeHTTP(wsHijacker, r)

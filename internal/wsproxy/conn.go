@@ -206,7 +206,7 @@ func (c *conn) Write(data []byte) (int, error) {
 		}
 
 		// record the asciinema header first to start the recording
-		if !c.recorder.IsStarted() {
+		if !c.recorder.IsHeaderWritten() {
 			if err := c.recorder.WriteHeader(c.asciinemaHeader); err != nil {
 				return 0, fmt.Errorf("%w: %w", errFailedToWriteHeader, err)
 			}
