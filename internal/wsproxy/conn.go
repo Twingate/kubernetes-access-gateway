@@ -61,8 +61,6 @@ type conn struct {
 	writeMutex   sync.Mutex // non-parallel write
 	writeMessage *wsMessage // current websocket message that is being parsed
 	writeBuffer  bytes.Buffer
-	// used to block and wait for readFirstResize to be signalled, and write the cast header only once and begin recording
-	writeStartRecordingOnce sync.Once
 }
 
 func (c *conn) Read(data []byte) (int, error) {
@@ -146,86 +144,76 @@ func (c *conn) Read(data []byte) (int, error) {
 	return bytesRead, readErr
 }
 
+// Write parses the written bytes as WebSocket message fragments before writing to the underlying
+// connection. If the message is for stdout or stderr streams, it is written to the recorder.
+//
+// data could include a fragmented message, a single message or multiple messages.
 func (c *conn) Write(data []byte) (int, error) {
 	c.writeMutex.Lock()
 	defer c.writeMutex.Unlock()
 
-	// no data to proceed
+	// No data to proceed
 	if len(data) == 0 {
 		return 0, nil
 	}
 
-	// we are only interested in binary opcode (k8s)
-	// or continuation opcode (subsequent fragments of a websocket message)
-	if c.writeMessage == nil && !isContinuationOrBinaryOpcode(data) {
-		return c.Conn.Write(data)
-	}
-
-	// continue using c.writeMessage if it's incomplete
-	if c.writeMessage == nil {
-		c.writeMessage = &wsMessage{}
-	}
-
-	// put data into buffer
+	// Store data into buffer
 	if _, err := c.writeBuffer.Write(data); err != nil {
 		return 0, fmt.Errorf("%w: %w", errFailedToWriteToBuf, err)
 	}
 
-	// try to parse
-	parsedBytes, err := c.writeMessage.Parse(c.writeBuffer.Bytes())
+	for c.writeBuffer.Len() > 0 {
+		bufData := c.writeBuffer.Bytes()
 
-	if err != nil {
-		return 0, fmt.Errorf("%w: %w", errFailedToParseWS, err)
-	} else if parsedBytes == 0 {
-		// no error, but unable to parse - wants more data
-		// we have the current bytes stored in the writeBuffer and
-		// we will add more on next Write() and try to Parse() again
-		return len(data), nil
-	}
+		// We are only interested in binary opcode (k8s)
+		// or continuation opcode (subsequent fragments of a websocket message)
+		if c.writeMessage == nil && !isContinuationOrBinaryOpcode(bufData) {
+			_, writeErr := c.Conn.Write(bufData)
+			c.writeBuffer.Next(len(bufData))
 
-	// write the fragment and return if the message isn't finished
-	if !c.writeMessage.isFinished {
-		_, writeErr := c.Conn.Write(c.writeBuffer.Bytes())
+			return len(data), writeErr
+		}
+
+		// Continue using c.writeMessage if it exists (i.e. currently incomplete)
+		if c.writeMessage == nil {
+			c.writeMessage = &wsMessage{}
+		}
+
+		// Try to parse WebSocket message
+		parsedBytes, err := c.writeMessage.Parse(bufData)
+		if err != nil {
+			return 0, fmt.Errorf("%w: %w", errFailedToParseWS, err)
+		} else if parsedBytes == 0 {
+			// No error, but unable to parse - wants more data
+			// We have the current bytes stored in the writeBuffer and
+			// we will add more on next Write() and try to Parse() again
+			return len(data), nil
+		}
+
+		// Write the fragment and return if the message isn't finished
+		if !c.writeMessage.isFinished {
+			_, writeErr := c.Conn.Write(bufData[:parsedBytes])
+			c.writeBuffer.Next(parsedBytes)
+
+			return len(data), writeErr
+		}
+
+		if err := c.handleMessageRecording(); err != nil {
+			return 0, err
+		}
+
+		c.writeMessage = nil
+
+		// Write the message
+		_, writeErr := c.Conn.Write(bufData[:parsedBytes])
+		if writeErr != nil {
+			return len(data), writeErr
+		}
+		// Consume message from buffer now that we are done with it
 		c.writeBuffer.Next(parsedBytes)
-
-		return len(data), writeErr
 	}
 
-	if c.writeMessage.k8sStreamID == remotecommand.StreamStdOut || c.writeMessage.k8sStreamID == remotecommand.StreamStdErr {
-		// on first Write() we want to block and wait for the first resize event (if terminal) so that
-		// we can record the asciinema header first and then continue the flow and recording
-		var waitForFirstResize bool
-
-		c.writeStartRecordingOnce.Do(func() {
-			waitForFirstResize = c.sessionHasTerminal
-		})
-
-		// check if we need to wait
-		if waitForFirstResize {
-			<-c.readFirstResize // blocks waiting for Read() to unblock channel
-		}
-
-		// record the asciinema header first to start the recording
-		if !c.recorder.IsStarted() {
-			if err := c.recorder.WriteHeader(c.asciinemaHeader); err != nil {
-				return 0, fmt.Errorf("%w: %w", errFailedToWriteHeader, err)
-			}
-		}
-
-		// now we can write events
-		if err := c.recorder.WriteOutputEvent(c.writeMessage.payload); err != nil {
-			return 0, fmt.Errorf("%w: %w", errFailedToWriteRecording, err)
-		}
-	}
-
-	c.writeMessage = nil
-
-	// write the fragment
-	_, writeErr := c.Conn.Write(c.writeBuffer.Bytes())
-	// consume fragment from buffer now that we are done with it
-	c.writeBuffer.Next(parsedBytes)
-
-	return len(data), writeErr
+	return len(data), nil
 }
 
 func (c *conn) Close() error {
@@ -236,6 +224,34 @@ func (c *conn) Close() error {
 	c.recorder.Stop() // stop recording
 
 	return c.Conn.Close()
+}
+
+// handleMessageRecording handles recording stdout or stderr streams to the recorder.
+func (c *conn) handleMessageRecording() error {
+	// Skip recording if not stdout or stderr
+	if c.writeMessage.k8sStreamID != remotecommand.StreamStdOut && c.writeMessage.k8sStreamID != remotecommand.StreamStdErr {
+		return nil
+	}
+
+	// On first Write() we want to block and wait for the first resize event (if terminal) so that
+	// we can record the asciinema header first and then continue the flow and recording.
+	if c.sessionHasTerminal {
+		<-c.readFirstResize
+	}
+
+	// Record the asciinema header first to start the recording
+	if !c.recorder.IsStarted() {
+		if err := c.recorder.WriteHeader(c.asciinemaHeader); err != nil {
+			return fmt.Errorf("%w: %w", errFailedToWriteHeader, err)
+		}
+	}
+
+	// Now we can write events
+	if err := c.recorder.WriteOutputEvent(c.writeMessage.payload); err != nil {
+		return fmt.Errorf("%w: %w", errFailedToWriteRecording, err)
+	}
+
+	return nil
 }
 
 // %x2 denotes a binary frame.
