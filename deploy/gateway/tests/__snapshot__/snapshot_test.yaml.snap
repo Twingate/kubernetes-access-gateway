@@ -46,7 +46,7 @@ should render:
       template:
         metadata:
           annotations:
-            checksum/alternativeNames: eee78e4712e57977935ceb9ebfdb354aa33c85ca4dbb490001827f64259b6b8d
+            checksum/tlsAlternativeNames: eee78e4712e57977935ceb9ebfdb354aa33c85ca4dbb490001827f64259b6b8d
           labels:
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/managed-by: Helm
