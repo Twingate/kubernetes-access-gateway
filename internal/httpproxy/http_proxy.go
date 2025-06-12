@@ -23,6 +23,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 
+	k8stransport "k8s.io/client-go/transport"
+
 	"k8sgateway/internal/connect"
 	"k8sgateway/internal/token"
 	"k8sgateway/internal/wsproxy"
@@ -52,8 +54,12 @@ type Config struct {
 	TLSCert           string
 	TLSKey            string
 	K8sAPIServerToken string
-	K8sAPIServerCA    string
-	K8sAPIServerPort  int
+	// Path to a file containing a BearerToken.
+	// If set, the contents are periodically read.
+	// The last successfully read value takes precedence over BearerToken.
+	K8sAPIServerTokenFile string
+	K8sAPIServerCA        string
+	K8sAPIServerPort      int
 
 	ConnectValidator connect.Validator
 	Port             int
@@ -322,9 +328,18 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		MinVersion: tls.VersionTLS13,
 		RootCAs:    caCertPool,
 	}
-	transport := &http.Transport{
-		TLSClientConfig: upstreamTLSConfig,
+
+	transport, err := k8stransport.NewBearerAuthWithRefreshRoundTripper(
+		cfg.K8sAPIServerToken,
+		cfg.K8sAPIServerTokenFile,
+		&http.Transport{
+			TLSClientConfig: upstreamTLSConfig,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bearer auth round tripper: %w", err)
 	}
+
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			conn, ok := r.In.Context().Value(ConnContextKey).(*ProxyConn)
@@ -355,9 +370,8 @@ func NewProxy(cfg Config) (*Proxy, error) {
 				}
 			}
 
-			// Set authorization and impersonation header to impersonate the user
+			// Set impersonation header to impersonate the user
 			// identified from downstream.
-			r.Out.Header.Set("Authorization", "Bearer "+cfg.K8sAPIServerToken)
 			r.Out.Header.Set("Impersonate-User", conn.claims.User.Username)
 			for _, group := range conn.claims.User.Groups {
 				r.Out.Header.Add("Impersonate-Group", group)

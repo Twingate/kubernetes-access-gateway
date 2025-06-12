@@ -64,11 +64,12 @@ func start(newProxy ProxyFactory) error {
 		},
 	}
 
-	if inClusterK8sCfg, _ := rest.InClusterConfig(); inClusterK8sCfg != nil {
+	if inClusterK8sCfg, err := rest.InClusterConfig(); inClusterK8sCfg != nil {
 		logger.Info("Using in-cluster configuration")
 
 		cfg.K8sAPIServerCA = inClusterK8sCfg.CAFile
 		cfg.K8sAPIServerToken = inClusterK8sCfg.BearerToken
+		cfg.K8sAPIServerTokenFile = inClusterK8sCfg.BearerTokenFile
 		cfg.TLSCert = "/etc/tls-secret-volume/tls.crt"
 		cfg.TLSKey = "/etc/tls-secret-volume/tls.key"
 	} else if !errors.Is(err, rest.ErrNotInCluster) {
