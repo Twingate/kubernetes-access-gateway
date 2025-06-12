@@ -250,14 +250,13 @@ func TestRecorderFlow(t *testing.T) {
 	assert.Less(t, time1, time2, "Events should have increasing timestamps")
 	assert.Less(t, time2, time3, "Events should have increasing timestamps")
 
-	// Check state before stopping
-	assert.True(t, r.IsHeaderWritten(), "state should be Started before Stop")
+	assert.True(t, r.IsHeaderWritten(), "Header should be written")
 
 	// Stop the recording
 	r.Stop()
 
-	// Check state after stopping
-	assert.True(t, r.isStopped(), "state should be Finished after Stop")
+	_, ok := <-r.stopped
+	assert.False(t, ok, "Stopped channel should be closed after Stop")
 }
 
 func TestK8sMetadata(t *testing.T) {

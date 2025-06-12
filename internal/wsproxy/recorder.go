@@ -182,12 +182,14 @@ func (r *AsciinemaRecorder) writeJSON(data any) error {
 }
 
 func (r *AsciinemaRecorder) storeEvent(event string) error {
-	if r.isStopped() {
-		return errAlreadyFinished
-	}
-
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	select {
+	case <-r.stopped:
+		return errAlreadyFinished
+	default:
+	}
 
 	r.recordedLines = append(r.recordedLines, event)
 	totalSize := 0
@@ -201,18 +203,6 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 	}
 
 	return nil
-}
-
-func (r *AsciinemaRecorder) isStopped() bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	select {
-	case <-r.stopped:
-		return true
-	default:
-		return false
-	}
 }
 
 func (r *AsciinemaRecorder) periodicFlush() {
