@@ -80,8 +80,6 @@ type AsciinemaRecorder struct {
 	flushCh chan struct{}
 	// wait group for flush goroutine
 	flushWg sync.WaitGroup
-	// channel to signal that the recorder is stopped
-	stoppedCh chan struct{}
 	// whether the recorder is stopped
 	stopped bool
 
@@ -98,7 +96,6 @@ func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder 
 		},
 		flushCount: 0,
 		flushCh:    make(chan struct{}, 1),
-		stoppedCh:  make(chan struct{}),
 	}
 
 	for _, opt := range opts {
@@ -171,11 +168,11 @@ func (r *AsciinemaRecorder) Stop() {
 	r.mu.Unlock()
 
 	// Signal stop and wait for flush goroutine to finish
-	close(r.stoppedCh)
+	close(r.flushCh)
 	r.flushWg.Wait()
 
 	// Do a final flush to ensure we have a finish audit log
-	r.flush()
+	r.flush(true)
 }
 
 func (r *AsciinemaRecorder) writeJSON(data any) error {
@@ -232,25 +229,27 @@ func (r *AsciinemaRecorder) flushLoop() {
 	for {
 		select {
 		case <-tickerCh: // if no periodic, nil channel blocks forever
-			r.flush()
-		case <-r.flushCh:
-			r.flush()
-		case <-r.stoppedCh:
-			return
+			r.flush(false)
+		case _, ok := <-r.flushCh:
+			if !ok {
+				return
+			}
+
+			r.flush(false)
 		}
 	}
 }
 
-func (r *AsciinemaRecorder) flush() {
+func (r *AsciinemaRecorder) flush(isFinal bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if !r.stopped && len(r.recordedLines) == 0 {
+	if !isFinal && len(r.recordedLines) == 0 {
 		return
 	}
 
 	var message string
-	if r.stopped {
+	if isFinal {
 		message = "session finished"
 	} else {
 		message = "session recording"
