@@ -210,8 +210,14 @@ func (r *AsciinemaRecorder) periodicFlush() {
 		select {
 		case <-r.flushTicker.Chan():
 			r.mu.Lock()
-			r.flushLocked(false)
-			r.mu.Unlock()
+			select {
+			case <-r.stopped:
+				r.mu.Unlock()
+				return
+			default:
+				r.flushLocked(false)
+				r.mu.Unlock()
+			}
 		case <-r.stopped:
 			return
 		}
