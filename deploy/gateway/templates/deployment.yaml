@@ -45,19 +45,9 @@ spec:
               containerPort: {{ (.Values.containerPorts | default dict).https | default 8443 }}
               protocol: TCP
           livenessProbe:
-            httpGet:
-              port: https
-              scheme: HTTPS
-              path: /healthz
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
-            httpGet:
-              port: https
-              scheme: HTTPS
-              path: /healthz
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
