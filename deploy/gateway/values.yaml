@@ -106,3 +106,19 @@ service:
   # This can be used to set the LoadBalancer service type to internal only.
   # For more information checkout: https://kubernetes.io/docs/concepts/services-networking/service/#internal-load-balancer
   annotations: {}
+
+livenessProbe:
+  httpGet:
+    port: https
+    scheme: HTTPS
+    path: /healthz
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+readinessProbe:
+  httpGet:
+    port: https
+    scheme: HTTPS
+    path: /healthz
+  initialDelaySeconds: 5
+  periodSeconds: 5
