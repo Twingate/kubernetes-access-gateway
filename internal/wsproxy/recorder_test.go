@@ -5,9 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestRecorder_NewRecorder(t *testing.T) {
@@ -123,8 +125,9 @@ func TestRecorder_MultipleEvents(t *testing.T) {
 	assert.Equal(t, "second output", lastEvent[2])
 }
 
-func TestRecorder_StoreEventAfterStop(t *testing.T) {
-	r := NewRecorder(zap.NewNop())
+func TestRecorder_Stop(t *testing.T) {
+	core, logs := observer.New(zap.DebugLevel)
+	r := NewRecorder(zap.New(core))
 
 	// Write an event
 	require.NoError(t, r.WriteOutputEvent([]byte("test")))
@@ -136,13 +139,75 @@ func TestRecorder_StoreEventAfterStop(t *testing.T) {
 	// Stop the recording
 	r.Stop()
 
+	// Check that session recording logs are flushed
+	assert.Equal(t, 1, logs.Len(), "Should have one log entry")
+	log := logs.All()[0]
+	assert.Equal(t, "session finished", log.Message)
+	assert.Contains(t, log.ContextMap()["asciinema_data"], "test")
+	assert.Equal(t, int64(1), log.ContextMap()["asciinema_sequence_num"])
+
 	// Try to write after stop
 	err := r.WriteOutputEvent([]byte("should fail"))
 	require.Error(t, err, "Writing after stop should return an error")
 	assert.Contains(t, err.Error(), "recording already finished")
 
 	// Check that nothing was added
-	assert.Len(t, r.recordedLines, recordingLength, "Recording length should not change after Stop")
+	assert.Empty(t, r.recordedLines, "Recording length should not change after Stop")
+}
+
+func TestRecorder_PeriodicFlush(t *testing.T) {
+	// Create a fake clock
+	fakeClock := clockwork.NewFakeClock()
+
+	// Create recorder with fake clock
+	core, logs := observer.New(zap.DebugLevel)
+	r := NewRecorder(zap.New(core), WithClock(fakeClock), WithFlushInterval(time.Minute))
+
+	// 1st interval
+
+	// Add some data
+	_ = r.writeJSON([]any{0, "o", "a"})
+
+	// Advance time to trigger flush
+	fakeClock.Advance(time.Minute)
+
+	// Give the goroutine time to process
+	time.Sleep(10 * time.Millisecond)
+
+	// Check that logs were flushed
+	assert.Equal(t, 1, logs.Len(), "Should have one log entry")
+	log := logs.TakeAll()[0]
+	assert.Equal(t, "session recording", log.Message)
+	assert.Contains(t, log.ContextMap()["asciinema_data"], "a")
+	assert.Equal(t, int64(1), log.ContextMap()["asciinema_sequence_num"])
+
+	// 2nd interval
+	// Advance time to trigger flush
+	fakeClock.Advance(time.Minute)
+
+	// Give the goroutine time to process
+	time.Sleep(10 * time.Millisecond)
+
+	// Check there is no logs when there is no new events
+	assert.Equal(t, 0, logs.Len(), "Should have no log entries")
+
+	// 3rd interval
+
+	// Add some data
+	_ = r.writeJSON([]any{0, "o", "b"})
+
+	// Advance time to trigger flush
+	fakeClock.Advance(time.Minute)
+
+	// Give the goroutine time to process
+	time.Sleep(10 * time.Millisecond)
+
+	// Check that logs were flushed
+	assert.Equal(t, 1, logs.Len(), "Should have one log entry")
+	log = logs.TakeAll()[0]
+	assert.Equal(t, "session recording", log.Message)
+	assert.Contains(t, log.ContextMap()["asciinema_data"], "b")
+	assert.Equal(t, int64(2), log.ContextMap()["asciinema_sequence_num"])
 }
 
 func TestRecorderFlow(t *testing.T) {
@@ -160,7 +225,7 @@ func TestRecorderFlow(t *testing.T) {
 	require.NoError(t, r.WriteHeader(header))
 
 	// Check state flag after writing header
-	assert.Equal(t, StartedState, r.state, "state should be StartedState after WriteHeader")
+	assert.True(t, r.IsHeaderWritten(), "state should be StartedState after WriteHeader")
 
 	// Write some events
 	require.NoError(t, r.WriteOutputEvent([]byte("output 1")))
@@ -185,14 +250,12 @@ func TestRecorderFlow(t *testing.T) {
 	assert.Less(t, time1, time2, "Events should have increasing timestamps")
 	assert.Less(t, time2, time3, "Events should have increasing timestamps")
 
-	// Check state before stopping
-	assert.Equal(t, StartedState, r.state, "state should be Started before Stop")
+	assert.True(t, r.IsHeaderWritten(), "Header should be written")
 
 	// Stop the recording
 	r.Stop()
 
-	// Check state after stopping
-	assert.Equal(t, FinishedState, r.state, "state should be Finished after Stop")
+	assert.True(t, r.stopped, "Stopped channel should be closed after Stop")
 }
 
 func TestK8sMetadata(t *testing.T) {
@@ -205,6 +268,59 @@ func TestK8sMetadata(t *testing.T) {
 	assert.Equal(t, "test-pod", metadata.PodName)
 	assert.Equal(t, "test-namespace", metadata.Namespace)
 	assert.Equal(t, "test-container", metadata.Container)
+}
+
+func TestRecorder_WriteJSON_NoFlushWhenFlushSizeThresholdIsZero(t *testing.T) {
+	core, logs := observer.New(zap.DebugLevel)
+	r := NewRecorder(zap.New(core))
+	r.config.flushSizeThreshold = 0
+
+	_ = r.writeJSON([]any{0, "o", "a"}) // 11 bytes
+
+	// Give the flush goroutine time to process
+	time.Sleep(10 * time.Millisecond)
+
+	assert.Equal(t, 0, logs.Len(), "No logs should be written when flush size threshold is zero")
+}
+
+func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeThreshold(t *testing.T) {
+	core, logs := observer.New(zap.DebugLevel)
+	r := NewRecorder(zap.New(core))
+	r.config.flushSizeThreshold = 15
+
+	_ = r.writeJSON([]any{0, "o", "a"}) // 11 bytes
+
+	// Give the flush goroutine time to process
+	time.Sleep(10 * time.Millisecond)
+
+	assert.Equal(t, 0, logs.Len(), "No logs should be written when total size is below threshold")
+
+	_ = r.writeJSON([]any{0, "o", "b"}) // 11 bytes
+
+	// Give the flush goroutine time to process
+	time.Sleep(10 * time.Millisecond)
+
+	assert.Equal(t, 1, logs.Len(), "One log should be written when total size exceeds threshold")
+
+	log := logs.TakeAll()[0]
+	assert.Equal(t, "session recording", log.Message)
+	assert.Equal(t, int64(1), log.ContextMap()["asciinema_sequence_num"])
+
+	_ = r.writeJSON([]any{0, "o", "c"}) // 11 bytes
+
+	// Give the flush goroutine time to process
+	time.Sleep(10 * time.Millisecond)
+
+	assert.Equal(t, 0, logs.Len(), "No logs should be written when total size is below threshold")
+
+	// Stop the recording should flush the logs
+	r.Stop()
+
+	assert.Equal(t, 1, logs.Len(), "One log should be written when session recording finish")
+
+	log = logs.TakeAll()[0]
+	assert.Equal(t, "session finished", log.Message)
+	assert.Equal(t, int64(2), log.ContextMap()["asciinema_sequence_num"])
 }
 
 func TestRecorder_WriteJSON_Error(t *testing.T) {
@@ -225,7 +341,7 @@ func TestRecorder_WriteJSON_Error(t *testing.T) {
 
 func TestRecorder_StoreEvent_Error(t *testing.T) {
 	r := NewRecorder(zap.NewNop())
-	r.state = FinishedState
+	r.Stop()
 
 	err := r.storeEvent("test event")
 	require.Error(t, err, "storeEvent should return error when recording is finished")

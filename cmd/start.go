@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -62,6 +63,8 @@ func start(newProxy ProxyFactory) error {
 		ConnectValidator: &connect.MessageValidator{
 			TokenParser: parser,
 		},
+		LogFlushSizeThreshold: viper.GetInt("logFlushSizeThreshold"),
+		LogFlushInterval:      viper.GetDuration("logFlushInterval"),
 	}
 
 	if inClusterK8sCfg, err := rest.InClusterConfig(); inClusterK8sCfg != nil {
@@ -100,6 +103,8 @@ func init() { //nolint:gochecknoinits
 	flags.String("port", "8443", "Port to listen on")
 	flags.String("tlsCert", "", "Path to the TLS certificate for the Gateway")
 	flags.String("tlsKey", "", "Path to the TLS key for the Gateway")
+	flags.Int("logFlushSizeThreshold", 64000, "Threshold (in bytes) of the recorded lines to flush")
+	flags.Duration("logFlushInterval", time.Minute, "Interval to flush logs e.g. 30s, 1m, 1h")
 
 	// Kubernetes flags
 	flags.String("k8sAPIServerCA", "", "Path to the CA certificate for the Kubernetes API server")
