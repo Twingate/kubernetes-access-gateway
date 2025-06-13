@@ -80,6 +80,8 @@ You can debug the Gateway locally using Minikube or other Kubernetes environment
    ```sh
    helm upgrade <release-name> ./deploy/gateway/ --install -f <values.yaml> \
      --set image.tag="<one of the tags from previous step>" \
+     --set livenessProbe.timeoutSeconds=3600 \
+     --set readinessProbe.timeoutSeconds=3600
    ```
 
    > **Note:** Replace `<release-name>` and `<values.yaml>` with your actual release name and values file.
