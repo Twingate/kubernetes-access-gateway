@@ -213,6 +213,7 @@ func (r *AsciinemaRecorder) periodicFlush() {
 			select {
 			case <-r.stopped:
 				r.mu.Unlock()
+
 				return
 			default:
 				r.flushLocked(false)
