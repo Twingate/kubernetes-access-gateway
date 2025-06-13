@@ -255,8 +255,7 @@ func TestRecorderFlow(t *testing.T) {
 	// Stop the recording
 	r.Stop()
 
-	_, ok := <-r.stopped
-	assert.False(t, ok, "Stopped channel should be closed after Stop")
+	assert.True(t, r.stopped, "Stopped channel should be closed after Stop")
 }
 
 func TestK8sMetadata(t *testing.T) {
@@ -271,12 +270,15 @@ func TestK8sMetadata(t *testing.T) {
 	assert.Equal(t, "test-container", metadata.Container)
 }
 
-func TestRecorderr_WriteJSON_NoFlushWhenFlushSizeThresholdIsZero(t *testing.T) {
+func TestRecorder_WriteJSON_NoFlushWhenFlushSizeThresholdIsZero(t *testing.T) {
 	core, logs := observer.New(zap.DebugLevel)
 	r := NewRecorder(zap.New(core))
 	r.config.flushSizeThreshold = 0
 
 	_ = r.writeJSON([]any{0, "o", "a"}) // 11 bytes
+
+	// Give the flush goroutine time to process
+	time.Sleep(10 * time.Millisecond)
 
 	assert.Equal(t, 0, logs.Len(), "No logs should be written when flush size threshold is zero")
 }
@@ -288,9 +290,15 @@ func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeThreshold(t *testing.T) {
 
 	_ = r.writeJSON([]any{0, "o", "a"}) // 11 bytes
 
+	// Give the flush goroutine time to process
+	time.Sleep(10 * time.Millisecond)
+
 	assert.Equal(t, 0, logs.Len(), "No logs should be written when total size is below threshold")
 
 	_ = r.writeJSON([]any{0, "o", "b"}) // 11 bytes
+
+	// Give the flush goroutine time to process
+	time.Sleep(10 * time.Millisecond)
 
 	assert.Equal(t, 1, logs.Len(), "One log should be written when total size exceeds threshold")
 
@@ -299,6 +307,9 @@ func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeThreshold(t *testing.T) {
 	assert.Equal(t, int64(1), log.ContextMap()["asciinema_sequence_num"])
 
 	_ = r.writeJSON([]any{0, "o", "c"}) // 11 bytes
+
+	// Give the flush goroutine time to process
+	time.Sleep(10 * time.Millisecond)
 
 	assert.Equal(t, 0, logs.Len(), "No logs should be written when total size is below threshold")
 

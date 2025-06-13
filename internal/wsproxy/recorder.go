@@ -61,7 +61,7 @@ type config struct {
 	flushSizeThreshold int
 
 	// Interval to flush
-	// If 0, never flush periodically.
+	// If 0, no periodic flush is used.
 	flushInterval time.Duration
 }
 
@@ -76,8 +76,14 @@ type AsciinemaRecorder struct {
 	flushCount int
 	// ticker for periodic flush
 	flushTicker clockwork.Ticker
-	// signal that the recorder is stopped
-	stopped chan struct{}
+	// channel to signal that a flush is needed
+	flushCh chan struct{}
+	// wait group for flush goroutine
+	flushWg sync.WaitGroup
+	// channel to signal that the recorder is stopped
+	stoppedCh chan struct{}
+	// whether the recorder is stopped
+	stopped bool
 
 	mu sync.Mutex
 }
@@ -91,7 +97,8 @@ func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder 
 			clock:  clockwork.NewRealClock(),
 		},
 		flushCount: 0,
-		stopped:    make(chan struct{}),
+		flushCh:    make(chan struct{}, 1),
+		stoppedCh:  make(chan struct{}),
 	}
 
 	for _, opt := range opts {
@@ -100,8 +107,10 @@ func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder 
 
 	if r.config.flushInterval > 0 {
 		r.flushTicker = r.config.clock.NewTicker(r.config.flushInterval)
-		go r.periodicFlush()
 	}
+
+	r.flushWg.Add(1)
+	go r.flushLoop()
 
 	return r
 }
@@ -152,20 +161,21 @@ func (r *AsciinemaRecorder) IsHeaderWritten() bool {
 
 func (r *AsciinemaRecorder) Stop() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	if r.stopped {
+		r.mu.Unlock()
 
-	select {
-	case <-r.stopped:
 		return
-	default:
-		close(r.stopped)
 	}
 
-	if r.flushTicker != nil {
-		r.flushTicker.Stop()
-	}
+	r.stopped = true
+	r.mu.Unlock()
 
-	r.flushLocked(true)
+	// Signal stop and wait for flush goroutine to finish
+	close(r.stoppedCh)
+	r.flushWg.Wait()
+
+	// Do a final flush to ensure we have a finish audit log
+	r.flush()
 }
 
 func (r *AsciinemaRecorder) writeJSON(data any) error {
@@ -185,10 +195,8 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	select {
-	case <-r.stopped:
+	if r.stopped {
 		return errAlreadyFinished
-	default:
 	}
 
 	r.recordedLines = append(r.recordedLines, event)
@@ -199,41 +207,50 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 	}
 
 	if r.config.flushSizeThreshold > 0 && totalSize >= r.config.flushSizeThreshold {
-		r.flushLocked(false)
+		// Send a flush signal if there is no pending flush
+		select {
+		case r.flushCh <- struct{}{}:
+		default:
+		}
 	}
 
 	return nil
 }
 
-func (r *AsciinemaRecorder) periodicFlush() {
+func (r *AsciinemaRecorder) flushLoop() {
+	defer r.flushWg.Done()
+
+	if r.flushTicker != nil {
+		defer r.flushTicker.Stop()
+	}
+
+	var tickerCh <-chan time.Time
+	if r.flushTicker != nil {
+		tickerCh = r.flushTicker.Chan()
+	}
+
 	for {
 		select {
-		case <-r.flushTicker.Chan():
-			r.mu.Lock()
-			select {
-			case <-r.stopped:
-				r.mu.Unlock()
-
-				return
-			default:
-				r.flushLocked(false)
-				r.mu.Unlock()
-			}
-		case <-r.stopped:
+		case <-tickerCh: // if no periodic, nil channel blocks forever
+			r.flush()
+		case <-r.flushCh:
+			r.flush()
+		case <-r.stoppedCh:
 			return
 		}
 	}
 }
 
-// flushLocked flushes the recorded lines to the logger and reset the recorded lines.
-// Caller must hold the lock.
-func (r *AsciinemaRecorder) flushLocked(sessionFinished bool) {
-	if !sessionFinished && len(r.recordedLines) == 0 {
+func (r *AsciinemaRecorder) flush() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if !r.stopped && len(r.recordedLines) == 0 {
 		return
 	}
 
 	var message string
-	if sessionFinished {
+	if r.stopped {
 		message = "session finished"
 	} else {
 		message = "session recording"
