@@ -122,3 +122,9 @@ readinessProbe:
     path: /healthz
   initialDelaySeconds: 5
   periodSeconds: 5
+
+# Prometheus metrics
+metrics:
+  enabled: false
+  service:
+    port: 9090

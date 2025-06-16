@@ -23,5 +23,11 @@ spec:
       port: 443
       targetPort: https
       protocol: TCP
+    {{- if .Values.metrics.enabled }}
+    - name: metrics
+      port: {{ .Values.metrics.service.port }}
+      targetPort: metrics
+      protocol: TCP
+    {{- end }}
   selector:
     {{- include "gateway.selectorLabels" . | nindent 4 }}

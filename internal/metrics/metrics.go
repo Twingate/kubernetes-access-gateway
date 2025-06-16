@@ -7,7 +7,7 @@ import (
 	"regexp"
 )
 
-const ExporterName = "twingate"
+const ExporterName = "twingate_gateway"
 
 // TCP Metrics
 var (
@@ -29,9 +29,9 @@ func InitMetricVars() {
 
 func SetBuildInfo() {
 	buildInfo := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Name:      "build_info",
-		Help:      "A metric with a constant '1' value labeled by version, revision, branch, goversion from which Gateway was built, and the goos and goarch for the build.",
 		Namespace: ExporterName,
+		Name:      "build_info",
+		Help:      "A metric with a constant '1' value labeled by version, goversion, goos and goarch from which Twingate Kubernetes Access Gateway was built.",
 		ConstLabels: prometheus.Labels{
 			"version":   version.Version,
 			"goversion": version.GoVersion,
