@@ -17,6 +17,10 @@ import (
 
 const network = "acme"
 
+// TestSingleUser tests the following properties:
+// - User's identity is correctly forwarded to the Kubernetes API server and logged.
+// - REST API request and response are audited.
+// - Streaming API request and its session recording are audited.
 func TestSingleUser(t *testing.T) {
 	const gatewayPort = 8443
 

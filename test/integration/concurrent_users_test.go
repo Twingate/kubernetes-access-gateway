@@ -2,10 +2,12 @@ package integration
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"net/url"
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -19,6 +21,11 @@ import (
 
 const numUsers = 10
 
+// TestConcurrentUsers tests that multiple users can access the gateway concurrently
+// and that their identities are correctly forwarded to the Kubernetes API server and logged.
+//
+// Each user run its own goroutine. A list of pre-defined commands is shuffled and run sequentially.
+// The output and audit log of each command is asserted.
 func TestConcurrentUsers(t *testing.T) {
 	const gatewayPort = 8444
 
@@ -110,48 +117,111 @@ func TestConcurrentUsers(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	for i, user := range users {
+	for _, user := range users {
 		wg.Add(1)
 
 		go func() {
-			t.Log("User", i+1, "is running", user.Username)
-			// Test `kubectl auth whoami`
-			output, err := user.Kubectl.Command("auth", "whoami", "-o", "json")
-			if err != nil {
-				t.Logf("Failed to execute kubectl auth whoami: %v", err)
-			}
-
-			testutil.AssertWhoAmI(t, output, user.Username, append(user.Groups, "system:authenticated"))
-
-			// Test `kubectl get pods`
-			output, err = user.Kubectl.Command("get", "pods", "-o", "json")
-			if err != nil {
-				t.Logf("Failed to execute kubectl get pods: %v", err)
-			}
-
-			testutil.AssertGetPods(t, output)
-
-			// Test `kubectl exec`
-			output, err = user.Kubectl.Command("exec", "test-pod", "--", "cat", "/etc/hostname")
-			if err != nil {
-				t.Logf("Failed to execute kubectl exec: %v", err)
-			}
-
-			assert.Equal(t, "test-pod\n", string(output))
-
-			// Asserting logs
 			expectedUser := map[string]any{
 				"id":       user.ID,
 				"username": user.Username,
 				"groups":   []any{},
 			}
-			userLogs := logs.FilterField(zap.Object("user", user.User))
-			testutil.AssertLogsForREST(t, userLogs, "/apis/authentication.k8s.io/v1/selfsubjectreviews", expectedUser)
-			testutil.AssertLogsForExec(t, userLogs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", "test-pod", expectedUser)
+
+			commands := []command{
+				{
+					name: "whoami",
+					args: []string{"auth", "whoami", "-o", "json"},
+					assertOutputFn: func(t *testing.T, output []byte) {
+						t.Helper()
+						testutil.AssertWhoAmI(t, output, user.Username, []string{"system:authenticated"})
+					},
+					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
+						t.Helper()
+						testutil.AssertLogsForREST(t, logs, "/apis/authentication.k8s.io/v1/selfsubjectreviews", expectedUser)
+					},
+				},
+				{
+					name:           "get-pods",
+					args:           []string{"get", "pods", "-o", "json"},
+					assertOutputFn: testutil.AssertGetPods,
+					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
+						t.Helper()
+						testutil.AssertLogsForREST(t, logs, "/api/v1/namespaces/default/pods?limit=500", expectedUser)
+					},
+				},
+				{
+					name: "exec-sleep",
+					args: []string{"exec", "test-pod", "--", "sleep", "2"},
+					assertOutputFn: func(t *testing.T, output []byte) {
+						t.Helper()
+						assert.Empty(t, string(output))
+					},
+					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
+						t.Helper()
+						testutil.AssertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=sleep&command=2&container=test-pod&stderr=true&stdout=true", "", expectedUser)
+					},
+				},
+				{
+					name: "exec-cat",
+					args: []string{"exec", "test-pod", "--", "cat", "/etc/hostname"},
+					assertOutputFn: func(t *testing.T, output []byte) {
+						t.Helper()
+						assert.Equal(t, "test-pod\n", string(output))
+					},
+					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
+						t.Helper()
+						testutil.AssertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", "test-pod", expectedUser)
+					},
+				},
+			}
+			rand.Shuffle(len(commands), func(i, j int) {
+				commands[i], commands[j] = commands[j], commands[i]
+			})
+
+			t.Logf("User %s is running commands: %s", user.ID, commands)
+
+			lastLogTime := time.Time{}
+
+			for _, cmd := range commands {
+				output, err := user.Kubectl.Command(cmd.args...)
+				if err != nil {
+					t.Logf("Failed to run kubectl %s: %v", cmd.name, err)
+				}
+
+				cmd.assertOutputFn(t, output)
+
+				// Get user logs since last command
+				userLogs := logs.Filter(func(e observer.LoggedEntry) bool {
+					if !e.Time.After(lastLogTime) {
+						return false
+					}
+
+					for _, ctxField := range e.Context {
+						if ctxField.Equals(zap.Object("user", user.User)) {
+							return true
+						}
+					}
+
+					return false
+				})
+				cmd.assertLogFn(t, userLogs)
+				lastLogTime = userLogs.All()[len(userLogs.All())-1].Time
+			}
 
 			wg.Done()
 		}()
 	}
 
 	wg.Wait()
+}
+
+type command struct {
+	name           string
+	args           []string
+	assertOutputFn func(t *testing.T, output []byte)
+	assertLogFn    func(t *testing.T, logs *observer.ObservedLogs)
+}
+
+func (c command) String() string {
+	return c.name
 }
