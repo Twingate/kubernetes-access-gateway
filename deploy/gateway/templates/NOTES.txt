@@ -15,7 +15,7 @@ Admin Console URL - {{ printf "https://%s.%s" .Values.twingate.network (include 
 
 1. The Gateway is accessible via its LoadBalancer IP. It may take a few minutes for the IP address to be available.
 
-Watch the IP address with: 'kubectl get svc --namespace {{ .Release.Namespace }} -w {{ include "gateway.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}''
+Watch the IP address with: 'kubectl get svc --namespace {{ .Release.Namespace }} -w {{ include "gateway.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0]}''
 
 {{- end }}
 
