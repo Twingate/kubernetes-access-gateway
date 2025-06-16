@@ -3,8 +3,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"k8sgateway/internal/metrics"
+	"net/http"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -52,6 +55,20 @@ func start(newProxy ProxyFactory) error {
 	if err != nil {
 		return fmt.Errorf("failed to create token parser %w", err)
 	}
+
+	// Start Prometheus metrics server on a separate port
+	metricsPort := viper.GetString("metricsPort")
+	go func() {
+		metrics.SetBuildInfo()
+		metrics.SetGoCollector()
+		metrics.InitMetricVars()
+
+		http.Handle("/metrics", promhttp.Handler())
+		logger.Infof("Starting metrics server on :%s", metricsPort)
+		if err := http.ListenAndServe(fmt.Sprintf(":%s", metricsPort), nil); err != nil {
+			logger.Errorf("Failed to start metrics server: %v", err)
+		}
+	}()
 
 	cfg := httpproxy.Config{
 		Port:              viper.GetInt("port"),
@@ -110,6 +127,9 @@ func init() { //nolint:gochecknoinits
 	flags.String("k8sAPIServerCA", "", "Path to the CA certificate for the Kubernetes API server")
 	flags.String("k8sAPIServerToken", "", "Bearer token to authenticate to the Kubernetes API server")
 	flags.Int("k8sAPIServerPort", 0, "K8s API Server port, used in local development and testing to override 443 port")
+
+	// Metrics flags
+	flags.String("metricsPort", "9090", "Port to expose Prometheus metrics on")
 
 	// Misc flags
 	flags.BoolP("debug", "d", false, "Run in debug mode")
