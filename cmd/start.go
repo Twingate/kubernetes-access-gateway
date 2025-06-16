@@ -59,13 +59,11 @@ func start(newProxy ProxyFactory) error {
 	// Start Prometheus metrics server on a separate port
 	metricsPort := viper.GetString("metricsPort")
 	go func() {
-		metrics.SetBuildInfo()
-		metrics.SetGoCollector()
-		metrics.InitMetricVars()
+		metrics.RegisterMetricVars()
 
 		http.Handle("/metrics", promhttp.Handler())
-		logger.Infof("Starting metrics server on :%s", metricsPort)
-		if err := http.ListenAndServe(fmt.Sprintf(":%s", metricsPort), nil); err != nil {
+		logger.Infof("Starting metrics server on: %v", metricsPort)
+		if err := http.ListenAndServe(fmt.Sprintf(":%v", metricsPort), nil); err != nil {
 			logger.Errorf("Failed to start metrics server: %v", err)
 		}
 	}()
