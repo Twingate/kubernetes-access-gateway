@@ -7,7 +7,7 @@ import (
 	"k8sgateway/test/fake"
 )
 
-// User represents a user, its kubectl instance and its fake client.
+// User represents a user, its Kubectl instance and its fake Client.
 type User struct {
 	token.User
 	Kubectl *Kubectl

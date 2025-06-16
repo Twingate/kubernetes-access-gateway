@@ -29,16 +29,15 @@ func (k *Kubectl) CommandWithInput(stdinInput string, cmdOptions ...string) ([]b
 }
 
 func (k *Kubectl) executeKubectl(stdIn io.Reader, cmdOptions ...string) ([]byte, error) {
-	options := []string{}
+	var options []string
 	if k.options.context != "" {
-		options = append(options, "--context", k.options.context)
+		options = []string{"--context", k.options.context}
 	} else {
-		options = append(
-			options,
+		options = []string{
 			"--server", k.options.serverURL,
 			"--certificate-authority", k.options.certificateAuthorityPath,
-			"--token", "void",
-		)
+			"--token", "void", // Bearer token is not used but kubectl CLI requires some authentication
+		}
 	}
 
 	cmd := exec.Command("kubectl", append(options, cmdOptions...)...) // #nosec G204 -- kubectl is safe to use
