@@ -1,4 +1,4 @@
-package integration
+package testutil
 
 import (
 	"fmt"
@@ -7,9 +7,15 @@ import (
 	"strings"
 )
 
-// Kubectl contains context to run kubectl commands.
+type KubectlOptions struct {
+	context                  string
+	serverURL                string
+	certificateAuthorityPath string
+}
+
+// Kubectl contains context or server info to run kubectl commands.
 type Kubectl struct {
-	context string
+	options KubectlOptions
 }
 
 // Command is a general func to run kubectl commands.
@@ -23,7 +29,19 @@ func (k *Kubectl) CommandWithInput(stdinInput string, cmdOptions ...string) ([]b
 }
 
 func (k *Kubectl) executeKubectl(stdIn io.Reader, cmdOptions ...string) ([]byte, error) {
-	cmd := exec.Command("kubectl", append([]string{"--context", k.context}, cmdOptions...)...) // #nosec G204 -- kubectl is safe to use
+	options := []string{}
+	if k.options.context != "" {
+		options = append(options, "--context", k.options.context)
+	} else {
+		options = append(
+			options,
+			"--server", k.options.serverURL,
+			"--certificate-authority", k.options.certificateAuthorityPath,
+			"--token", "void",
+		)
+	}
+
+	cmd := exec.Command("kubectl", append(options, cmdOptions...)...) // #nosec G204 -- kubectl is safe to use
 	cmd.Stdin = stdIn
 
 	output, err := cmd.CombinedOutput()
