@@ -1,27 +1,29 @@
 package metrics
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/version"
-	"regexp"
+	"go.uber.org/zap"
 )
 
 const ExporterName = "twingate_gateway"
 
-// General Metrics
+type Config struct {
+	Port string
+}
+
 var (
 	buildInfo        prometheus.GaugeFunc
 	goCollector      prometheus.Collector
 	processCollector prometheus.Collector
 )
 
-// TCP Metrics
-var (
-	TCPActiveConnections prometheus.Gauge
-)
-
-func init() {
+func InitMetricsCollectors() {
 	buildInfo = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: ExporterName,
 		Name:      "build_info",
@@ -34,36 +36,40 @@ func init() {
 		},
 	}, func() float64 { return 1 })
 
-	goCollector = collectors.NewGoCollector(
-		collectors.WithGoCollectorRuntimeMetrics(
-			collectors.MetricsScheduler,
-			collectors.MetricsGC,
-			collectors.GoRuntimeMetricsRule{
-				Matcher: regexp.MustCompile("^/mycustomrule.*"),
-			},
-		),
-	)
+	goCollector = collectors.NewGoCollector()
 
 	processCollector = collectors.NewProcessCollector(
 		collectors.ProcessCollectorOpts{
 			Namespace: ExporterName,
 		},
 	)
-
-	TCPActiveConnections = prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: ExporterName,
-		Subsystem: "tcp",
-		Name:      "active_connections",
-		Help:      "Number of active TCP connections",
-	})
 }
 
-func RegisterMetricVars() {
-	prometheus.MustRegister(buildInfo)
-
+func RegisterMetricVars(reg prometheus.Registerer) {
 	// Unregister the default GoCollector
-	prometheus.Unregister(collectors.NewGoCollector())
-	prometheus.MustRegister(goCollector)
-	prometheus.MustRegister(processCollector)
-	prometheus.MustRegister(TCPActiveConnections)
+	reg.Unregister(collectors.NewGoCollector())
+
+	reg.MustRegister(buildInfo, goCollector, processCollector)
+}
+
+func Start(config Config) {
+	logger := zap.S()
+
+	InitMetricsCollectors()
+
+	registry := prometheus.NewRegistry()
+	RegisterMetricVars(registry)
+
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	metricsServer := &http.Server{
+		Addr:    fmt.Sprintf(":%v", config.Port),
+		Handler: mux,
+	}
+
+	logger.Infof("Starting metrics server on: %v", config.Port)
+
+	if err := metricsServer.ListenAndServe(); err != nil {
+		logger.Fatalf("Failed to start metrics server: %v", err)
+	}
 }

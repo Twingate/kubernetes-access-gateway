@@ -3,11 +3,10 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"k8sgateway/internal/metrics"
-	"net/http"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8sgateway/internal/metrics"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -56,18 +55,6 @@ func start(newProxy ProxyFactory) error {
 		return fmt.Errorf("failed to create token parser %w", err)
 	}
 
-	// Start Prometheus metrics server on a separate port
-	metricsPort := viper.GetString("metricsPort")
-	go func() {
-		metrics.RegisterMetricVars()
-
-		http.Handle("/metrics", promhttp.Handler())
-		logger.Infof("Starting metrics server on: %v", metricsPort)
-		if err := http.ListenAndServe(fmt.Sprintf(":%v", metricsPort), nil); err != nil {
-			logger.Errorf("Failed to start metrics server: %v", err)
-		}
-	}()
-
 	cfg := httpproxy.Config{
 		Port:              viper.GetInt("port"),
 		TLSKey:            viper.GetString("tlsKey"),
@@ -93,6 +80,11 @@ func start(newProxy ProxyFactory) error {
 	} else if !errors.Is(err, rest.ErrNotInCluster) {
 		logger.Errorf("failed to load in-cluster config: %v", err)
 	}
+
+	metricsPort := viper.GetString("metricsPort")
+	go metrics.Start(metrics.Config{
+		Port: metricsPort,
+	})
 
 	proxy, err := newProxy(cfg)
 	if err != nil {
