@@ -289,9 +289,6 @@ type Proxy struct {
 	httpServer          *http.Server
 	proxy               *httputil.ReverseProxy
 	downstreamTLSConfig *tls.Config
-	port                int
-	connectValidator    connect.Validator
-	k8sAPIServerToken   string
 }
 
 func NewProxy(cfg Config) (*Proxy, error) {
@@ -403,9 +400,6 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		httpServer:          httpServer,
 		proxy:               proxy,
 		downstreamTLSConfig: downstreamTLSConfig,
-		port:                cfg.Port,
-		connectValidator:    cfg.ConnectValidator,
-		k8sAPIServerToken:   cfg.K8sAPIServerToken,
 		config:              cfg,
 	}
 	mux.HandleFunc("/", p.serveHTTP)
@@ -418,7 +412,7 @@ func (p *Proxy) Start(ready chan struct{}) {
 	logger := zap.S()
 
 	// create the TCP listener
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", p.port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", p.config.Port))
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -431,7 +425,7 @@ func (p *Proxy) Start(ready chan struct{}) {
 	customListener := &tcpListener{
 		Listener:         listener,
 		TLSConfig:        p.downstreamTLSConfig,
-		ConnectValidator: p.connectValidator,
+		ConnectValidator: p.config.ConnectValidator,
 	}
 
 	// start serving HTTP
