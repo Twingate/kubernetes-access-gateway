@@ -184,5 +184,5 @@ func unmask(mask [4]byte, data []byte) {
 
 // kubernetes to send data.
 func IsDataFrame(b []byte) bool {
-	return len(b) > 0 && (b[0]&0xf) == 0 || (b[0]&0xf) == 1 || (b[0]&0xf) == 2
+	return len(b) > 0 && ((b[0]&0xf) == 0 || (b[0]&0xf) == 1 || (b[0]&0xf) == 2)
 }
