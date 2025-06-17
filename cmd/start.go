@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"k8sgateway/internal/metrics"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -15,6 +13,7 @@ import (
 	"k8sgateway/internal/connect"
 	"k8sgateway/internal/httpproxy"
 	"k8sgateway/internal/log"
+	"k8sgateway/internal/metrics"
 	"k8sgateway/internal/token"
 )
 

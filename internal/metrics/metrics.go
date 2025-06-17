@@ -3,6 +3,7 @@ package metrics
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -63,6 +64,9 @@ func Start(config Config) {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	metricsServer := &http.Server{
+		// G112 - Protect against Slowloris attack
+		ReadHeaderTimeout: 5 * time.Second,
+
 		Addr:    fmt.Sprintf(":%v", config.Port),
 		Handler: mux,
 	}

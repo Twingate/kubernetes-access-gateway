@@ -74,6 +74,9 @@ should render:
                 - containerPort: 8443
                   name: https
                   protocol: TCP
+                - containerPort: 9090
+                  name: metrics
+                  protocol: TCP
               readinessProbe:
                 httpGet:
                   path: /healthz
@@ -120,6 +123,10 @@ should render:
           port: 443
           protocol: TCP
           targetPort: https
+        - name: metrics
+          port: 9090
+          protocol: TCP
+          targetPort: metrics
       selector:
         app.kubernetes.io/instance: RELEASE-NAME
         app.kubernetes.io/name: kubernetes-access-gateway
