@@ -31,12 +31,8 @@ func TestMessage_Parse_SimpleMessage(t *testing.T) {
 		t.Errorf("Expected to parse 5 bytes, got %d", parsed)
 	}
 
-	if !msg.isFinished {
-		t.Error("Expected isFinished to be true")
-	}
-
-	if !msg.hasFragments {
-		t.Error("Expected hasFragments to be true")
+	if msg.state != MessageStateFinished {
+		t.Error("Expected msg.state to be MessageStateFinished")
 	}
 
 	if msg.k8sStreamID != 1 {
@@ -70,8 +66,8 @@ func TestMessage_Parse_MaskedMessage(t *testing.T) {
 		t.Errorf("Expected to parse 9 bytes, got %d", parsed)
 	}
 
-	if !msg.isFinished {
-		t.Error("Expected isFinished to be true")
+	if msg.state != MessageStateFinished {
+		t.Error("Expected msg.state to be MessageStateFinished")
 	}
 
 	if msg.k8sStreamID != 2 {
@@ -185,8 +181,8 @@ func TestMessage_Parse_FragmentedMessage(t *testing.T) {
 		t.Errorf("Expected to parse 5 bytes in first fragment, got %d", parsed1)
 	}
 
-	if msg.isFinished {
-		t.Error("Expected isFinished to be false after first fragment")
+	if msg.state != MessageStateFragmented {
+		t.Error("Expected msg.state to be MessageStateFragmented after first fragment")
 	}
 
 	parsed2, err := msg.Parse(data2)
@@ -198,8 +194,8 @@ func TestMessage_Parse_FragmentedMessage(t *testing.T) {
 		t.Errorf("Expected to parse 5 bytes in second fragment, got %d", parsed2)
 	}
 
-	if !msg.isFinished {
-		t.Error("Expected isFinished to be true after second fragment")
+	if msg.state != MessageStateFinished {
+		t.Error("Expected msg.state to be MessageStateFinished after second fragment")
 	}
 
 	if msg.k8sStreamID != 4 {
