@@ -36,9 +36,9 @@ should show LoadBalancer instructions when service type is LoadBalancer:
 
       Admin Console URL - https://.twingate.com
 
-      1. The Gateway is accessible via its LoadBalancer IP. It may take a few minutes for the IP address to be available.
+      1. The Gateway is accessible via its LoadBalancer IP or hostname. It may take a few minutes for the address to be available.
 
-      Watch the IP address with: 'kubectl get svc --namespace NAMESPACE -w RELEASE-NAME-kubernetes-access-gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}''
+      Watch the LoadBalancer address with: 'kubectl get svc --namespace NAMESPACE -w RELEASE-NAME-kubernetes-access-gateway -o jsonpath='{.status.loadBalancer.ingress[0]}''
 
       2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret. The CA certificate is
 
