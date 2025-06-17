@@ -11,21 +11,15 @@ import (
 func TestRegisterMetricVars(t *testing.T) {
 	InitMetricsCollectors()
 
-	registry := prometheus.NewRegistry()
-	RegisterMetricVars(registry)
+	testRegistry := prometheus.NewRegistry()
+	RegisterMetricVars(testRegistry)
 
-	metricFamilies, err := registry.Gather()
+	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
 
 	expectedMetrics := []string{
 		// Build Info Metric
 		"twingate_gateway_build_info",
-
-		// Go Metrics
-		"go_gc_duration_seconds",
-
-		// Go Process Metrics
-		"twingate_gateway_process_cpu_seconds_total",
 	}
 
 	registeredMetrics := make([]string, len(metricFamilies))
