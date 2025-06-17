@@ -26,7 +26,6 @@ func TestRegisterMetricVars(t *testing.T) {
 
 		// Go Process Metrics
 		"twingate_gateway_process_cpu_seconds_total",
-
 	}
 
 	registeredMetrics := make([]string, len(metricFamilies))
