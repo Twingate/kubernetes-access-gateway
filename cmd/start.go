@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -82,7 +83,9 @@ func start(newProxy ProxyFactory) error {
 
 	metricsPort := viper.GetString("metricsPort")
 	go metrics.Start(metrics.Config{
-		Port: metricsPort,
+		Port:     metricsPort,
+		Logger:   zap.S(),
+		Registry: prometheus.NewRegistry(),
 	})
 
 	proxy, err := newProxy(cfg)

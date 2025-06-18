@@ -3,19 +3,23 @@ package metrics
 import (
 	"fmt"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/version"
 	"go.uber.org/zap"
+
+	"k8sgateway/internal/version"
 )
 
-const ExporterName = "twingate_gateway"
+const Namespace = "twingate_gateway"
 
 type Config struct {
-	Port string
+	Port     string
+	Logger   *zap.SugaredLogger
+	Registry *prometheus.Registry
 }
 
 var (
@@ -24,42 +28,11 @@ var (
 	processCollector prometheus.Collector
 )
 
-func InitMetricsCollectors() {
-	buildInfo = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: ExporterName,
-		Name:      "build_info",
-		Help:      "A metric with a constant '1' value labeled by version, goversion, goos and goarch from which Twingate Kubernetes Access Gateway was built.",
-		ConstLabels: prometheus.Labels{
-			"version":   version.Version,
-			"goversion": version.GoVersion,
-			"goos":      version.GoOS,
-			"goarch":    version.GoArch,
-		},
-	}, func() float64 { return 1 })
-
-	goCollector = collectors.NewGoCollector()
-
-	processCollector = collectors.NewProcessCollector(
-		collectors.ProcessCollectorOpts{
-			Namespace: ExporterName,
-		},
-	)
-}
-
-func RegisterMetricVars(reg prometheus.Registerer) {
-	// Unregister the default GoCollector
-	reg.Unregister(collectors.NewGoCollector())
-
-	reg.MustRegister(buildInfo, goCollector, processCollector)
-}
-
 func Start(config Config) {
-	logger := zap.S()
+	logger := config.Logger
+	registry := config.Registry
 
-	InitMetricsCollectors()
-
-	registry := prometheus.NewRegistry()
-	RegisterMetricVars(registry)
+	initMetricsCollectors(registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
@@ -76,4 +49,24 @@ func Start(config Config) {
 	if err := metricsServer.ListenAndServe(); err != nil {
 		logger.Fatalf("Failed to start metrics server: %v", err)
 	}
+}
+
+func initMetricsCollectors(reg *prometheus.Registry) {
+	buildInfo = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "build_info",
+		Help:      "A metric with a constant '1' value labeled by version, goversion, goos and goarch from which Twingate Kubernetes Access Gateway was built.",
+		ConstLabels: prometheus.Labels{
+			"version":   version.Version,
+			"goversion": runtime.Version(),
+			"goos":      runtime.GOOS,
+			"goarch":    runtime.GOARCH,
+		},
+	}, func() float64 { return 1 })
+
+	goCollector = collectors.NewGoCollector()
+
+	processCollector = collectors.NewProcessCollector(collectors.ProcessCollectorOpts{})
+
+	reg.MustRegister(buildInfo, goCollector, processCollector)
 }
