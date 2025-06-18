@@ -32,10 +32,10 @@ func TestInitMetricCollectors(t *testing.T) {
 		// Process Metric
 		"process_cpu_seconds_total",
 		// API Server Metrics
-		"twingate_gateway_api_connections_active_total",
+		"twingate_gateway_api_connections_active",
 		"twingate_gateway_api_connection_duration_seconds",
 		// Client Metrics
-		"twingate_gateway_client_connections_active_total",
+		"twingate_gateway_client_connections_active",
 		"twingate_gateway_client_connection_duration_seconds",
 		"twingate_gateway_client_connection_errors_total",
 		"twingate_gateway_client_authentications_total",
@@ -44,7 +44,7 @@ func TestInitMetricCollectors(t *testing.T) {
 		"twingate_gateway_http_request_size_bytes",
 		"twingate_gateway_http_response_size_bytes",
 		// WebSocket Metrics
-		"twingate_gateway_websocket_sessions_active_total",
+		"twingate_gateway_websocket_sessions_active",
 		"twingate_gateway_websocket_session_duration_seconds",
 		"twingate_gateway_websocket_session_errors_total",
 	}

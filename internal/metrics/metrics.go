@@ -30,16 +30,16 @@ var (
 )
 
 var (
-	APIConnectionsActiveTotal       prometheus.Gauge
+	APIConnectionsActive            prometheus.Gauge
 	APIConnectionsDurationSeconds   prometheus.Histogram
-	ClientConnectionsActiveTotal    prometheus.Gauge
+	ClientConnectionsActive         prometheus.Gauge
 	ClientConnectionDurationSeconds prometheus.Histogram
 	ClientConnectionErrorsTotal     *prometheus.CounterVec
 	ClientAuthenticationsTotal      *prometheus.CounterVec
 	HTTPRequestsTotal               *prometheus.CounterVec
 	HTTPRequestSizeBytes            *prometheus.HistogramVec
 	HTTPResponseSizeBytes           prometheus.Histogram
-	WebsocketSessionsActiveTotal    prometheus.Gauge
+	WebsocketSessionsActive         prometheus.Gauge
 	WebsocketSessionDurationSeconds prometheus.Histogram
 	WebsocketSessionErrorsTotal     *prometheus.CounterVec
 )
@@ -85,9 +85,9 @@ func initMetricCollectors(reg *prometheus.Registry) {
 	processCollector = collectors.NewProcessCollector(collectors.ProcessCollectorOpts{})
 
 	// region API Server Metrics.
-	APIConnectionsActiveTotal = prometheus.NewGauge(prometheus.GaugeOpts{
+	APIConnectionsActive = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: Namespace,
-		Name:      "api_connections_active_total",
+		Name:      "api_connections_active",
 		Help:      "Number of currently active API server connections",
 	})
 
@@ -100,9 +100,9 @@ func initMetricCollectors(reg *prometheus.Registry) {
 	// endregion
 
 	// region Client Metrics.
-	ClientConnectionsActiveTotal = prometheus.NewGauge(prometheus.GaugeOpts{
+	ClientConnectionsActive = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: Namespace,
-		Name:      "client_connections_active_total",
+		Name:      "client_connections_active",
 		Help:      "Number of currently active client connections",
 	})
 
@@ -149,9 +149,9 @@ func initMetricCollectors(reg *prometheus.Registry) {
 	// endregion
 
 	// region Websocket Metrics.
-	WebsocketSessionsActiveTotal = prometheus.NewGauge(prometheus.GaugeOpts{
+	WebsocketSessionsActive = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: Namespace,
-		Name:      "websocket_sessions_active_total",
+		Name:      "websocket_sessions_active",
 		Help:      "Total number of currently active WebSocket sessions",
 	})
 
@@ -173,16 +173,16 @@ func initMetricCollectors(reg *prometheus.Registry) {
 		buildInfo,
 		goCollector,
 		processCollector,
-		APIConnectionsActiveTotal,
+		APIConnectionsActive,
 		APIConnectionsDurationSeconds,
-		ClientConnectionsActiveTotal,
+		ClientConnectionsActive,
 		ClientConnectionDurationSeconds,
 		ClientConnectionErrorsTotal,
 		ClientAuthenticationsTotal,
 		HTTPRequestsTotal,
 		HTTPRequestSizeBytes,
 		HTTPResponseSizeBytes,
-		WebsocketSessionsActiveTotal,
+		WebsocketSessionsActive,
 		WebsocketSessionDurationSeconds,
 		WebsocketSessionErrorsTotal,
 	)
