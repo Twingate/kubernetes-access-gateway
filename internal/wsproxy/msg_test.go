@@ -294,22 +294,6 @@ func TestMessage_Parse_TooLargePayload(t *testing.T) {
 	}
 }
 
-func TestMessage_Parse_InvalidPayloadLength(t *testing.T) {
-	// Create a message with truncated length field, using binary frame (0x2)
-	data := []byte{
-		0x82, // FIN=1, RSV1-3=0, opcode=2 (binary)
-		0x7E, // MASK=0, payload length=126 (indicates 16-bit length follows)
-		0x00, // Only 1 byte of the 2 expected length bytes
-	}
-
-	msg := &wsMessage{}
-	_, err := msg.Parse(data)
-
-	if !errors.Is(err, errPayloadLength) {
-		t.Errorf("Expected errPayloadLength error, got %v", err)
-	}
-}
-
 func TestMessage_Parse_ControlMessagePing(t *testing.T) {
 	// Create a WebSocket PING message with FIN=1, opcode=9 (PING), no masking, and a small payload
 	data := []byte{
@@ -352,14 +336,12 @@ func TestMessage_Parse_ControlMessageCloseMasked(t *testing.T) {
 	// In this test, the unmasked payload is:
 	// Status Code: 1000 (0x03E8) - This signifies "Normal Closure".
 	// Reason: "Bye" (ASCII bytes: 0x42, 0x79, 0x65).
-
 	// Each byte of the unmasked payload is XORed with a byte from the masking key.
 	// 0x03 ^ 0x01 = 0x02  (First byte of status code masked)
 	// 0xE8 ^ 0x02 = 0xEA  (Second byte of status code masked)
 	// 0x42 ^ 0x03 = 0x41  (First byte of reason "B" masked)
 	// 0x79 ^ 0x04 = 0x7D  (Second byte of reason "y" masked)
 	// 0x65 ^ 0x01 = 0x64  (Third byte of reason "e" masked - key wraps around to 0x01)
-
 	data := []byte{
 		0x88,                   // Byte 0: FIN=1 (final fragment), RSV1-3=0, opcode=8 (CLOSE)
 		0x85,                   // Byte 1: MASK=1 (message is masked), payload length=5 (bytes that follow the masking key)

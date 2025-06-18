@@ -64,6 +64,11 @@ func (message *wsMessage) Parse(data []byte) (int, error) {
 }
 
 func (message *wsMessage) parsePayload(data []byte) (uint64, error) {
+	// not enough data to proceed with parsing
+	if len(data) < 2 {
+		return 0, nil
+	}
+
 	// MASK bit set
 	var isMasked = ((data[1] & 0x80) != 0)
 
@@ -88,7 +93,7 @@ func (message *wsMessage) parsePayload(data []byte) (uint64, error) {
 	case payloadLenVal == 126: // 7 + 16 bits
 		maskOffset = 4
 		if len(data) < int(maskOffset) {
-			return 0, errPayloadLength
+			return 0, nil
 		}
 
 		payloadLength = uint64(binary.BigEndian.Uint16(data[2:4])) // length stored in 16 bit field
@@ -96,7 +101,7 @@ func (message *wsMessage) parsePayload(data []byte) (uint64, error) {
 	case payloadLenVal == 127: // 7 + 64 bits
 		maskOffset = 10
 		if len(data) < int(maskOffset) {
-			return 0, errPayloadLength
+			return 0, nil
 		}
 
 		payloadLength = binary.BigEndian.Uint64(data[2:10]) // length stored in 64 bit field

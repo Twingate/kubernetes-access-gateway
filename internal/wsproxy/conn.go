@@ -13,7 +13,6 @@ import (
 )
 
 var (
-	errFailedToWriteToBuf     = errors.New("failed to write to buffer")
 	errFailedToParseWS        = errors.New("failed to parse websocket message")
 	errFailedToParseResizeMsg = errors.New("failed to parse resize message")
 	errFailedToWriteResizeMsg = errors.New("failed to write resize message")
@@ -86,9 +85,7 @@ func (c *conn) Read(data []byte) (int, error) {
 	}
 
 	// copy all the data into our buffer
-	if _, err := c.readBuffer.Write(data[:bytesRead]); err != nil {
-		return bytesRead, fmt.Errorf("%w: %w", errFailedToWriteToBuf, err)
-	}
+	c.readBuffer.Write(data[:bytesRead])
 
 	for len(c.readBuffer.Bytes()) > 0 {
 		// IsDataFrame() determines the type of websocket frame (control vs data) using the first byte of the data,
@@ -113,14 +110,12 @@ func (c *conn) Read(data []byte) (int, error) {
 		// failed to parse, do not proceed.
 		if err != nil {
 			return 0, fmt.Errorf("%w: %w", errFailedToParseWS, err)
-		}
-
-		// incomplete websocket frame, unable to parse, need more data.
-		// since we didn't consume any data from trying to parse c.readBuffer,
-		// we don't need to do anything other than to return the amount of
-		// data we read into to c.readBuffer at the start of the function,
-		// providing the caller the available data to read
-		if parsedBytes == 0 {
+		} else if parsedBytes == 0 {
+			// incomplete websocket frame, unable to parse, need more data.
+			// since we didn't consume any data from trying to parse c.readBuffer,
+			// we don't need to do anything other than to return the amount of
+			// data we read into to c.readBuffer at the start of the function,
+			// providing the caller the available data to read
 			return bytesRead, nil
 		}
 
@@ -131,39 +126,42 @@ func (c *conn) Read(data []byte) (int, error) {
 
 		// if we don't have a fully complete websocket message (it's fragmented)
 		// then we can't record it until we reassemble, so
-		// provide the caller the available data to read and reuse this
-		// message for the next fragment
+		// continue to try to parse more data from the buffer if possible
 		if currentMsg.state == MessageStateFragmented {
-			return len(data), nil
+			continue
 		}
 
-		// resize event
-		if currentMsg.k8sStreamID == remotecommand.StreamResize {
-			var resizeMessage resizeMsg
-			if err = json.Unmarshal(currentMsg.payload, &resizeMessage); err != nil {
-				return bytesRead, fmt.Errorf("%w: %w", errFailedToParseResizeMsg, err)
-			}
-
-			// if it's the first resize, we save it for the asciinema cast header
-			// otherwise we record it as a terminal resize event
-			var firstResize bool
-
-			c.readFirstResizeOnce.Do(func() {
-				firstResize = true
-			})
-
-			if firstResize {
-				// set the header terminal size and close the channel
-				c.asciinemaHeader.Width = resizeMessage.Width
-				c.asciinemaHeader.Height = resizeMessage.Height
-				close(c.readFirstResize)
-			} else if err := c.recorder.WriteResizeEvent(resizeMessage.Width, resizeMessage.Height); err != nil {
-				return bytesRead, fmt.Errorf("%w: %w", errFailedToWriteResizeMsg, err)
-			}
+		// finished with the current message, we don't need to hold it anymore
+		if currentMsg == c.readMessage {
+			c.readMessage = nil
 		}
 
-		// finished with this message
-		c.readMessage = nil
+		// check if we need to record this message
+		if !c.shouldRecordReadMessage(currentMsg) {
+			continue
+		}
+
+		var resizeMessage resizeMsg
+		if err = json.Unmarshal(currentMsg.payload, &resizeMessage); err != nil {
+			return bytesRead, fmt.Errorf("%w: %w", errFailedToParseResizeMsg, err)
+		}
+
+		// if it's the first resize, we save it for the asciinema cast header
+		// otherwise we record it as a terminal resize event
+		var firstResize bool
+
+		c.readFirstResizeOnce.Do(func() {
+			firstResize = true
+		})
+
+		if firstResize {
+			// set the header terminal size and close the channel
+			c.asciinemaHeader.Width = resizeMessage.Width
+			c.asciinemaHeader.Height = resizeMessage.Height
+			close(c.readFirstResize)
+		} else if err := c.recorder.WriteResizeEvent(resizeMessage.Width, resizeMessage.Height); err != nil {
+			return bytesRead, fmt.Errorf("%w: %w", errFailedToWriteResizeMsg, err)
+		}
 	}
 
 	return bytesRead, nil
@@ -179,9 +177,7 @@ func (c *conn) Write(data []byte) (int, error) {
 	}
 
 	// copy all the data into our buffer
-	if _, err := c.writeBuffer.Write(data); err != nil {
-		return 0, fmt.Errorf("%w: %w", errFailedToWriteToBuf, err)
-	}
+	c.writeBuffer.Write(data)
 
 	for len(c.writeBuffer.Bytes()) > 0 {
 		// IsDataFrame() determines the type of websocket frame (control vs data) using the first byte of the data,
@@ -206,14 +202,12 @@ func (c *conn) Write(data []byte) (int, error) {
 		// failed to parse, do not proceed
 		if err != nil {
 			return 0, fmt.Errorf("%w: %w", errFailedToParseWS, err)
-		}
-
-		// incomplete websocket frame, unable to parse, need more data.
-		// since we didn't consume any data from trying to parse c.writeBuffer,
-		// we don't need to do anything other than to return the amount of
-		// data we consumed/added to c.writeBuffer at the start of the function,
-		// signaling to the caller that we have accepted the data
-		if parsedBytes == 0 {
+		} else if parsedBytes == 0 {
+			// incomplete websocket frame, unable to parse, need more data.
+			// since we didn't consume any data from trying to parse c.writeBuffer,
+			// we don't need to do anything other than to return the amount of
+			// data we consumed/added to c.writeBuffer at the start of the function,
+			// signaling to the caller that we have accepted the data
 			return len(data), nil
 		}
 
@@ -222,44 +216,53 @@ func (c *conn) Write(data []byte) (int, error) {
 		// drain it from the c.writeBuffer, since the data is now
 		// in the currently parsed message
 		bytesWritten, writeErr := c.Conn.Write(c.writeBuffer.Bytes()[:parsedBytes])
+		if writeErr != nil {
+			return 0, writeErr
+		}
+
 		c.writeBuffer.Next(bytesWritten)
 
 		// if we don't have a fully complete websocket message (it's fragmented)
 		// then we can't record it until we reassemble, so
-		// signal to the caller we have accepted the data and return
+		// continue to try to parse more data from the buffer if possible
 		if currentMsg.state == MessageStateFragmented {
-			return len(data), writeErr
+			continue
 		}
 
-		if currentMsg.k8sStreamID == remotecommand.StreamStdOut || currentMsg.k8sStreamID == remotecommand.StreamStdErr {
-			// on first Write() we want to block and wait for the first resize event (if terminal) so that
-			// we can record the asciinema header first and then continue the flow and recording
-			var waitForFirstResize bool
+		// finished with the current message, we don't need to hold it anymore
+		if currentMsg == c.writeMessage {
+			c.writeMessage = nil
+		}
 
-			c.writeStartRecordingOnce.Do(func() {
-				waitForFirstResize = c.sessionHasTerminal
-			})
+		// check if we need to record this message
+		if !c.shouldRecordWriteMessage(currentMsg) {
+			continue
+		}
 
-			// check if we need to wait
-			if waitForFirstResize {
-				<-c.readFirstResize // blocks waiting for Read() to unblock channel
-			}
+		// on first Write() we want to block and wait for the first resize event (if terminal) so that
+		// we can record the asciinema header first and then continue the flow and recording
+		var waitForFirstResize bool
 
-			// record the asciinema header first to start the recording
-			if !c.recorder.IsHeaderWritten() {
-				if err := c.recorder.WriteHeader(c.asciinemaHeader); err != nil {
-					return 0, fmt.Errorf("%w: %w", errFailedToWriteHeader, err)
-				}
-			}
+		c.writeStartRecordingOnce.Do(func() {
+			waitForFirstResize = c.sessionHasTerminal
+		})
 
-			// now we can write events
-			if err := c.recorder.WriteOutputEvent(currentMsg.payload); err != nil {
-				return 0, fmt.Errorf("%w: %w", errFailedToWriteRecording, err)
+		// check if we need to wait
+		if waitForFirstResize {
+			<-c.readFirstResize // blocks waiting for Read() to unblock channel
+		}
+
+		// record the asciinema header first to start the recording
+		if !c.recorder.IsHeaderWritten() {
+			if err := c.recorder.WriteHeader(c.asciinemaHeader); err != nil {
+				return 0, fmt.Errorf("%w: %w", errFailedToWriteHeader, err)
 			}
 		}
 
-		// finished with this message
-		c.writeMessage = nil
+		// now we can write events
+		if err := c.recorder.WriteOutputEvent(currentMsg.payload); err != nil {
+			return 0, fmt.Errorf("%w: %w", errFailedToWriteRecording, err)
+		}
 	}
 
 	return len(data), nil
@@ -273,4 +276,13 @@ func (c *conn) Close() error {
 	c.recorder.Stop() // stop recording
 
 	return c.Conn.Close()
+}
+
+func (c *conn) shouldRecordReadMessage(msg *wsMessage) bool {
+	return msg.k8sStreamID == remotecommand.StreamResize
+}
+
+func (c *conn) shouldRecordWriteMessage(msg *wsMessage) bool {
+	return msg.k8sStreamID == remotecommand.StreamStdOut ||
+		msg.k8sStreamID == remotecommand.StreamStdErr
 }
