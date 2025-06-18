@@ -31,7 +31,7 @@ func TestInitMetricCollectors(t *testing.T) {
 		"go_gc_duration_seconds",
 		// Process Metric
 		"process_cpu_seconds_total",
-		// API Metrics
+		// API Server Metrics
 		"twingate_gateway_api_connections_active_total",
 		"twingate_gateway_api_connection_duration_seconds",
 		// Client Metrics
