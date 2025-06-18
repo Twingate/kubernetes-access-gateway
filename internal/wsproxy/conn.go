@@ -58,7 +58,7 @@ type conn struct {
 
 	// Writing to downstream
 	writeMutex   sync.Mutex // non-parallel write
-	writeMessage *wsMessage // current k8s websocket message that is being parsed
+	writeMessage *wsMessage // current websocket message that is being parsed
 	writeBuffer  bytes.Buffer
 	// used to block and wait for readFirstResize to be signalled, and write the cast header only once and begin recording
 	writeStartRecordingOnce sync.Once
