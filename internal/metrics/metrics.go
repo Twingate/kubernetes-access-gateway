@@ -35,7 +35,7 @@ func Start(config Config) {
 	initMetricCollectors(registry)
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
 	server := &http.Server{
 		// G112 - Protect against Slowloris attack
 		ReadHeaderTimeout: 5 * time.Second,
