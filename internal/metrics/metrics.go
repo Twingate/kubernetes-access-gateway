@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"runtime"
 	"time"
@@ -26,6 +27,21 @@ var (
 	buildInfo        prometheus.GaugeFunc
 	goCollector      prometheus.Collector
 	processCollector prometheus.Collector
+)
+
+var (
+	APIConnectionsActiveTotal       prometheus.Gauge
+	APIConnectionsDurationSeconds   prometheus.Histogram
+	ClientConnectionsActiveTotal    prometheus.Gauge
+	ClientConnectionDurationSeconds prometheus.Histogram
+	ClientConnectionErrorsTotal     *prometheus.CounterVec
+	ClientAuthenticationsTotal      *prometheus.CounterVec
+	HTTPRequestsTotal               *prometheus.CounterVec
+	HTTPRequestSizeBytes            *prometheus.HistogramVec
+	HTTPResponseSizeBytes           prometheus.Histogram
+	WebsocketSessionsActiveTotal    prometheus.Gauge
+	WebsocketSessionDurationSeconds prometheus.Histogram
+	WebsocketSessionErrorsTotal     *prometheus.CounterVec
 )
 
 func Start(config Config) {
@@ -68,5 +84,106 @@ func initMetricCollectors(reg *prometheus.Registry) {
 
 	processCollector = collectors.NewProcessCollector(collectors.ProcessCollectorOpts{})
 
-	reg.MustRegister(buildInfo, goCollector, processCollector)
+	// region API Server Metrics.
+	APIConnectionsActiveTotal = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "api_connections_active_total",
+		Help:      "Number of currently active API server connections",
+	})
+
+	APIConnectionsDurationSeconds = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "api_connection_duration_seconds",
+		Help:      "Duration of API server connections in seconds",
+		Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, math.Inf(1)},
+	})
+	// endregion
+
+	// region Client Metrics.
+	ClientConnectionsActiveTotal = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "client_connections_active_total",
+		Help:      "Number of currently active client connections",
+	})
+
+	ClientConnectionDurationSeconds = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "client_connection_duration_seconds",
+		Help:      "Duration of TCP connections in seconds",
+		Buckets:   []float64{.1, .25, .5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, math.Inf(1)},
+	})
+
+	ClientConnectionErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "client_connection_errors_total",
+		Help:      "Total number of client connection establishment failures",
+	}, []string{"error_type"})
+
+	ClientAuthenticationsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "client_authentications_total",
+		Help:      "Total number of authentication attempts via CONNECT message",
+	}, []string{"status_code"})
+	// endregion
+
+	// region HTTP Metrics.
+	HTTPRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "http_requests_total",
+		Help:      "Total number of HTTP requests processed",
+	}, []string{"type", "method", "status"})
+
+	HTTPRequestSizeBytes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "http_request_size_bytes",
+		Help:      "Size of incoming HTTP request in bytes",
+		Buckets:   []float64{100, 1000, 10000, 100000, 1000000, 10000000, math.Inf(1)},
+	}, []string{"type"})
+
+	HTTPResponseSizeBytes = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "http_response_size_bytes",
+		Help:      "Size of outgoing HTTP response in bytes (only for audited requests)",
+		Buckets:   []float64{100, 1000, 10000, 100000, 1000000, 10000000, math.Inf(1)},
+	})
+	// endregion
+
+	// region Websocket Metrics.
+	WebsocketSessionsActiveTotal = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: Namespace,
+		Name:      "websocket_sessions_active_total",
+		Help:      "Total number of currently active WebSocket sessions",
+	})
+
+	WebsocketSessionDurationSeconds = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: Namespace,
+		Name:      "websocket_session_duration_seconds",
+		Help:      "Duration of WebSocket sessions in seconds",
+		Buckets:   []float64{1, 5, 10, 30, 60, 300, 600, 1800, 3600, math.Inf(1)},
+	})
+
+	WebsocketSessionErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "websocket_session_errors_total",
+		Help:      "Total number of WebSocket session failures",
+	}, []string{"error_type"})
+	// endregion
+
+	reg.MustRegister(
+		buildInfo,
+		goCollector,
+		processCollector,
+		APIConnectionsActiveTotal,
+		APIConnectionsDurationSeconds,
+		ClientConnectionsActiveTotal,
+		ClientConnectionDurationSeconds,
+		ClientConnectionErrorsTotal,
+		ClientAuthenticationsTotal,
+		HTTPRequestsTotal,
+		HTTPRequestSizeBytes,
+		HTTPResponseSizeBytes,
+		WebsocketSessionsActiveTotal,
+		WebsocketSessionDurationSeconds,
+		WebsocketSessionErrorsTotal,
+	)
 }
