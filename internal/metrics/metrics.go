@@ -32,11 +32,11 @@ func Start(config Config) {
 	logger := config.Logger
 	registry := config.Registry
 
-	initMetricsCollectors(registry)
+	initMetricCollectors(registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-	metricsServer := &http.Server{
+	server := &http.Server{
 		// G112 - Protect against Slowloris attack
 		ReadHeaderTimeout: 5 * time.Second,
 
@@ -46,12 +46,12 @@ func Start(config Config) {
 
 	logger.Infof("Starting metrics server on: %v", config.Port)
 
-	if err := metricsServer.ListenAndServe(); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		logger.Fatalf("Failed to start metrics server: %v", err)
 	}
 }
 
-func initMetricsCollectors(reg *prometheus.Registry) {
+func initMetricCollectors(reg *prometheus.Registry) {
 	buildInfo = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: Namespace,
 		Name:      "build_info",

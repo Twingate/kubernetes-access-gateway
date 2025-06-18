@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInitMetricsCollectors(t *testing.T) {
+func TestInitMetricCollectors(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	initMetricsCollectors(testRegistry)
+	initMetricCollectors(testRegistry)
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
