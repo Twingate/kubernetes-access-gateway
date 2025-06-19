@@ -125,7 +125,7 @@ should render:
         matchNames:
           - NAMESPACE
       podMetricsEndpoints:
-        - interval: 15s
+        - interval: 30s
           port: metrics
       selector:
         matchLabels:
