@@ -14,24 +14,17 @@ import (
 	"k8sgateway/internal/version"
 )
 
-const Namespace = "twingate_gateway"
+const namespace = "twingate_gateway"
 
 type Config struct {
-	Port     string
-	Logger   *zap.SugaredLogger
-	Registry *prometheus.Registry
+	Port   string
+	Logger *zap.SugaredLogger
 }
 
-var (
-	buildInfo        prometheus.GaugeFunc
-	goCollector      prometheus.Collector
-	processCollector prometheus.Collector
-)
-
-func Start(config Config) {
+func Start(config Config) error {
 	logger := config.Logger
-	registry := config.Registry
 
+	registry := prometheus.NewRegistry()
 	initMetricCollectors(registry)
 
 	mux := http.NewServeMux()
@@ -46,14 +39,12 @@ func Start(config Config) {
 
 	logger.Infof("Starting metrics server on: %v", config.Port)
 
-	if err := server.ListenAndServe(); err != nil {
-		logger.Fatalf("Failed to start metrics server: %v", err)
-	}
+	return server.ListenAndServe()
 }
 
 func initMetricCollectors(reg *prometheus.Registry) {
-	buildInfo = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: Namespace,
+	buildInfo := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: namespace,
 		Name:      "build_info",
 		Help:      "A metric with a constant '1' value labeled by version, goversion, goos and goarch from which Twingate Kubernetes Access Gateway was built.",
 		ConstLabels: prometheus.Labels{
@@ -64,9 +55,9 @@ func initMetricCollectors(reg *prometheus.Registry) {
 		},
 	}, func() float64 { return 1 })
 
-	goCollector = collectors.NewGoCollector()
+	goCollector := collectors.NewGoCollector()
 
-	processCollector = collectors.NewProcessCollector(collectors.ProcessCollectorOpts{})
+	processCollector := collectors.NewProcessCollector(collectors.ProcessCollectorOpts{})
 
 	reg.MustRegister(buildInfo, goCollector, processCollector)
 }

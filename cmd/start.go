@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -82,11 +81,15 @@ func start(newProxy ProxyFactory) error {
 	}
 
 	metricsPort := viper.GetString("metricsPort")
-	go metrics.Start(metrics.Config{
-		Port:     metricsPort,
-		Logger:   zap.S(),
-		Registry: prometheus.NewRegistry(),
-	})
+	go func() {
+		err := metrics.Start(metrics.Config{
+			Port:   metricsPort,
+			Logger: zap.S(),
+		})
+		if err != nil {
+			logger.Errorf("failed to start metrics server: %v", err)
+		}
+	}()
 
 	proxy, err := newProxy(cfg)
 	if err != nil {

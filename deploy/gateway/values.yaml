@@ -122,3 +122,7 @@ readinessProbe:
     path: /healthz
   initialDelaySeconds: 5
   periodSeconds: 5
+
+containerPorts:
+  https: 8443
+  metrics: 9090
