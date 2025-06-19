@@ -5,5 +5,9 @@ excludeTemplates:
   - tls-secret.yaml
 tests:
   - it: should render
+    set:
+      metrics:
+        podMonitor:
+          enabled: true
     asserts:
       - matchSnapshot: {}
