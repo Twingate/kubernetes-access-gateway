@@ -132,7 +132,7 @@ metrics:
   # For more information checkout: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.PodMonitor
   podMonitor:
     enabled: false
-    interval: 15s
+    interval: 30s
     scrapeTimeout: ""
     relabelings: []
     metricRelabelings: []
