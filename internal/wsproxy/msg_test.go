@@ -298,7 +298,7 @@ func TestMessage_Parse_ControlMessagePing(t *testing.T) {
 	// Create a WebSocket PING message with FIN=1, opcode=9 (PING), no masking, and a small payload
 	data := []byte{
 		0x89, // FIN=1, RSV1-3=0, opcode=9 (PING)
-		0x03, // MASK=0, payload length=3 (including K8s Stream ID)
+		0x03, // MASK=0, payload length=3
 		0x70, // Payload: 'p' (example ping data)
 		0x69, // Payload: 'i'
 		0x6e, // Payload: 'n'
@@ -312,7 +312,7 @@ func TestMessage_Parse_ControlMessagePing(t *testing.T) {
 	}
 
 	// The parsed bytes should include the first byte (FIN/opcode), second byte (mask/length),
-	// For this example: 1 (0x89) + 1 (0x04) + 1 (0x01) + 3 (ping data) = 6 bytes
+	// For this example: 1 (0x89) + 1 (0x03) + 3 (ping data) = 6 bytes
 	if parsed != len(data) {
 		t.Errorf("Expected to parse 6 bytes, got %d", parsed)
 	}
@@ -483,6 +483,74 @@ func TestIsDataFrame(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := IsDataFrame(tt.input)
+			if got != tt.expected {
+				t.Errorf("IsDataFrame(%v) = %v; want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsK8sStreamFrame(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []byte
+		expected bool
+	}{
+		{
+			name:     "Text Frame (opcode 0x1)",
+			input:    []byte{0x81}, // FIN=1, opcode=1 (text)
+			expected: false,
+		},
+		{
+			name:     "Binary Frame (opcode 0x2)",
+			input:    []byte{0x82}, // FIN=1, opcode=2 (binary)
+			expected: true,
+		},
+		{
+			name:     "Continuation Frame (opcode 0x0)",
+			input:    []byte{0x00}, // FIN=0, opcode=0 (continuation)
+			expected: true,
+		},
+		{
+			name:     "Close Frame (opcode 0x8)",
+			input:    []byte{0x88}, // FIN=1, opcode=8 (close)
+			expected: false,
+		},
+		{
+			name:     "Ping Frame (opcode 0x9)",
+			input:    []byte{0x89}, // FIN=1, opcode=9 (ping)
+			expected: false,
+		},
+		{
+			name:     "Pong Frame (opcode 0xA)",
+			input:    []byte{0x8A}, // FIN=1, opcode=A (pong)
+			expected: false,
+		},
+		{
+			name:     "Reserved Opcode (e.g., 0x3)",
+			input:    []byte{0x83}, // FIN=1, opcode=3 (reserved)
+			expected: false,
+		},
+		{
+			name:     "Empty byte slice",
+			input:    []byte{},
+			expected: false,
+		},
+		{
+			name:     "Nil byte slice",
+			input:    nil,
+			expected: false,
+		},
+		{
+			name:     "Binary frame with more data",
+			input:    []byte{0x82, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsK8sStreamFrame(tt.input)
 			if got != tt.expected {
 				t.Errorf("IsDataFrame(%v) = %v; want %v", tt.input, got, tt.expected)
 			}

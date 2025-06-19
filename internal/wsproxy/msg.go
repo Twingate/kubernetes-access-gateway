@@ -139,7 +139,7 @@ func (message *wsMessage) parsePayload(data []byte) (uint64, error) {
 
 	// handle possible k8s frames which have a payload that has the
 	// Stream ID prefix
-	if IsDataFrame(data) {
+	if IsK8sStreamFrame(data) {
 		// must contain a payload of at least 1 byte for the Stream ID
 		if len(payload) == 0 {
 			return 0, errPayloadEmpty
@@ -187,6 +187,18 @@ func unmask(mask [4]byte, data []byte) {
 	}
 }
 
+// Message opcode types that can have fragmented payload, from:
+// https://www.rfc-editor.org/rfc/rfc6455#section-5.2
+// *  %x0 denotes a continuation frame
+// *  %x1 denotes a text frame
+// *  %x2 denotes a binary frame.
 func IsDataFrame(b []byte) bool {
 	return len(b) > 0 && ((b[0]&0xf) == 0 || (b[0]&0xf) == 1 || (b[0]&0xf) == 2)
+}
+
+// Message opcode types that Kubernetes streams use:
+// *  %x0 denotes a continuation frame
+// *  %x2 denotes a binary frame.
+func IsK8sStreamFrame(b []byte) bool {
+	return len(b) > 0 && ((b[0]&0xf) == 0 || (b[0]&0xf) == 2)
 }

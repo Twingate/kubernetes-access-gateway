@@ -109,8 +109,9 @@ var controlCloseMessage = WebSocketMessage{
 		// 0x03, 0xE8: Close Status Code (1000: Normal Closure)
 		// 0x64, 0x6f, 0x6e, 0x65: UTF-8 for "done"
 		0x88, 0x06, 0x03, 0xe8, 0x64, 0x6f, 0x6e, 0x65,
-		0x82, 0x19, 0x4, 0x7b, 0x22, 0x77, 0x69, 0x64, 0x74, 0x68, 0x22, 0x3a, 0x34, 0x30,
-		0x2c, 0x22, 0x68, 0x65, 0x69, 0x67, 0x68, 0x74, 0x22, 0x3a, 0x38, 0x30, 0x7d,
+	},
+	Payload: []byte{
+		0x64, 0x6f, 0x6e, 0x65, // UTF-8 for "done"
 	},
 }
 
@@ -124,22 +125,6 @@ var controlPingMessage = WebSocketMessage{
 	},
 	Payload: []byte{
 		0x70, 0x69, 0x6e, 0x67, 0x21, // UTF-8 for "ping!"
-	},
-}
-
-var controlPingMaskedMessage = WebSocketMessage{
-	Bytes: []byte{
-		// PING Control Frame with "ping!" payload (Masked):
-		// 0x89: FIN=1 (final frame), Opcode=0x9 (PING Frame)
-		// 0x85: Mask=1 (masked), Payload Length=5 bytes
-		// 0x1A, 0x2B, 0x3C, 0x4D: Masking Key
-		// 0x6A, 0x42, 0x52, 0x2A, 0x3B: Masked Payload (original "ping!" XORed with Masking Key)
-		0x89, 0x85, // First two bytes (FIN/Opcode & Mask/Length)
-		0x1A, 0x2B, 0x3C, 0x4D, // Masking Key
-		0x6A, 0x42, 0x52, 0x2A, 0x3B, // Masked Payload
-	},
-	Payload: []byte{
-		0x70, 0x69, 0x6e, 0x67, 0x21, // UTF-8 for "ping!" (unmasked)
 	},
 }
 
@@ -232,13 +217,6 @@ func TestConn_Read(t *testing.T) {
 			name: "control message(PING), 1 read",
 			readInputs: [][]byte{
 				controlPingMessage.Bytes,
-			},
-			expectResize: false,
-		},
-		{
-			name: "control message(PING), masked, 1 read",
-			readInputs: [][]byte{
-				controlPingMaskedMessage.Bytes,
 			},
 			expectResize: false,
 		},

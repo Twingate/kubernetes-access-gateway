@@ -90,27 +90,27 @@ func (c *conn) Read(data []byte) (int, error) {
 	for len(c.readBuffer.Bytes()) > 0 {
 		// IsDataFrame() determines the type of websocket frame (control vs data) using the first byte of the data,
 		// which drives the following logic:
-		// 1. start by initializing currentMsg with an empty wsMessage
+		// 1. start by initializing currentMessage with an empty wsMessage
 		// 2. if it's a data frame, and we have an existing message, then we are dealing with a
 		// fragmented data message, so we will reuse the existing message to append and reassemble for session recording
 		// 3. if it's a control frame, which cannot be fragmented, they will always use a new, empty wsMessage
-		currentMsg := &wsMessage{}
+		currentMessage := &wsMessage{}
 
 		if IsDataFrame(c.readBuffer.Bytes()) {
 			if c.readMessage == nil {
-				c.readMessage = currentMsg // set new message for reuse
+				c.readMessage = currentMessage // set new message for reuse
 			}
 
-			currentMsg = c.readMessage
+			currentMessage = c.readMessage
 		}
 
 		// try to parse the message.
-		parsedBytes, err := currentMsg.Parse(c.readBuffer.Bytes())
+		bytesParsed, err := currentMessage.Parse(c.readBuffer.Bytes())
 
 		// failed to parse, do not proceed.
 		if err != nil {
 			return 0, fmt.Errorf("%w: %w", errFailedToParseWS, err)
-		} else if parsedBytes == 0 {
+		} else if bytesParsed == 0 {
 			// incomplete websocket frame, unable to parse, need more data.
 			// since we didn't consume any data from trying to parse c.readBuffer,
 			// we don't need to do anything other than to return the amount of
@@ -122,27 +122,27 @@ func (c *conn) Read(data []byte) (int, error) {
 		// fully parsed websocket frame.
 		// drain it from the c.readBuffer, since the data is now
 		// in the currently parsed message
-		c.readBuffer.Next(parsedBytes)
+		c.readBuffer.Next(bytesParsed)
 
 		// if we don't have a fully complete websocket message (it's fragmented)
 		// then we can't record it until we reassemble, so
 		// continue to try to parse more data from the buffer if possible
-		if currentMsg.state == MessageStateFragmented {
+		if currentMessage.state == MessageStateFragmented {
 			continue
 		}
 
 		// finished with the current message, we don't need to hold it anymore
-		if currentMsg == c.readMessage {
+		if currentMessage == c.readMessage {
 			c.readMessage = nil
 		}
 
 		// check if we need to record this message
-		if !c.shouldRecordReadMessage(currentMsg) {
+		if !c.shouldRecordReadMessage(currentMessage) {
 			continue
 		}
 
 		var resizeMessage resizeMsg
-		if err = json.Unmarshal(currentMsg.payload, &resizeMessage); err != nil {
+		if err = json.Unmarshal(currentMessage.payload, &resizeMessage); err != nil {
 			return bytesRead, fmt.Errorf("%w: %w", errFailedToParseResizeMsg, err)
 		}
 
@@ -182,27 +182,27 @@ func (c *conn) Write(data []byte) (int, error) {
 	for len(c.writeBuffer.Bytes()) > 0 {
 		// IsDataFrame() determines the type of websocket frame (control vs data) using the first byte of the data,
 		// which drives the following logic:
-		// 1. start by initializing currentMsg with an empty wsMessage
+		// 1. start by initializing currentMessage with an empty wsMessage
 		// 2. if it's a data frame, and we have an existing message, then we are dealing with a
 		// fragmented data message, so we will reuse the existing message to append and reassemble for session recording
 		// 3. if it's a control frame, which cannot be fragmented, they will always use a new, empty wsMessage
-		currentMsg := &wsMessage{}
+		currentMessage := &wsMessage{}
 
 		if IsDataFrame(c.writeBuffer.Bytes()) {
 			if c.writeMessage == nil {
-				c.writeMessage = currentMsg // set new message for reuse
+				c.writeMessage = currentMessage // set new message for reuse
 			}
 
-			currentMsg = c.writeMessage
+			currentMessage = c.writeMessage
 		}
 
 		// try to parse the message
-		parsedBytes, err := currentMsg.Parse(c.writeBuffer.Bytes())
+		bytesParsed, err := currentMessage.Parse(c.writeBuffer.Bytes())
 
 		// failed to parse, do not proceed
 		if err != nil {
 			return 0, fmt.Errorf("%w: %w", errFailedToParseWS, err)
-		} else if parsedBytes == 0 {
+		} else if bytesParsed == 0 {
 			// incomplete websocket frame, unable to parse, need more data.
 			// since we didn't consume any data from trying to parse c.writeBuffer,
 			// we don't need to do anything other than to return the amount of
@@ -215,7 +215,7 @@ func (c *conn) Write(data []byte) (int, error) {
 		// write the parsed data to the underlying net.Conn and
 		// drain it from the c.writeBuffer, since the data is now
 		// in the currently parsed message
-		bytesWritten, writeErr := c.Conn.Write(c.writeBuffer.Bytes()[:parsedBytes])
+		bytesWritten, writeErr := c.Conn.Write(c.writeBuffer.Bytes()[:bytesParsed])
 		if writeErr != nil {
 			return 0, writeErr
 		}
@@ -225,17 +225,17 @@ func (c *conn) Write(data []byte) (int, error) {
 		// if we don't have a fully complete websocket message (it's fragmented)
 		// then we can't record it until we reassemble, so
 		// continue to try to parse more data from the buffer if possible
-		if currentMsg.state == MessageStateFragmented {
+		if currentMessage.state == MessageStateFragmented {
 			continue
 		}
 
 		// finished with the current message, we don't need to hold it anymore
-		if currentMsg == c.writeMessage {
+		if currentMessage == c.writeMessage {
 			c.writeMessage = nil
 		}
 
 		// check if we need to record this message
-		if !c.shouldRecordWriteMessage(currentMsg) {
+		if !c.shouldRecordWriteMessage(currentMessage) {
 			continue
 		}
 
@@ -260,7 +260,7 @@ func (c *conn) Write(data []byte) (int, error) {
 		}
 
 		// now we can write events
-		if err := c.recorder.WriteOutputEvent(currentMsg.payload); err != nil {
+		if err := c.recorder.WriteOutputEvent(currentMessage.payload); err != nil {
 			return 0, fmt.Errorf("%w: %w", errFailedToWriteRecording, err)
 		}
 	}
