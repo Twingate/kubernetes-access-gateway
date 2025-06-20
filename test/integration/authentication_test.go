@@ -334,8 +334,9 @@ func assertWhoAmI(t *testing.T, output []byte, expectedUsername string, expected
 	t.Helper()
 
 	var whoami authv1.SelfSubjectReview
+	err := json.Unmarshal(output, &whoami)
 
-	require.NoError(t, json.Unmarshal(output, &whoami), "failed to parse kubectl auth whoami output")
+	require.NoError(t, err, "failed to parse kubectl auth whoami output")
 
 	username := whoami.Status.UserInfo.Username
 	groups := whoami.Status.UserInfo.Groups

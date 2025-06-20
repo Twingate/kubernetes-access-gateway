@@ -25,11 +25,8 @@ func TestMessage_Parse_SimpleMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 5, parsed)
-
 	assert.Equal(t, MessageStateFinished, msg.state)
-
 	assert.Equal(t, uint32(1), msg.k8sStreamID)
-
 	assert.Equal(t, []byte{0x41, 0x42}, msg.payload)
 }
 
@@ -50,11 +47,8 @@ func TestMessage_Parse_MaskedMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 9, parsed)
-
 	assert.Equal(t, MessageStateFinished, msg.state)
-
 	assert.Equal(t, uint32(2), msg.k8sStreamID)
-
 	assert.Equal(t, []byte{0x41, 0x42}, msg.payload)
 }
 
@@ -80,9 +74,7 @@ func TestMessage_Parse_MediumLengthMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, len(data), parsed)
-
 	assert.Equal(t, uint32(2), msg.k8sStreamID)
-
 	assert.Len(t, msg.payload, 129)
 }
 
@@ -108,9 +100,7 @@ func TestMessage_Parse_LargeLengthMessage(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, len(data), parsed)
-
 	assert.Equal(t, uint32(3), msg.k8sStreamID)
-
 	assert.Len(t, msg.payload, 259)
 }
 
@@ -135,23 +125,18 @@ func TestMessage_Parse_FragmentedMessage(t *testing.T) {
 
 	msg := &wsMessage{}
 	parsed1, err := msg.Parse(data1)
-
 	require.NoError(t, err)
 
 	assert.Equal(t, 5, parsed1)
-
 	assert.Equal(t, MessageStateFragmented, msg.state)
 
 	parsed2, err := msg.Parse(data2)
 	require.NoError(t, err)
 
 	assert.Equal(t, 5, parsed2)
-
 	assert.Equal(t, MessageStateFinished, msg.state)
-
 	assert.Equal(t, uint32(4), msg.k8sStreamID)
-
-	assert.Equal(t, []byte{0x41, 0x42, 0x43, 0x44}, msg.payload, "Expected concatenated payload [0x41, 0x42, 0x43, 0x44], got %v", msg.payload)
+	assert.Equal(t, []byte{0x41, 0x42, 0x43, 0x44}, msg.payload)
 }
 
 func TestMessage_Parse_MismatchedStreamID(t *testing.T) {
@@ -247,7 +232,6 @@ func TestMessage_Parse_ControlMessagePing(t *testing.T) {
 	// The parsed bytes should include the first byte (FIN/opcode), second byte (mask/length),
 	// For this example: 1 (0x89) + 1 (0x03) + 3 (ping data) = 6 bytes
 	assert.Equal(t, len(data), parsed)
-
 	assert.Equal(t, MessageStateFinished, msg.state)
 
 	// For PING messages, the payload can contain data, check it matches
@@ -286,9 +270,7 @@ func TestMessage_Parse_ControlMessageCloseMasked(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, len(data), parsed)
-
 	assert.Equal(t, MessageStateFinished, msg.state)
-
 	// For standard WebSocket control messages (like CLOSE), a K8s Stream ID is not part of the protocol.
 	// Therefore, we expect msg.k8sStreamID to be its zero-value (0), indicating it's not present/applicable.
 	assert.Equal(t, uint32(0), msg.k8sStreamID)
