@@ -32,6 +32,7 @@ func Start(config Config) error {
 		registry,
 		promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}),
 	))
+
 	server := &http.Server{
 		// G112 - Protect against Slowloris attack
 		ReadHeaderTimeout: 5 * time.Second,
