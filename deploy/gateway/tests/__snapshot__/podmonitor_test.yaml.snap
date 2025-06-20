@@ -11,9 +11,6 @@ should enable Prometheus Pod Monitor:
         helm.sh/chart: kubernetes-access-gateway-0.1.0
       name: RELEASE-NAME-kubernetes-access-gateway
     spec:
-      namespaceSelector:
-        matchNames:
-          - NAMESPACE
       podMetricsEndpoints:
         - interval: 30s
           port: metrics
