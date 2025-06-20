@@ -379,8 +379,8 @@ func TestIsDataFrame(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := IsDataFrame(tt.input)
-			assert.Equal(t, tt.expected, result)
+			got := IsDataFrame(tt.input)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -445,8 +445,8 @@ func TestIsK8sStreamFrame(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := IsK8sStreamFrame(tt.input)
-			assert.Equal(t, tt.expected, result)
+			got := IsK8sStreamFrame(tt.input)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

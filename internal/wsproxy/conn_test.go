@@ -677,8 +677,8 @@ func TestConn_shouldRecordReadMessage(t *testing.T) {
 				k8sStreamID: tt.streamID,
 			}
 
-			result := c.shouldRecordReadMessage(msg)
-			assert.Equal(t, tt.want, result)
+			got := c.shouldRecordReadMessage(msg)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -729,8 +729,8 @@ func TestConn_shouldRecordWriteMessage(t *testing.T) {
 				k8sStreamID: tt.streamID,
 			}
 
-			result := c.shouldRecordWriteMessage(msg)
-			assert.Equal(t, tt.want, result)
+			got := c.shouldRecordWriteMessage(msg)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
