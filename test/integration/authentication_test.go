@@ -211,7 +211,7 @@ func setupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 
 	t.Cleanup(func() {
 		err := provider.Delete(clusterName, "")
-		require.NoError(t, err, "failed to delete kind cluster")
+		assert.NoError(t, err, "failed to delete kind cluster")
 	})
 
 	// Get kubeconfig for KinD context
