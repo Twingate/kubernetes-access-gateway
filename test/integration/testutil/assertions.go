@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -16,9 +17,8 @@ func AssertWhoAmI(t *testing.T, output []byte, expectedUsername string, expected
 	t.Helper()
 
 	var whoami authv1.SelfSubjectReview
-	if err := json.Unmarshal(output, &whoami); err != nil {
-		t.Fatalf("Failed to parse kubectl auth whoami output: %v", err)
-	}
+	err := json.Unmarshal(output, &whoami)
+	require.NoError(t, err, "failed to parse kubectl auth whoami output")
 
 	username := whoami.Status.UserInfo.Username
 	groups := whoami.Status.UserInfo.Groups
@@ -31,9 +31,8 @@ func AssertGetPods(t *testing.T, output []byte) {
 	t.Helper()
 
 	var podList corev1.PodList
-	if err := json.Unmarshal(output, &podList); err != nil {
-		t.Fatalf("Failed to parse kubectl get pods output: %v", err)
-	}
+	err := json.Unmarshal(output, &podList)
+	require.NoError(t, err, "failed to parse kubectl get pods output")
 
 	assert.Len(t, podList.Items, 1)
 	assert.Equal(t, "test-pod", podList.Items[0].Name)

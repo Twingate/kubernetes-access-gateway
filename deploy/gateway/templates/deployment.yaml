@@ -40,9 +40,16 @@ spec:
               value: {{ .Values.twingate.network }}
             - name: TWINGATE_HOST
               value: {{ include "gateway.twingate.host" . }}
+            - name: TWINGATE_PORT
+              value: {{ .Values.containerPorts.https | quote }}
+            - name: TWINGATE_METRICSPORT
+              value: {{ .Values.containerPorts.metrics | quote }}
           ports:
             - name: https
-              containerPort: {{ (.Values.containerPorts | default dict).https | default 8443 }}
+              containerPort: {{ .Values.containerPorts.https }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.containerPorts.metrics }}
               protocol: TCP
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}

@@ -64,6 +64,8 @@ func TestConcurrentUsers(t *testing.T) {
 			kindBearerToken,
 			"--fakeControllerURL",
 			controller.URL,
+			"--metricsPort",
+			"0",
 		})
 
 		err := rootCmd.Execute()

@@ -133,9 +133,7 @@ func TestNewParser(t *testing.T) {
 
 	t.Run("Valid token", func(t *testing.T) {
 		tokenStr, err := tokenService.signToken(jwt.MapClaims{}, nil)
-		if err != nil {
-			t.Errorf("expected no error, got %v", err)
-		}
+		require.NoError(t, err)
 
 		token, err := parser.ParseWithClaims(tokenStr, jwt.MapClaims{})
 

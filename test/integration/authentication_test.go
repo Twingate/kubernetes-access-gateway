@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -27,9 +28,7 @@ func TestSingleUser(t *testing.T) {
 	kindKubectl, kindKubeConfig, kindBearerToken := testutil.SetupKinD(t)
 
 	kindURL, err := url.Parse(kindKubeConfig.Host)
-	if err != nil {
-		t.Fatalf("Failed to parse API server URL: %v", err)
-	}
+	require.NoError(t, err, "failed to parse API server URL")
 
 	// Start the Controller
 	controller := fake.NewController(network)
@@ -59,6 +58,8 @@ func TestSingleUser(t *testing.T) {
 			kindBearerToken,
 			"--fakeControllerURL",
 			controller.URL,
+			"--metricsPort",
+			"0",
 		})
 
 		err := rootCmd.Execute()
@@ -99,9 +100,7 @@ func TestSingleUser(t *testing.T) {
 
 	// Test `kubectl auth whoami`
 	output, err := user.Kubectl.Command("auth", "whoami", "-o", "json")
-	if err != nil {
-		t.Fatalf("Failed to execute kubectl auth whoami: %v", err)
-	}
+	require.NoError(t, err, "failed to execute kubectl auth whoami")
 
 	testutil.AssertWhoAmI(t, output, user.Username, append(user.Groups, "system:authenticated"))
 
@@ -114,9 +113,7 @@ func TestSingleUser(t *testing.T) {
 
 	// Test `kubectl exec`
 	output, err = user.Kubectl.Command("exec", "test-pod", "--", "cat", "/etc/hostname")
-	if err != nil {
-		t.Fatalf("Failed to execute kubectl exec: %v", err)
-	}
+	require.NoError(t, err, "failed to execute kubectl exec")
 
 	assert.Equal(t, "test-pod\n", string(output))
 	testutil.AssertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", "test-pod", expectedUser)

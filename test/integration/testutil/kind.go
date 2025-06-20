@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -88,26 +89,20 @@ func SetupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 	clusterName := "gateway-integration-test-" + strings.ToLower(t.Name())
 
 	// Create the cluster
-	if err := provider.Create(clusterName, cluster.CreateWithRawConfig([]byte(kindClusterYaml))); err != nil {
-		t.Fatalf("failed to create kind cluster: %v", err)
-	}
+	err := provider.Create(clusterName, cluster.CreateWithRawConfig([]byte(kindClusterYaml)))
+	require.NoError(t, err, "failed to create kind cluster")
 
 	t.Cleanup(func() {
-		if err := provider.Delete(clusterName, ""); err != nil {
-			t.Errorf("failed to delete kind cluster: %v", err)
-		}
+		err := provider.Delete(clusterName, "")
+		require.NoError(t, err, "failed to delete kind cluster")
 	})
 
 	// Get kubeconfig for KinD context
 	kubeConfigStr, err := provider.KubeConfig(clusterName, false)
-	if err != nil {
-		t.Fatalf("failed to get kubeconfig: %v", err)
-	}
+	require.NoError(t, err, "failed to get kubeconfig")
 
 	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeConfigStr))
-	if err != nil {
-		t.Fatalf("failed to build config from kubeconfig: %v", err)
-	}
+	require.NoError(t, err, "failed to build config from kubeconfig")
 
 	t.Log("KinD cluster was created at ", kubeConfig.Host)
 
@@ -128,31 +123,21 @@ func SetupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 
 		return true, nil
 	})
-	if err != nil {
-		t.Fatalf("Failed waiting for default service account: %v", err)
-	}
+	require.NoError(t, err, "failed waiting for default service account")
 
 	_, err = k.CommandWithInput(setupYaml, "apply", "-f", "-")
-	if err != nil {
-		t.Fatalf("Failed to apply setup YAML: %v", err)
-	}
+	require.NoError(t, err, "failed to apply setup YAML")
 
 	b64BearerToken, err := k.Command("get", "secret", "gateway-default-service-account", "-o", "jsonpath={.data.token}")
-	if err != nil {
-		t.Fatalf("Failed to get default service account's bearer token: %v", err)
-	}
+	require.NoError(t, err, "failed to get default service account's bearer token")
 
 	bearerToken, err := base64.StdEncoding.DecodeString(string(b64BearerToken))
-	if err != nil {
-		t.Fatalf("Failed to decode bearer token: %v", err)
-	}
+	require.NoError(t, err, "failed to decode bearer token")
 
 	t.Log("Waiting for test-pod to be ready...")
 
 	_, err = k.Command("wait", "--for=condition=Ready", "pod/test-pod", "--timeout=30s")
-	if err != nil {
-		t.Fatalf("Failed waiting for busybox pod: %v", err)
-	}
+	require.NoError(t, err, "failed waiting for busybox pod")
 
 	return k, kubeConfig, string(bearerToken)
 }
@@ -180,7 +165,5 @@ subjects:
 	}
 
 	_, err := kindKubectl.CommandWithInput(yaml, "apply", "-f", "-")
-	if err != nil {
-		t.Fatalf("Failed to apply setup YAML: %v", err)
-	}
+	require.NoError(t, err, "failed to apply setup YAML")
 }

@@ -1,12 +1,11 @@
 package wsproxy
 
 import (
-	"bytes"
 	"encoding/binary"
-	"errors"
-	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/websocket"
 )
 
@@ -23,29 +22,12 @@ func TestMessage_Parse_SimpleMessage(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	if err != nil {
-		t.Fatalf("Parse failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if parsed != 5 {
-		t.Errorf("Expected to parse 5 bytes, got %d", parsed)
-	}
-
-	if !msg.isFinished {
-		t.Error("Expected isFinished to be true")
-	}
-
-	if !msg.hasFragments {
-		t.Error("Expected hasFragments to be true")
-	}
-
-	if msg.k8sStreamID != 1 {
-		t.Errorf("Expected k8sStreamID=1, got %d", msg.k8sStreamID)
-	}
-
-	if !bytes.Equal(msg.payload, []byte{0x41, 0x42}) {
-		t.Errorf("Expected payload [0x41, 0x42], got %v", msg.payload)
-	}
+	assert.Equal(t, 5, parsed)
+	assert.Equal(t, MessageStateFinished, msg.state)
+	assert.Equal(t, uint32(1), msg.k8sStreamID)
+	assert.Equal(t, []byte{0x41, 0x42}, msg.payload)
 }
 
 func TestMessage_Parse_MaskedMessage(t *testing.T) {
@@ -62,25 +44,12 @@ func TestMessage_Parse_MaskedMessage(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	if err != nil {
-		t.Fatalf("Parse failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if parsed != 9 {
-		t.Errorf("Expected to parse 9 bytes, got %d", parsed)
-	}
-
-	if !msg.isFinished {
-		t.Error("Expected isFinished to be true")
-	}
-
-	if msg.k8sStreamID != 2 {
-		t.Errorf("Expected k8sStreamID=2, got %d", msg.k8sStreamID)
-	}
-
-	if !bytes.Equal(msg.payload, []byte{0x41, 0x42}) {
-		t.Errorf("Expected payload [0x41, 0x42], got %v", msg.payload)
-	}
+	assert.Equal(t, 9, parsed)
+	assert.Equal(t, MessageStateFinished, msg.state)
+	assert.Equal(t, uint32(2), msg.k8sStreamID)
+	assert.Equal(t, []byte{0x41, 0x42}, msg.payload)
 }
 
 func TestMessage_Parse_MediumLengthMessage(t *testing.T) {
@@ -102,21 +71,11 @@ func TestMessage_Parse_MediumLengthMessage(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	if err != nil {
-		t.Fatalf("Parse failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if parsed != len(data) {
-		t.Errorf("Expected to parse %d bytes, got %d", len(data), parsed)
-	}
-
-	if msg.k8sStreamID != 2 {
-		t.Errorf("Expected k8sStreamID=2, got %d", msg.k8sStreamID)
-	}
-
-	if len(msg.payload) != 129 {
-		t.Errorf("Expected payload length 129, got %d", len(msg.payload))
-	}
+	assert.Equal(t, len(data), parsed)
+	assert.Equal(t, uint32(2), msg.k8sStreamID)
+	assert.Len(t, msg.payload, 129)
 }
 
 func TestMessage_Parse_LargeLengthMessage(t *testing.T) {
@@ -138,21 +97,11 @@ func TestMessage_Parse_LargeLengthMessage(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	if err != nil {
-		t.Fatalf("Parse failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if parsed != len(data) {
-		t.Errorf("Expected to parse %d bytes, got %d", len(data), parsed)
-	}
-
-	if msg.k8sStreamID != 3 {
-		t.Errorf("Expected k8sStreamID=3, got %d", msg.k8sStreamID)
-	}
-
-	if len(msg.payload) != 259 {
-		t.Errorf("Expected payload length 259, got %d", len(msg.payload))
-	}
+	assert.Equal(t, len(data), parsed)
+	assert.Equal(t, uint32(3), msg.k8sStreamID)
+	assert.Len(t, msg.payload, 259)
 }
 
 func TestMessage_Parse_FragmentedMessage(t *testing.T) {
@@ -176,39 +125,18 @@ func TestMessage_Parse_FragmentedMessage(t *testing.T) {
 
 	msg := &wsMessage{}
 	parsed1, err := msg.Parse(data1)
+	require.NoError(t, err)
 
-	if err != nil {
-		t.Fatalf("Parse of first fragment failed: %v", err)
-	}
-
-	if parsed1 != 5 {
-		t.Errorf("Expected to parse 5 bytes in first fragment, got %d", parsed1)
-	}
-
-	if msg.isFinished {
-		t.Error("Expected isFinished to be false after first fragment")
-	}
+	assert.Equal(t, 5, parsed1)
+	assert.Equal(t, MessageStateFragmented, msg.state)
 
 	parsed2, err := msg.Parse(data2)
-	if err != nil {
-		t.Fatalf("Parse of second fragment failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	if parsed2 != 5 {
-		t.Errorf("Expected to parse 5 bytes in second fragment, got %d", parsed2)
-	}
-
-	if !msg.isFinished {
-		t.Error("Expected isFinished to be true after second fragment")
-	}
-
-	if msg.k8sStreamID != 4 {
-		t.Errorf("Expected k8sStreamID=4, got %d", msg.k8sStreamID)
-	}
-
-	if !bytes.Equal(msg.payload, []byte{0x41, 0x42, 0x43, 0x44}) {
-		t.Errorf("Expected concatenated payload [0x41, 0x42, 0x43, 0x44], got %v", msg.payload)
-	}
+	assert.Equal(t, 5, parsed2)
+	assert.Equal(t, MessageStateFinished, msg.state)
+	assert.Equal(t, uint32(4), msg.k8sStreamID)
+	assert.Equal(t, []byte{0x41, 0x42, 0x43, 0x44}, msg.payload)
 }
 
 func TestMessage_Parse_MismatchedStreamID(t *testing.T) {
@@ -233,14 +161,10 @@ func TestMessage_Parse_MismatchedStreamID(t *testing.T) {
 	msg := &wsMessage{}
 
 	_, err := msg.Parse(data1)
-	if err != nil {
-		t.Fatalf("Parse of first fragment failed: %v", err)
-	}
+	require.NoError(t, err)
 
 	_, err = msg.Parse(data2)
-	if !errors.Is(err, errMismatchedStreamID) {
-		t.Errorf("Expected errMismatchedStreamID error, got %v", err)
-	}
+	assert.ErrorIs(t, err, errMismatchedStreamID)
 }
 
 func TestMessage_Parse_IncompleteData(t *testing.T) {
@@ -255,13 +179,9 @@ func TestMessage_Parse_IncompleteData(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	if err != nil {
-		t.Errorf("Expected nil error for incomplete data, got %v", err)
-	}
+	require.NoError(t, err)
 
-	if parsed != 0 {
-		t.Errorf("Expected parsed=0 for incomplete data, got %d", parsed)
-	}
+	assert.Equal(t, 0, parsed)
 }
 
 func TestMessage_Parse_EmptyPayload(t *testing.T) {
@@ -274,9 +194,7 @@ func TestMessage_Parse_EmptyPayload(t *testing.T) {
 	msg := &wsMessage{}
 	_, err := msg.Parse(data)
 
-	if !errors.Is(err, errPayloadEmpty) {
-		t.Errorf("Expected errPayloadEmpty error, got %v", err)
-	}
+	require.ErrorIs(t, err, errPayloadEmpty)
 }
 
 func TestMessage_Parse_TooLargePayload(t *testing.T) {
@@ -293,25 +211,73 @@ func TestMessage_Parse_TooLargePayload(t *testing.T) {
 	msg := &wsMessage{}
 	_, err := msg.Parse(data)
 
-	if !errors.Is(err, errPayloadTooLarge) {
-		t.Errorf("Expected errPayloadTooLarge error, got %v", err)
-	}
+	require.ErrorIs(t, err, errPayloadTooLarge)
 }
 
-func TestMessage_Parse_InvalidPayloadLength(t *testing.T) {
-	// Create a message with truncated length field, using binary frame (0x2)
+func TestMessage_Parse_ControlMessagePing(t *testing.T) {
+	// Create a WebSocket PING message with FIN=1, opcode=9 (PING), no masking, and a small payload
 	data := []byte{
-		0x82, // FIN=1, RSV1-3=0, opcode=2 (binary)
-		0x7E, // MASK=0, payload length=126 (indicates 16-bit length follows)
-		0x00, // Only 1 byte of the 2 expected length bytes
+		0x89, // FIN=1, RSV1-3=0, opcode=9 (PING)
+		0x03, // MASK=0, payload length=3
+		0x70, // Payload: 'p' (example ping data)
+		0x69, // Payload: 'i'
+		0x6e, // Payload: 'n'
 	}
 
 	msg := &wsMessage{}
-	_, err := msg.Parse(data)
+	parsed, err := msg.Parse(data)
 
-	if !errors.Is(err, errPayloadLength) {
-		t.Errorf("Expected errPayloadLength error, got %v", err)
+	require.NoError(t, err)
+
+	// The parsed bytes should include the first byte (FIN/opcode), second byte (mask/length),
+	// For this example: 1 (0x89) + 1 (0x03) + 3 (ping data) = 6 bytes
+	assert.Equal(t, len(data), parsed)
+	assert.Equal(t, MessageStateFinished, msg.state)
+
+	// For PING messages, the payload can contain data, check it matches
+	expectedPayload := []byte{0x70, 0x69, 0x6e}
+	assert.Equal(t, expectedPayload, msg.payload)
+}
+
+func TestMessage_Parse_ControlMessageCloseMasked(t *testing.T) {
+	// For a WebSocket CLOSE frame, the payload typically consists of:
+	// 1. A 2-byte status code (required, unless the payload is empty).
+	// 2. An optional UTF-8 encoded application data that represents the reason for closing.
+	//
+	// In this test, the unmasked payload is:
+	// Status Code: 1000 (0x03E8) - This signifies "Normal Closure".
+	// Reason: "Bye" (ASCII bytes: 0x42, 0x79, 0x65).
+	// Each byte of the unmasked payload is XORed with a byte from the masking key.
+	// 0x03 ^ 0x01 = 0x02  (First byte of status code masked)
+	// 0xE8 ^ 0x02 = 0xEA  (Second byte of status code masked)
+	// 0x42 ^ 0x03 = 0x41  (First byte of reason "B" masked)
+	// 0x79 ^ 0x04 = 0x7D  (Second byte of reason "y" masked)
+	// 0x65 ^ 0x01 = 0x64  (Third byte of reason "e" masked - key wraps around to 0x01)
+	data := []byte{
+		0x88,                   // Byte 0: FIN=1 (final fragment), RSV1-3=0, opcode=8 (CLOSE)
+		0x85,                   // Byte 1: MASK=1 (message is masked), payload length=5 (bytes that follow the masking key)
+		0x01, 0x02, 0x03, 0x04, // Bytes 2-5: Masking key (4 bytes)
+		0x02, // Masked payload byte 1: Represents unmasked 0x03 (Status Code MSB)
+		0xEA, // Masked payload byte 2: Represents unmasked 0xE8 (Status Code LSB)
+		0x41, // Masked payload byte 3: Represents unmasked 0x42 (Reason 'B')
+		0x7D, // Masked payload byte 4: Represents unmasked 0x79 (Reason 'y')
+		0x64, // Masked payload byte 5: Represents unmasked 0x65 (Reason 'e')
 	}
+
+	msg := &wsMessage{}
+	parsed, err := msg.Parse(data)
+
+	require.NoError(t, err)
+
+	assert.Equal(t, len(data), parsed)
+	assert.Equal(t, MessageStateFinished, msg.state)
+	// For standard WebSocket control messages (like CLOSE), a K8s Stream ID is not part of the protocol.
+	// Therefore, we expect msg.k8sStreamID to be its zero-value (0), indicating it's not present/applicable.
+	assert.Equal(t, uint32(0), msg.k8sStreamID)
+
+	// Expected unmasked payload: Status Code 1000 (0x03E8) and Reason "Bye"
+	expectedPayload := []byte{0x03, 0xE8, 0x42, 0x79, 0x65}
+	assert.Equal(t, expectedPayload, msg.payload)
 }
 
 func TestUnmask(t *testing.T) {
@@ -348,9 +314,139 @@ func TestUnmask(t *testing.T) {
 
 			unmask(tc.mask, dataCopy)
 
-			if !reflect.DeepEqual(dataCopy, tc.expected) {
-				t.Errorf("Expected %v, got %v", tc.expected, dataCopy)
-			}
+			assert.Equal(t, tc.expected, dataCopy)
+		})
+	}
+}
+
+func TestIsDataFrame(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []byte
+		expected bool
+	}{
+		{
+			name:     "Text Frame (opcode 0x1)",
+			input:    []byte{0x81}, // FIN=1, opcode=1 (text)
+			expected: true,
+		},
+		{
+			name:     "Binary Frame (opcode 0x2)",
+			input:    []byte{0x82}, // FIN=1, opcode=2 (binary)
+			expected: true,
+		},
+		{
+			name:     "Continuation Frame (opcode 0x0)",
+			input:    []byte{0x00}, // FIN=0, opcode=0 (continuation)
+			expected: true,
+		},
+		{
+			name:     "Close Frame (opcode 0x8)",
+			input:    []byte{0x88}, // FIN=1, opcode=8 (close)
+			expected: false,
+		},
+		{
+			name:     "Ping Frame (opcode 0x9)",
+			input:    []byte{0x89}, // FIN=1, opcode=9 (ping)
+			expected: false,
+		},
+		{
+			name:     "Pong Frame (opcode 0xA)",
+			input:    []byte{0x8A}, // FIN=1, opcode=A (pong)
+			expected: false,
+		},
+		{
+			name:     "Reserved Opcode (e.g., 0x3)",
+			input:    []byte{0x83}, // FIN=1, opcode=3 (reserved)
+			expected: false,
+		},
+		{
+			name:     "Empty byte slice",
+			input:    []byte{},
+			expected: false,
+		},
+		{
+			name:     "Nil byte slice",
+			input:    nil,
+			expected: false,
+		},
+		{
+			name:     "Binary frame with more data",
+			input:    []byte{0x82, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsDataFrame(tt.input)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestIsK8sStreamFrame(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []byte
+		expected bool
+	}{
+		{
+			name:     "Text Frame (opcode 0x1)",
+			input:    []byte{0x81}, // FIN=1, opcode=1 (text)
+			expected: false,
+		},
+		{
+			name:     "Binary Frame (opcode 0x2)",
+			input:    []byte{0x82}, // FIN=1, opcode=2 (binary)
+			expected: true,
+		},
+		{
+			name:     "Continuation Frame (opcode 0x0)",
+			input:    []byte{0x00}, // FIN=0, opcode=0 (continuation)
+			expected: true,
+		},
+		{
+			name:     "Close Frame (opcode 0x8)",
+			input:    []byte{0x88}, // FIN=1, opcode=8 (close)
+			expected: false,
+		},
+		{
+			name:     "Ping Frame (opcode 0x9)",
+			input:    []byte{0x89}, // FIN=1, opcode=9 (ping)
+			expected: false,
+		},
+		{
+			name:     "Pong Frame (opcode 0xA)",
+			input:    []byte{0x8A}, // FIN=1, opcode=A (pong)
+			expected: false,
+		},
+		{
+			name:     "Reserved Opcode (e.g., 0x3)",
+			input:    []byte{0x83}, // FIN=1, opcode=3 (reserved)
+			expected: false,
+		},
+		{
+			name:     "Empty byte slice",
+			input:    []byte{},
+			expected: false,
+		},
+		{
+			name:     "Nil byte slice",
+			input:    nil,
+			expected: false,
+		},
+		{
+			name:     "Binary frame with more data",
+			input:    []byte{0x82, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsK8sStreamFrame(tt.input)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

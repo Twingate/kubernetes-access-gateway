@@ -122,3 +122,19 @@ readinessProbe:
     path: /healthz
   initialDelaySeconds: 5
   periodSeconds: 5
+
+containerPorts:
+  https: 8443
+  metrics: 9090
+
+metrics:
+  # Prometheus Pod Monitor
+  # For more information checkout: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#monitoring.coreos.com/v1.PodMonitor
+  podMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: ""
+    relabelings: []
+    metricRelabelings: []
+    honorLabels: false
+    additionalLabels: {}
