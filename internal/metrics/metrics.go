@@ -9,7 +9,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 
 	"k8sgateway/internal/version"
 )
@@ -17,13 +16,10 @@ import (
 const namespace = "twingate_gateway"
 
 type Config struct {
-	Port   int
-	Logger *zap.SugaredLogger
+	Port int
 }
 
 func Start(config Config) error {
-	logger := config.Logger
-
 	registry := prometheus.NewRegistry()
 	initMetricCollectors(registry)
 
@@ -40,8 +36,6 @@ func Start(config Config) error {
 		Addr:    fmt.Sprintf(":%v", config.Port),
 		Handler: mux,
 	}
-
-	logger.Infof("Starting metrics server on: %v", config.Port)
 
 	return server.ListenAndServe()
 }
