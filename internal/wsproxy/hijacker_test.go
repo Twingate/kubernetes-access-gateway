@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -82,21 +84,10 @@ func TestHijacker_New(t *testing.T) {
 	}
 	hijacker := NewHijacker(req, w, user, recorderFactory, mockNewConn)
 
-	if hijacker == nil {
-		t.Fatal("Expected non-nil hijacker")
-	}
-
-	if hijacker.ResponseWriter != w {
-		t.Errorf("Expected ResponseWriter to be %v, got %v", w, hijacker.ResponseWriter)
-	}
-
-	if hijacker.request != req {
-		t.Errorf("Expected request to be %v, got %v", req, hijacker.request)
-	}
-
-	if hijacker.user != user {
-		t.Errorf("Expected user to be %s, got %s", user, hijacker.user)
-	}
+	assert.NotNil(t, hijacker)
+	assert.Equal(t, w, hijacker.ResponseWriter)
+	assert.Equal(t, req, hijacker.request)
+	assert.Equal(t, user, hijacker.user)
 }
 
 func TestHijacker_Hijack_Success(t *testing.T) {
@@ -117,17 +108,9 @@ func TestHijacker_Hijack_Success(t *testing.T) {
 
 	conn, rw, err := hijacker.Hijack()
 
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	if conn != mockConn {
-		t.Errorf("Expected conn to be %v, got %v", mockConn, conn)
-	}
-
-	if rw != mockRW {
-		t.Errorf("Expected rw to be %v, got %v", mockRW, rw)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, mockConn, conn)
+	assert.Equal(t, mockRW, rw)
 }
 
 func TestHijacker_Hijack_Failure(t *testing.T) {
@@ -146,13 +129,7 @@ func TestHijacker_Hijack_Failure(t *testing.T) {
 
 	_, _, err := hijacker.Hijack()
 
-	if err == nil {
-		t.Fatal("Expected error, got nil")
-	}
-
-	if !errors.Is(err, errFailedToHijack) {
-		t.Errorf("Expected error to wrap errFailedToHijack, got: %v", err)
-	}
+	assert.ErrorIs(t, err, errFailedToHijack)
 }
 
 func TestHijacker_StartRecorder(t *testing.T) {
@@ -174,9 +151,7 @@ func TestHijacker_StartRecorder(t *testing.T) {
 	mockConn := &mockHijackerConn{}
 	conn := hijacker.startRecording(mockConn)
 
-	if conn != mockConn {
-		t.Errorf("Expected conn to be %v, got %v", mockConn, conn)
-	}
+	assert.Equal(t, mockConn, conn)
 }
 
 func TestHijacker_AsciinemaHeaderCreation(t *testing.T) {
@@ -213,35 +188,12 @@ func TestHijacker_AsciinemaHeaderCreation(t *testing.T) {
 
 	hijacker.startRecording(mockConn)
 
-	if capturedHeader.Version != 2 {
-		t.Errorf("Expected Version to be 2, got %d", capturedHeader.Version)
-	}
-
-	if capturedHeader.User != "testuser" {
-		t.Errorf("Expected User to be 'testuser', got %s", capturedHeader.User)
-	}
-
-	if capturedHeader.Command != "bash" {
-		t.Errorf("Expected Command to be 'bash', got %s", capturedHeader.Command)
-	}
-
-	if capturedHeader.K8sMetadata == nil {
-		t.Fatal("Expected K8sMetadata to be non-nil")
-	}
-
-	if capturedHeader.K8sMetadata.PodName != "test-pod" {
-		t.Errorf("Expected PodName to be 'test-pod', got %s", capturedHeader.K8sMetadata.PodName)
-	}
-
-	if capturedHeader.K8sMetadata.Namespace != "default" {
-		t.Errorf("Expected Namespace to be 'default', got %s", capturedHeader.K8sMetadata.Namespace)
-	}
-
-	if capturedHeader.K8sMetadata.Container != "test-container" {
-		t.Errorf("Expected Container to be 'test-container', got %s", capturedHeader.K8sMetadata.Container)
-	}
-
-	if !capturedTty {
-		t.Errorf("Expected TTY flag to be true")
-	}
+	assert.Equal(t, 2, capturedHeader.Version)
+	assert.Equal(t, "testuser", capturedHeader.User)
+	assert.Equal(t, "bash", capturedHeader.Command)
+	assert.NotEmpty(t, capturedHeader.K8sMetadata)
+	assert.Equal(t, "test-pod", capturedHeader.K8sMetadata.PodName)
+	assert.Equal(t, "default", capturedHeader.K8sMetadata.Namespace)
+	assert.Equal(t, "test-container", capturedHeader.K8sMetadata.Container)
+	assert.True(t, capturedTty)
 }

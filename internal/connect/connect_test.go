@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -122,12 +121,8 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		connectInfo, err := validator.ParseConnect(req, []byte(sigData))
 
 		var httpErr *HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("expected error of type *HTTPError, but got %T (%v)", err, err)
-		}
 
-		require.NoError(t, httpErr.Err)
-		require.Error(t, httpErr)
+		require.ErrorAs(t, err, &httpErr)
 		assert.Equal(t, http.StatusMethodNotAllowed, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "expected CONNECT request")
 		assert.Nil(t, connectInfo.Claims)
@@ -144,12 +139,8 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		connectInfo, err := validator.ParseConnect(req, []byte(sigData))
 
 		var httpErr *HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("expected error of type *HTTPError, but got %T (%v)", err, err)
-		}
 
-		require.Error(t, httpErr.Err)
-		require.Error(t, httpErr)
+		require.ErrorAs(t, err, &httpErr)
 		assert.Equal(t, http.StatusProxyAuthRequired, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "missing identity header")
 		assert.Nil(t, connectInfo.Claims)
@@ -176,12 +167,9 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		connectInfo, err := validator.ParseConnect(req, []byte(sigData))
 
 		var httpErr *HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("expected error of type *HTTPError, but got %T (%v)", err, err)
-		}
 
+		require.ErrorAs(t, err, &httpErr)
 		require.Error(t, httpErr.Err)
-		require.Error(t, httpErr)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to parse token")
 		assert.Nil(t, connectInfo.Claims)
@@ -200,12 +188,9 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		connectInfo, err := validator.ParseConnect(req, []byte(sigData))
 
 		var httpErr *HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("expected error of type *HTTPError, but got %T (%v)", err, err)
-		}
 
+		require.ErrorAs(t, err, &httpErr)
 		require.Error(t, httpErr.Err)
-		require.Error(t, httpErr)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to decode client signature")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -223,12 +208,9 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		connectInfo, err := validator.ParseConnect(req, []byte(sigData))
 
 		var httpErr *HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("expected error of type *HTTPError, but got %T (%v)", err, err)
-		}
 
+		require.ErrorAs(t, err, &httpErr)
 		require.NoError(t, httpErr.Err)
-		require.Error(t, httpErr)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to verify signature")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -248,12 +230,9 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		connectInfo, err := validator.ParseConnect(req, []byte(sigData))
 
 		var httpErr *HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("expected error of type *HTTPError, but got %T (%v)", err, err)
-		}
 
+		require.ErrorAs(t, err, &httpErr)
 		require.NoError(t, httpErr.Err)
-		require.Error(t, httpErr)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to verify signature")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -275,12 +254,9 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		connectInfo, err := validator.ParseConnect(req, []byte(sigData))
 
 		var httpErr *HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("expected error of type *HTTPError, but got %T (%v)", err, err)
-		}
 
+		require.ErrorAs(t, err, &httpErr)
 		require.NoError(t, httpErr.Err)
-		require.Error(t, httpErr)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to verify signature")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -302,12 +278,9 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		connectInfo, err := validator.ParseConnect(req, []byte(sigData))
 
 		var httpErr *HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("expected error of type *HTTPError, but got %T (%v)", err, err)
-		}
 
+		require.ErrorAs(t, err, &httpErr)
 		require.NoError(t, httpErr.Err)
-		require.Error(t, httpErr)
 		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to verify CONNECT destination")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -329,12 +302,9 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		connectInfo, err := validator.ParseConnect(req, []byte(sigData))
 
 		var httpErr *HTTPError
-		if !errors.As(err, &httpErr) {
-			t.Fatalf("expected error of type *HTTPError, but got %T (%v)", err, err)
-		}
 
+		require.ErrorAs(t, err, &httpErr)
 		require.Error(t, httpErr.Err)
-		require.Error(t, httpErr)
 		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to parse CONNECT destination")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -375,9 +345,7 @@ func TestHTTPError_Error(t *testing.T) {
 				Code:    tt.code,
 				Message: tt.message,
 			}
-			if got := e.Error(); got != tt.want {
-				t.Errorf("HTTPError.Error() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, e.Error())
 		})
 	}
 }
