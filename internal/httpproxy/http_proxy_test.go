@@ -118,15 +118,8 @@ func TestTruncateBody(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := truncateBody(tc.input)
 
-			if result != tc.expected {
-				t.Errorf("Expected %q, got %q", tc.expected, result)
-			}
-
-			// check for overrun
-			if len(result) > bodyLogMaxSize {
-				t.Errorf("Truncated body exceeds max size. Length: %d, Max: %d",
-					len(result), bodyLogMaxSize)
-			}
+			assert.Equal(t, tc.expected, result)
+			assert.LessOrEqual(t, len(result), bodyLogMaxSize, "Truncated body exceeds max size")
 		})
 	}
 }
@@ -568,37 +561,27 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	// manually create a TCP connection to be able to reuse for
 	// HTTPS CONNECT (downstream proxy) then HTTPS requests (client)
 	conn, err := net.Dial("tcp", "127.0.0.1:45678")
-	if err != nil {
-		t.Fatalf("Failed to connect to proxy: %v", err)
-	}
+	require.NoError(t, err, "Failed to connect to proxy")
 	defer conn.Close()
 
 	// perform Proxy TLS handshake
 	proxyTLSConn := tls.Client(conn, tlsConfig)
-	if err := proxyTLSConn.Handshake(); err != nil {
-		t.Fatalf("TLS handshake failed(proxy): %v", err)
-	}
+	require.NoError(t, proxyTLSConn.Handshake(), "TLS handshake failed(proxy)")
 
 	// setup CONNECT request with identity header (mock proxy's CONNECT request)
 	connectReq, err := http.NewRequest(http.MethodConnect, apiServer.URL, nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	require.NoError(t, err, "Failed to create request")
 
 	connectReq.Header.Set("Proxy-Authorization", "token")
 	connectReq.Header.Set("X-Token-Signature", "signature")
 	connectReq.Header.Set("X-Connection-Id", "conn-id")
 
 	// send request
-	if err := connectReq.Write(proxyTLSConn); err != nil {
-		t.Fatalf("Failed to write CONNECT request: %v", err)
-	}
+	require.NoError(t, connectReq.Write(proxyTLSConn), "Failed to write CONNECT request")
 
 	// read response
 	connectResp, err := http.ReadResponse(bufio.NewReader(proxyTLSConn), connectReq)
-	if err != nil {
-		t.Fatalf("Failed to read CONNECT response: %v", err)
-	}
+	require.NoError(t, err, "Failed to read CONNECT response")
 	defer connectResp.Body.Close()
 
 	// check 200 response
@@ -606,9 +589,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	// perform Client TLS handshake
 	tlsConn := tls.Client(proxyTLSConn, tlsConfig)
-	if err := tlsConn.Handshake(); err != nil {
-		t.Fatalf("TLS handshake failed(client): %v", err)
-	}
+	require.NoError(t, tlsConn.Handshake(), "TLS handshake failed(client)")
 
 	// create HTTP client that reuses the existing TLS connection (mock client)
 	client := &http.Client{
@@ -621,15 +602,11 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	// setup HTTPS GET request
 	getReq, err := http.NewRequest(http.MethodGet, "https://127.0.0.1:45678", nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
+	require.NoError(t, err, "Failed to create request")
 
 	// send request
 	getResp, err := client.Do(getReq)
-	if err != nil {
-		t.Fatalf("Failed to send request: %v", err)
-	}
+	require.NoError(t, err, "Failed to send request")
 	defer getResp.Body.Close()
 
 	// check 200 response
@@ -637,9 +614,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	// read response body
 	body, err := io.ReadAll(getResp.Body)
-	if err != nil {
-		t.Fatalf("Failed to read response body: %v", err)
-	}
+	require.NoError(t, err, "Failed to read response body")
 
 	// check response
 	assert.Equal(t, "Upstream API Server Response!", string(body))

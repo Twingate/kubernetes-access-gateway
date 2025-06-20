@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/websocket"
 )
 
@@ -21,7 +22,7 @@ func TestMessage_Parse_SimpleMessage(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	assert.NoError(t, err, "Parse failed")
+	require.NoError(t, err)
 
 	assert.Equal(t, 5, parsed, "Expected to parse 5 bytes, got %d", parsed)
 
@@ -46,7 +47,7 @@ func TestMessage_Parse_MaskedMessage(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	assert.NoError(t, err, "Parse failed")
+	require.NoError(t, err)
 
 	assert.Equal(t, 9, parsed, "Expected to parse 9 bytes, got %d", parsed)
 
@@ -76,13 +77,13 @@ func TestMessage_Parse_MediumLengthMessage(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	assert.NoError(t, err, "Parse failed")
+	require.NoError(t, err)
 
 	assert.Equal(t, len(data), parsed, "Expected to parse %d bytes, got %d", len(data), parsed)
 
 	assert.Equal(t, uint32(2), msg.k8sStreamID, "Expected k8sStreamID=2, got %d", msg.k8sStreamID)
 
-	assert.Equal(t, 129, len(msg.payload), "Expected payload length 129, got %d", len(msg.payload))
+	assert.Len(t, msg.payload, 129, "Expected payload length 129, got %d", len(msg.payload))
 }
 
 func TestMessage_Parse_LargeLengthMessage(t *testing.T) {
@@ -104,13 +105,13 @@ func TestMessage_Parse_LargeLengthMessage(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	assert.NoError(t, err, "Parse failed")
+	require.NoError(t, err)
 
 	assert.Equal(t, len(data), parsed, "Expected to parse %d bytes, got %d", len(data), parsed)
 
 	assert.Equal(t, uint32(3), msg.k8sStreamID, "Expected k8sStreamID=3, got %d", msg.k8sStreamID)
 
-	assert.Equal(t, 259, len(msg.payload), "Expected payload length 259, got %d", len(msg.payload))
+	assert.Len(t, msg.payload, 259, "Expected payload length 259, got %d", len(msg.payload))
 }
 
 func TestMessage_Parse_FragmentedMessage(t *testing.T) {
@@ -135,14 +136,14 @@ func TestMessage_Parse_FragmentedMessage(t *testing.T) {
 	msg := &wsMessage{}
 	parsed1, err := msg.Parse(data1)
 
-	assert.NoError(t, err, "Parse of first fragment failed")
+	require.NoError(t, err)
 
 	assert.Equal(t, 5, parsed1, "Expected to parse 5 bytes in first fragment, got %d", parsed1)
 
 	assert.Equal(t, MessageStateFragmented, msg.state, "Expected msg.state to be MessageStateFragmented after first fragment")
 
 	parsed2, err := msg.Parse(data2)
-	assert.NoError(t, err, "Parse of second fragment failed")
+	require.NoError(t, err)
 
 	assert.Equal(t, 5, parsed2, "Expected to parse 5 bytes in second fragment, got %d", parsed2)
 
@@ -175,10 +176,10 @@ func TestMessage_Parse_MismatchedStreamID(t *testing.T) {
 	msg := &wsMessage{}
 
 	_, err := msg.Parse(data1)
-	assert.NoError(t, err, "Parse of first fragment failed")
+	require.NoError(t, err)
 
 	_, err = msg.Parse(data2)
-	assert.ErrorIs(t, err, errMismatchedStreamID, "Expected errMismatchedStreamID error, got %v", err)
+	require.ErrorIs(t, err, errMismatchedStreamID)
 }
 
 func TestMessage_Parse_IncompleteData(t *testing.T) {
@@ -193,7 +194,7 @@ func TestMessage_Parse_IncompleteData(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	assert.NoError(t, err, "Parse failed")
+	require.NoError(t, err)
 
 	assert.Equal(t, 0, parsed, "Expected parsed=0 for incomplete data, got %d", parsed)
 }
@@ -208,7 +209,7 @@ func TestMessage_Parse_EmptyPayload(t *testing.T) {
 	msg := &wsMessage{}
 	_, err := msg.Parse(data)
 
-	assert.ErrorIs(t, err, errPayloadEmpty, "Expected errPayloadEmpty error, got %v", err)
+	require.ErrorIs(t, err, errPayloadEmpty)
 }
 
 func TestMessage_Parse_TooLargePayload(t *testing.T) {
@@ -225,7 +226,7 @@ func TestMessage_Parse_TooLargePayload(t *testing.T) {
 	msg := &wsMessage{}
 	_, err := msg.Parse(data)
 
-	assert.ErrorIs(t, err, errPayloadTooLarge, "Expected errPayloadTooLarge error, got %v", err)
+	require.ErrorIs(t, err, errPayloadTooLarge)
 }
 
 func TestMessage_Parse_ControlMessagePing(t *testing.T) {
@@ -241,7 +242,7 @@ func TestMessage_Parse_ControlMessagePing(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	assert.NoError(t, err, "Parse failed")
+	require.NoError(t, err)
 
 	// The parsed bytes should include the first byte (FIN/opcode), second byte (mask/length),
 	// For this example: 1 (0x89) + 1 (0x03) + 3 (ping data) = 6 bytes
@@ -282,7 +283,7 @@ func TestMessage_Parse_ControlMessageCloseMasked(t *testing.T) {
 	msg := &wsMessage{}
 	parsed, err := msg.Parse(data)
 
-	assert.NoError(t, err, "Parse failed")
+	require.NoError(t, err)
 
 	assert.Equal(t, len(data), parsed, "Expected to parse %d bytes, got %d", len(data), parsed)
 

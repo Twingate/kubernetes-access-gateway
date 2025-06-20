@@ -2,12 +2,12 @@ package wsproxy
 
 import (
 	"bytes"
-	"errors"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/remotecommand"
 )
 
@@ -309,20 +309,14 @@ func TestConn_Read(t *testing.T) {
 				buf := make([]byte, len(input))
 
 				n, err := c.Read(buf)
-				if err != nil {
-					t.Fatalf("Expected no error, got %v", err)
-				}
+				require.NoError(t, err)
 
-				if n != len(input) {
-					t.Errorf("Expected %d bytes read, got %d", len(input), n)
-				}
+				assert.Equal(t, len(input), n)
 
 				readBytes = append(readBytes, buf...)
 			}
 
-			if !bytes.Equal(readBytes, expectedBytes) {
-				t.Errorf("Expected data %v, got %v", expectedBytes, mc.writeData.Bytes())
-			}
+			assert.Equal(t, expectedBytes, readBytes)
 
 			// Check if first resize was processed
 			if tt.expectResize {
@@ -333,11 +327,8 @@ func TestConn_Read(t *testing.T) {
 					t.Error("Expected readFirstResize channel to be closed")
 				}
 
-				if c.asciinemaHeader.Width != tt.resizeWidth || c.asciinemaHeader.Height != tt.resizeHeight {
-					t.Errorf("Expected header size %dx%d, got %dx%d",
-						tt.resizeWidth, tt.resizeHeight,
-						c.asciinemaHeader.Width, c.asciinemaHeader.Height)
-				}
+				assert.Equal(t, tt.resizeWidth, c.asciinemaHeader.Width)
+				assert.Equal(t, tt.resizeHeight, c.asciinemaHeader.Height)
 			}
 		})
 	}
@@ -598,16 +589,12 @@ func TestConn_Write(t *testing.T) {
 				buf = append(buf, input...)
 
 				bytesWritten, err := c.Write(buf)
-				if err != nil {
-					t.Fatalf("Expected no error, got %v", err)
-				}
+				require.NoError(t, err)
 
 				buf = buf[bytesWritten:]
 			}
 
-			if !bytes.Equal(mc.writeData.Bytes(), expectedBytes) {
-				t.Errorf("Expected data %v, got %v", expectedBytes, mc.writeData.Bytes())
-			}
+			assert.Equal(t, expectedBytes, mc.writeData.Bytes())
 
 			assert.Equal(t, tt.header.Version, mr.header.Version)
 			assert.Equal(t, tt.header.Width, mr.header.Width)
@@ -629,9 +616,7 @@ func TestConnRead_ErrorHandling(t *testing.T) {
 	buf := make([]byte, len(malformedData))
 
 	_, err := c.Read(buf)
-	if !errors.Is(err, errFailedToParseWS) {
-		t.Errorf("Expected errFailedToParseWS, got %v", err)
-	}
+	assert.ErrorIs(t, err, errFailedToParseWS)
 }
 
 func TestConn_Close(t *testing.T) {
@@ -640,17 +625,10 @@ func TestConn_Close(t *testing.T) {
 	c := NewConn(mc, mr, asciinemaHeader{}, true).(*conn)
 
 	err := c.Close()
-	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
-	}
+	require.NoError(t, err)
 
-	if !mc.closed {
-		t.Error("Expected underlying connection to be closed")
-	}
-
-	if !mr.stopped {
-		t.Error("Expected recording to be stopped")
-	}
+	assert.True(t, mc.closed)
+	assert.True(t, mr.stopped)
 }
 
 func TestConn_shouldRecordReadMessage(t *testing.T) {
@@ -700,9 +678,7 @@ func TestConn_shouldRecordReadMessage(t *testing.T) {
 			}
 
 			got := c.shouldRecordReadMessage(msg)
-			if got != tt.want {
-				t.Errorf("shouldRecordReadMessage() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -754,9 +730,7 @@ func TestConn_shouldRecordWriteMessage(t *testing.T) {
 			}
 
 			got := c.shouldRecordWriteMessage(msg)
-			if got != tt.want {
-				t.Errorf("shouldRecordWriteMessage() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
