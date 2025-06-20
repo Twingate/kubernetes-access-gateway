@@ -179,7 +179,7 @@ func TestMessage_Parse_MismatchedStreamID(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = msg.Parse(data2)
-	require.ErrorIs(t, err, errMismatchedStreamID)
+	assert.ErrorIs(t, err, errMismatchedStreamID)
 }
 
 func TestMessage_Parse_IncompleteData(t *testing.T) {

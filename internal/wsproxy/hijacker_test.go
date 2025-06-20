@@ -84,7 +84,7 @@ func TestHijacker_New(t *testing.T) {
 	}
 	hijacker := NewHijacker(req, w, user, recorderFactory, mockNewConn)
 
-	assert.NotEmpty(t, hijacker)
+	assert.NotNil(t, hijacker)
 	assert.Equal(t, w, hijacker.ResponseWriter)
 	assert.Equal(t, req, hijacker.request)
 	assert.Equal(t, user, hijacker.user)
