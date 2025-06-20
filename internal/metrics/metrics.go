@@ -17,7 +17,7 @@ import (
 const namespace = "twingate_gateway"
 
 type Config struct {
-	Port   string
+	Port   int
 	Logger *zap.SugaredLogger
 }
 
@@ -28,7 +28,10 @@ func Start(config Config) error {
 	initMetricCollectors(registry)
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}))
+	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(
+		registry,
+		promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}),
+	))
 	server := &http.Server{
 		// G112 - Protect against Slowloris attack
 		ReadHeaderTimeout: 5 * time.Second,

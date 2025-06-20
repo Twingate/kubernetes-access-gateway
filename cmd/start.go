@@ -80,14 +80,14 @@ func start(newProxy ProxyFactory) error {
 		logger.Errorf("failed to load in-cluster config: %v", err)
 	}
 
-	metricsPort := viper.GetString("metricsPort")
+	metricsPort := viper.GetInt("metricsPort")
 	go func() {
 		err := metrics.Start(metrics.Config{
 			Port:   metricsPort,
 			Logger: zap.S(),
 		})
 		if err != nil {
-			logger.Errorf("failed to start metrics server: %v", err)
+			logger.Fatal("failed to start metrics server:", zap.Error(err))
 		}
 	}()
 
@@ -124,7 +124,7 @@ func init() { //nolint:gochecknoinits
 	flags.Int("k8sAPIServerPort", 0, "K8s API Server port, used in local development and testing to override 443 port")
 
 	// Metrics flags
-	flags.String("metricsPort", "9090", "Port to expose Prometheus metrics on")
+	flags.Int("metricsPort", 9090, "Port to expose Prometheus metrics on")
 
 	// Misc flags
 	flags.BoolP("debug", "d", false, "Run in debug mode")
