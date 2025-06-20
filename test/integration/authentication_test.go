@@ -322,7 +322,7 @@ func gatewayHealthCheck(t *testing.T) {
 			resp.Body.Close()
 		}
 
-		require.Equal(t, attempt, maxAttempts, "Gateway failed to start after %d attempts", maxAttempts)
+		require.NotEqual(t, attempt, maxAttempts, "Gateway failed to start after %d attempts", maxAttempts)
 
 		time.Sleep(backoff)
 	}
