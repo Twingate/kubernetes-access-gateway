@@ -1,0 +1,30 @@
+{{- if .Values.metrics.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "gateway.fullname" . }}
+  labels:
+    {{- include "gateway.labels" . | nindent 4 }}
+    {{- with .Values.metrics.podMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "gateway.selectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+    - port: metrics
+      interval: {{ .Values.metrics.podMonitor.interval }}
+      {{- if .Values.metrics.podMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ .Values.metrics.podMonitor.scrapeTimeout }}
+      {{- end }}
+      {{- if .Values.metrics.podMonitor.honorLabels }}
+      honorLabels: {{ .Values.metrics.podMonitor.honorLabels }}
+      {{- end }}
+      {{- with .Values.metrics.podMonitor.relabelings }}
+      relabelings: {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.metrics.podMonitor.metricRelabelings }}
+      metricRelabelings: {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}
