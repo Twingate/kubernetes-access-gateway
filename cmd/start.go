@@ -82,9 +82,10 @@ func start(newProxy ProxyFactory) error {
 
 	metricsPort := viper.GetInt("metricsPort")
 	go func() {
+		logger.Infof("Starting metrics server on: %v", metricsPort)
+
 		err := metrics.Start(metrics.Config{
-			Port:   metricsPort,
-			Logger: zap.S(),
+			Port: metricsPort,
 		})
 		if err != nil {
 			logger.Fatal("failed to start metrics server:", zap.Error(err))
