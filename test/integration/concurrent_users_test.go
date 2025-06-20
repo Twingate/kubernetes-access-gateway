@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -32,9 +33,7 @@ func TestConcurrentUsers(t *testing.T) {
 	kindKubectl, kindKubeConfig, kindBearerToken := testutil.SetupKinD(t)
 
 	kindURL, err := url.Parse(kindKubeConfig.Host)
-	if err != nil {
-		t.Fatalf("Failed to parse API server URL: %v", err)
-	}
+	require.NoError(t, err, "failed to parse API server URL")
 
 	// Start the Controller
 	controller := fake.NewController(network)
@@ -101,9 +100,7 @@ func TestConcurrentUsers(t *testing.T) {
 			kindKubeConfig.Host,
 			controller.URL,
 		)
-		if err != nil {
-			t.Fatalf("Failed to create user %d: %v", i+1, err)
-		}
+		require.NoError(t, err, "failed to create user %d", i+1)
 
 		users = append(users, user)
 		usersNames = append(usersNames, user.Username)

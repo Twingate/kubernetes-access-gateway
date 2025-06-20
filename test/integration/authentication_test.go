@@ -91,9 +91,7 @@ func TestSingleUser(t *testing.T) {
 		kindKubeConfig.Host,
 		controller.URL,
 	)
-	if err != nil {
-		t.Fatalf("Failed to create user: %v", err)
-	}
+	require.NoError(t, err, "failed to create user")
 	defer user.Close()
 
 	testutil.CreateK8sRoleBinding(t, kindKubectl, []string{user.Username})
