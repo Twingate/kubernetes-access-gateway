@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -44,9 +45,7 @@ func TestKubernetesAuthentication(t *testing.T) {
 	kindKubectl, kindKubeConfig, kindBearerToken := setupKinD(t)
 
 	kindURL, err := url.Parse(kindKubeConfig.Host)
-	if err != nil {
-		t.Fatalf("Failed to parse API server URL: %v", err)
-	}
+	require.NoError(t, err, "failed to parse API server URL")
 
 	// Start the Controller
 	controller := fake.NewController(network)
@@ -113,9 +112,7 @@ func TestKubernetesAuthentication(t *testing.T) {
 
 	// Test `kubectl auth whoami`
 	output, err := clientKubectl.Command("auth", "whoami", "-o", "json")
-	if err != nil {
-		t.Fatalf("Failed to execute kubectl auth whoami: %v", err)
-	}
+	require.NoError(t, err, "failed to execute kubectl auth whoami")
 
 	assertWhoAmI(t, output, user.Username, append(user.Groups, "system:authenticated"))
 
@@ -128,9 +125,7 @@ func TestKubernetesAuthentication(t *testing.T) {
 
 	// Test `kubectl exec`
 	output, err = clientKubectl.Command("exec", "test-pod", "--", "cat", "/etc/hostname")
-	if err != nil {
-		t.Fatalf("Failed to execute kubectl exec: %v", err)
-	}
+	require.NoError(t, err, "failed to execute kubectl exec")
 
 	assert.Equal(t, "test-pod\n", string(output))
 	assertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", "test-pod", expectedUser)
@@ -211,26 +206,20 @@ func setupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 	clusterName := "gateway-integration-test"
 
 	// Create the cluster
-	if err := provider.Create(clusterName, cluster.CreateWithRawConfig([]byte(kindClusterYaml))); err != nil {
-		t.Fatalf("failed to create kind cluster: %v", err)
-	}
+	err := provider.Create(clusterName, cluster.CreateWithRawConfig([]byte(kindClusterYaml)))
+	require.NoError(t, err, "failed to create kind cluster")
 
 	t.Cleanup(func() {
-		if err := provider.Delete(clusterName, ""); err != nil {
-			t.Errorf("failed to delete kind cluster: %v", err)
-		}
+		err := provider.Delete(clusterName, "")
+		require.NoError(t, err, "failed to delete kind cluster")
 	})
 
 	// Get kubeconfig for KinD context
 	kubeConfigStr, err := provider.KubeConfig(clusterName, false)
-	if err != nil {
-		t.Fatalf("failed to get kubeconfig: %v", err)
-	}
+	require.NoError(t, err, "failed to get kubeconfig")
 
 	kubeConfig, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeConfigStr))
-	if err != nil {
-		t.Fatalf("failed to build config from kubeconfig: %v", err)
-	}
+	require.NoError(t, err, "failed to build config from kubeconfig")
 
 	t.Log("KinD cluster was created at ", kubeConfig.Host)
 
@@ -243,37 +232,25 @@ func setupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 
 	err = wait.PollUntilContextTimeout(t.Context(), time.Second, 30*time.Second, true, func(_ctx context.Context) (bool, error) {
 		_, err = k.Command("get", "serviceaccount", "default")
-		if err != nil {
-			return false, nil //nolint:nilerr
-		}
+		require.NoError(t, err, "failed to get default service account")
 
 		return true, nil
 	})
-	if err != nil {
-		t.Fatalf("Failed waiting for default service account: %v", err)
-	}
+	require.NoError(t, err, "failed waiting for default service account")
 
 	_, err = k.CommandWithInput(setupYaml, "apply", "-f", "-")
-	if err != nil {
-		t.Fatalf("Failed to apply setup YAML: %v", err)
-	}
+	require.NoError(t, err, "failed to apply setup YAML")
 
 	b64BearerToken, err := k.Command("get", "secret", "gateway-default-service-account", "-o", "jsonpath={.data.token}")
-	if err != nil {
-		t.Fatalf("Failed to get default service account's bearer token: %v", err)
-	}
+	require.NoError(t, err, "failed to get default service account's bearer token")
 
 	bearerToken, err := base64.StdEncoding.DecodeString(string(b64BearerToken))
-	if err != nil {
-		t.Fatalf("Failed to decode bearer token: %v", err)
-	}
+	require.NoError(t, err, "failed to decode bearer token")
 
 	t.Log("Waiting for test-pod to be ready...")
 
 	_, err = k.Command("wait", "--for=condition=Ready", "pod/test-pod", "--timeout=30s")
-	if err != nil {
-		t.Fatalf("Failed waiting for busybox pod: %v", err)
-	}
+	require.NoError(t, err, "failed waiting for busybox pod")
 
 	return k, kubeConfig, string(bearerToken)
 }
@@ -288,38 +265,26 @@ func createClientKubectl(t *testing.T, kindKubectl *Kubectl, clientURL string) *
 
 	t.Cleanup(func() {
 		_, err := kindKubectl.Command("config", "delete-context", contextName)
-		if err != nil {
-			t.Errorf("Failed to delete context %s: %v", contextName, err)
-		}
+		assert.NoError(t, err, "failed to delete context %s", contextName)
 
 		_, err = kindKubectl.Command("config", "delete-cluster", contextName)
-		if err != nil {
-			t.Errorf("Failed to delete cluster %s: %v", contextName, err)
-		}
+		assert.NoError(t, err, "failed to delete cluster %s", contextName)
 
 		_, err = kindKubectl.Command("config", "delete-user", contextName)
-		if err != nil {
-			t.Errorf("Failed to delete user %s: %v", contextName, err)
-		}
+		assert.NoError(t, err, "failed to delete user %s", contextName)
 	})
 
 	_, err := kindKubectl.Command("config", "set-cluster", contextName,
 		"--certificate-authority=../data/proxy/tls.crt",
 		"--server="+clientURL,
 	)
-	if err != nil {
-		t.Fatalf("Failed to configure kubectl: %v", err)
-	}
+	require.NoError(t, err, "failed to configure kubectl")
 
 	_, err = kindKubectl.Command("config", "set-credentials", contextName, "--token=void")
-	if err != nil {
-		t.Fatalf("Failed to configure kubectl: %v", err)
-	}
+	require.NoError(t, err, "failed to configure kubectl")
 
 	_, err = kindKubectl.Command("config", "set-context", contextName, "--cluster="+contextName, "--user="+contextName)
-	if err != nil {
-		t.Fatalf("Failed to configure kubectl: %v", err)
-	}
+	require.NoError(t, err, "failed to configure kubectl")
 
 	return &Kubectl{
 		context: contextName,
@@ -357,9 +322,7 @@ func gatewayHealthCheck(t *testing.T) {
 			resp.Body.Close()
 		}
 
-		if attempt == maxAttempts {
-			t.Fatalf("Gateway failed to start after %d attempts", maxAttempts)
-		}
+		require.Equal(t, attempt, maxAttempts, "Gateway failed to start after %d attempts", maxAttempts)
 
 		time.Sleep(backoff)
 	}
@@ -369,9 +332,7 @@ func assertWhoAmI(t *testing.T, output []byte, expectedUsername string, expected
 	t.Helper()
 
 	var whoami authv1.SelfSubjectReview
-	if err := json.Unmarshal(output, &whoami); err != nil {
-		t.Fatalf("Failed to parse kubectl auth whoami output: %v", err)
-	}
+	require.NoError(t, json.Unmarshal(output, &whoami), "failed to parse kubectl auth whoami output")
 
 	username := whoami.Status.UserInfo.Username
 	groups := whoami.Status.UserInfo.Groups
