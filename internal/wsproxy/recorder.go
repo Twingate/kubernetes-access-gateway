@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -69,7 +68,7 @@ type AsciinemaRecorder struct {
 	config config
 
 	start         time.Time
-	headerWritten atomic.Bool
+	header        string
 	recordedLines []string
 
 	// number of flushes
@@ -133,9 +132,17 @@ func WithClock(clock clockwork.Clock) RecorderOption {
 }
 
 func (r *AsciinemaRecorder) WriteHeader(h asciinemaHeader) error {
-	r.headerWritten.Store(true)
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	return r.writeJSON(h)
+	jsonEvent, err := json.Marshal(h)
+	if err != nil {
+		return fmt.Errorf("%w: %w", errFailedToConvertJSON, err)
+	}
+
+	r.header = string(jsonEvent)
+
+	return nil
 }
 
 func (r *AsciinemaRecorder) WriteOutputEvent(data []byte) error {
@@ -153,7 +160,10 @@ func (r *AsciinemaRecorder) WriteResizeEvent(width int, height int) (err error) 
 }
 
 func (r *AsciinemaRecorder) IsHeaderWritten() bool {
-	return r.headerWritten.Load()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.header != ""
 }
 
 func (r *AsciinemaRecorder) Stop() {
@@ -244,7 +254,8 @@ func (r *AsciinemaRecorder) flush(isFinal bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if !isFinal && len(r.recordedLines) == 0 {
+	// Always flush final logs. Otherwise, flush if there is a header and some events.
+	if !isFinal && (len(r.recordedLines) == 0 || r.header == "") {
 		return
 	}
 
@@ -257,7 +268,7 @@ func (r *AsciinemaRecorder) flush(isFinal bool) {
 
 	r.flushCount++
 	r.config.logger.Info(message,
-		zap.String("asciinema_data", strings.Join(r.recordedLines, "\n")),
+		zap.String("asciinema_data", strings.Join(append([]string{r.header}, r.recordedLines...), "\n")),
 		zap.Int("asciinema_sequence_num", r.flushCount),
 	)
 
