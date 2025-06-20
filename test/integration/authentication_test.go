@@ -232,7 +232,9 @@ func setupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 
 	err = wait.PollUntilContextTimeout(t.Context(), time.Second, 30*time.Second, true, func(_ctx context.Context) (bool, error) {
 		_, err = k.Command("get", "serviceaccount", "default")
-		require.NoError(t, err, "failed to get default service account")
+		if err != nil {
+			return false, nil //nolint:nilerr
+		}
 
 		return true, nil
 	})
