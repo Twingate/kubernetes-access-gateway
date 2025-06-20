@@ -115,8 +115,8 @@ func init() { //nolint:gochecknoinits
 	flags.String("port", "8443", "Port to listen on")
 	flags.String("tlsCert", "", "Path to the TLS certificate for the Gateway")
 	flags.String("tlsKey", "", "Path to the TLS key for the Gateway")
-	flags.Int("logFlushSizeThreshold", 64000, "Threshold (in bytes) of the recorded lines to flush")
-	flags.Duration("logFlushInterval", time.Minute, "Interval to flush logs e.g. 30s, 1m, 1h")
+	flags.Int("logFlushSizeThreshold", 1_000_000, "Threshold (in bytes) of the recorded lines to flush")
+	flags.Duration("logFlushInterval", 10*time.Minute, "Interval to flush logs e.g. 30s, 1m, 1h")
 
 	// Kubernetes flags
 	flags.String("k8sAPIServerCA", "", "Path to the CA certificate for the Kubernetes API server")
