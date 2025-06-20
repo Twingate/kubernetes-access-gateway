@@ -13,6 +13,7 @@ import (
 	"k8sgateway/internal/connect"
 	"k8sgateway/internal/httpproxy"
 	"k8sgateway/internal/log"
+	"k8sgateway/internal/metrics"
 	"k8sgateway/internal/token"
 )
 
@@ -79,6 +80,18 @@ func start(newProxy ProxyFactory) error {
 		logger.Errorf("failed to load in-cluster config: %v", err)
 	}
 
+	metricsPort := viper.GetInt("metricsPort")
+	go func() {
+		logger.Infof("Starting metrics server on: %v", metricsPort)
+
+		err := metrics.Start(metrics.Config{
+			Port: metricsPort,
+		})
+		if err != nil {
+			logger.Fatal("failed to start metrics server:", zap.Error(err))
+		}
+	}()
+
 	proxy, err := newProxy(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s gateway %w", err)
@@ -110,6 +123,9 @@ func init() { //nolint:gochecknoinits
 	flags.String("k8sAPIServerCA", "", "Path to the CA certificate for the Kubernetes API server")
 	flags.String("k8sAPIServerToken", "", "Bearer token to authenticate to the Kubernetes API server")
 	flags.Int("k8sAPIServerPort", 0, "K8s API Server port, used in local development and testing to override 443 port")
+
+	// Metrics flags
+	flags.Int("metricsPort", 9090, "Port to expose Prometheus metrics on")
 
 	// Misc flags
 	flags.BoolP("debug", "d", false, "Run in debug mode")

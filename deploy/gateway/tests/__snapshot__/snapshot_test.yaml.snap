@@ -60,6 +60,10 @@ should render:
                   value: null
                 - name: TWINGATE_HOST
                   value: twingate.com
+                - name: TWINGATE_PORT
+                  value: "8443"
+                - name: TWINGATE_METRICSPORT
+                  value: "9090"
               image: twingate/kubernetes-access-gateway:0.1.0
               imagePullPolicy: IfNotPresent
               livenessProbe:
@@ -73,6 +77,9 @@ should render:
               ports:
                 - containerPort: 8443
                   name: https
+                  protocol: TCP
+                - containerPort: 9090
+                  name: metrics
                   protocol: TCP
               readinessProbe:
                 httpGet:
