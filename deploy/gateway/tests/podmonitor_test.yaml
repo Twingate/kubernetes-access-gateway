@@ -1,0 +1,11 @@
+suite: Pod Monitor
+templates:
+  - podmonitor.yaml
+tests:
+  - it: should enable Prometheus Pod Monitor
+    set:
+      metrics:
+        podMonitor:
+          enabled: true
+    asserts:
+      - matchSnapshot: {}
