@@ -345,7 +345,7 @@ func TestHTTPError_Error(t *testing.T) {
 				Code:    tt.code,
 				Message: tt.message,
 			}
-			assert.Equal(t, tt.want, e.Error(), "HTTPError.Error() = %v, want %v", e.Error(), tt.want)
+			assert.Equal(t, tt.want, e.Error())
 		})
 	}
 }

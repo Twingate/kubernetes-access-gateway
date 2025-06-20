@@ -24,13 +24,13 @@ func TestMessage_Parse_SimpleMessage(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Equal(t, 5, parsed, "Expected to parse 5 bytes, got %d", parsed)
+	assert.Equal(t, 5, parsed)
 
-	assert.Equal(t, MessageStateFinished, msg.state, "Expected msg.state to be MessageStateFinished")
+	assert.Equal(t, MessageStateFinished, msg.state)
 
-	assert.Equal(t, uint32(1), msg.k8sStreamID, "Expected k8sStreamID=1, got %d", msg.k8sStreamID)
+	assert.Equal(t, uint32(1), msg.k8sStreamID)
 
-	assert.Equal(t, []byte{0x41, 0x42}, msg.payload, "Expected payload [0x41, 0x42], got %v", msg.payload)
+	assert.Equal(t, []byte{0x41, 0x42}, msg.payload)
 }
 
 func TestMessage_Parse_MaskedMessage(t *testing.T) {
@@ -49,13 +49,13 @@ func TestMessage_Parse_MaskedMessage(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Equal(t, 9, parsed, "Expected to parse 9 bytes, got %d", parsed)
+	assert.Equal(t, 9, parsed)
 
-	assert.Equal(t, MessageStateFinished, msg.state, "Expected msg.state to be MessageStateFinished")
+	assert.Equal(t, MessageStateFinished, msg.state)
 
-	assert.Equal(t, uint32(2), msg.k8sStreamID, "Expected k8sStreamID=2, got %d", msg.k8sStreamID)
+	assert.Equal(t, uint32(2), msg.k8sStreamID)
 
-	assert.Equal(t, []byte{0x41, 0x42}, msg.payload, "Expected payload [0x41, 0x42], got %v", msg.payload)
+	assert.Equal(t, []byte{0x41, 0x42}, msg.payload)
 }
 
 func TestMessage_Parse_MediumLengthMessage(t *testing.T) {
@@ -79,11 +79,11 @@ func TestMessage_Parse_MediumLengthMessage(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Equal(t, len(data), parsed, "Expected to parse %d bytes, got %d", len(data), parsed)
+	assert.Equal(t, len(data), parsed)
 
-	assert.Equal(t, uint32(2), msg.k8sStreamID, "Expected k8sStreamID=2, got %d", msg.k8sStreamID)
+	assert.Equal(t, uint32(2), msg.k8sStreamID)
 
-	assert.Len(t, msg.payload, 129, "Expected payload length 129, got %d", len(msg.payload))
+	assert.Len(t, msg.payload, 129)
 }
 
 func TestMessage_Parse_LargeLengthMessage(t *testing.T) {
@@ -107,11 +107,11 @@ func TestMessage_Parse_LargeLengthMessage(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Equal(t, len(data), parsed, "Expected to parse %d bytes, got %d", len(data), parsed)
+	assert.Equal(t, len(data), parsed)
 
-	assert.Equal(t, uint32(3), msg.k8sStreamID, "Expected k8sStreamID=3, got %d", msg.k8sStreamID)
+	assert.Equal(t, uint32(3), msg.k8sStreamID)
 
-	assert.Len(t, msg.payload, 259, "Expected payload length 259, got %d", len(msg.payload))
+	assert.Len(t, msg.payload, 259)
 }
 
 func TestMessage_Parse_FragmentedMessage(t *testing.T) {
@@ -138,18 +138,18 @@ func TestMessage_Parse_FragmentedMessage(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Equal(t, 5, parsed1, "Expected to parse 5 bytes in first fragment, got %d", parsed1)
+	assert.Equal(t, 5, parsed1)
 
-	assert.Equal(t, MessageStateFragmented, msg.state, "Expected msg.state to be MessageStateFragmented after first fragment")
+	assert.Equal(t, MessageStateFragmented, msg.state)
 
 	parsed2, err := msg.Parse(data2)
 	require.NoError(t, err)
 
-	assert.Equal(t, 5, parsed2, "Expected to parse 5 bytes in second fragment, got %d", parsed2)
+	assert.Equal(t, 5, parsed2)
 
-	assert.Equal(t, MessageStateFinished, msg.state, "Expected msg.state to be MessageStateFinished after second fragment")
+	assert.Equal(t, MessageStateFinished, msg.state)
 
-	assert.Equal(t, uint32(4), msg.k8sStreamID, "Expected k8sStreamID=4, got %d", msg.k8sStreamID)
+	assert.Equal(t, uint32(4), msg.k8sStreamID)
 
 	assert.Equal(t, []byte{0x41, 0x42, 0x43, 0x44}, msg.payload, "Expected concatenated payload [0x41, 0x42, 0x43, 0x44], got %v", msg.payload)
 }
@@ -196,7 +196,7 @@ func TestMessage_Parse_IncompleteData(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Equal(t, 0, parsed, "Expected parsed=0 for incomplete data, got %d", parsed)
+	assert.Equal(t, 0, parsed)
 }
 
 func TestMessage_Parse_EmptyPayload(t *testing.T) {
@@ -246,13 +246,13 @@ func TestMessage_Parse_ControlMessagePing(t *testing.T) {
 
 	// The parsed bytes should include the first byte (FIN/opcode), second byte (mask/length),
 	// For this example: 1 (0x89) + 1 (0x03) + 3 (ping data) = 6 bytes
-	assert.Equal(t, len(data), parsed, "Expected to parse %d bytes, got %d", len(data), parsed)
+	assert.Equal(t, len(data), parsed)
 
-	assert.Equal(t, MessageStateFinished, msg.state, "Expected msg.state to be MessageStateFinished")
+	assert.Equal(t, MessageStateFinished, msg.state)
 
 	// For PING messages, the payload can contain data, check it matches
 	expectedPayload := []byte{0x70, 0x69, 0x6e}
-	assert.Equal(t, expectedPayload, msg.payload, "Expected payload %v, got %v", expectedPayload, msg.payload)
+	assert.Equal(t, expectedPayload, msg.payload)
 }
 
 func TestMessage_Parse_ControlMessageCloseMasked(t *testing.T) {
@@ -285,17 +285,17 @@ func TestMessage_Parse_ControlMessageCloseMasked(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Equal(t, len(data), parsed, "Expected to parse %d bytes, got %d", len(data), parsed)
+	assert.Equal(t, len(data), parsed)
 
-	assert.Equal(t, MessageStateFinished, msg.state, "Expected msg.state to be MessageStateFinished")
+	assert.Equal(t, MessageStateFinished, msg.state)
 
 	// For standard WebSocket control messages (like CLOSE), a K8s Stream ID is not part of the protocol.
 	// Therefore, we expect msg.k8sStreamID to be its zero-value (0), indicating it's not present/applicable.
-	assert.Equal(t, uint32(0), msg.k8sStreamID, "Expected k8sStreamID=0 (not applicable for control frames), got %d", msg.k8sStreamID)
+	assert.Equal(t, uint32(0), msg.k8sStreamID)
 
 	// Expected unmasked payload: Status Code 1000 (0x03E8) and Reason "Bye"
 	expectedPayload := []byte{0x03, 0xE8, 0x42, 0x79, 0x65}
-	assert.Equal(t, expectedPayload, msg.payload, "Expected payload %v, got %v", expectedPayload, msg.payload)
+	assert.Equal(t, expectedPayload, msg.payload)
 }
 
 func TestUnmask(t *testing.T) {
@@ -332,7 +332,7 @@ func TestUnmask(t *testing.T) {
 
 			unmask(tc.mask, dataCopy)
 
-			assert.Equal(t, tc.expected, dataCopy, "Expected %v, got %v", tc.expected, dataCopy)
+			assert.Equal(t, tc.expected, dataCopy)
 		})
 	}
 }
@@ -397,8 +397,8 @@ func TestIsDataFrame(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsDataFrame(tt.input)
-			assert.Equal(t, tt.expected, got, "IsDataFrame(%v) = %v; want %v", tt.input, got, tt.expected)
+			result := IsDataFrame(tt.input)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -463,8 +463,8 @@ func TestIsK8sStreamFrame(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsK8sStreamFrame(tt.input)
-			assert.Equal(t, tt.expected, got, "IsK8sStreamFrame(%v) = %v; want %v", tt.input, got, tt.expected)
+			result := IsK8sStreamFrame(tt.input)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
