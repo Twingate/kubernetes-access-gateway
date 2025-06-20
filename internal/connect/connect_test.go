@@ -169,6 +169,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		var httpErr *HTTPError
 
 		require.ErrorAs(t, err, &httpErr)
+		require.Error(t, httpErr.Err)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to parse token")
 		assert.Nil(t, connectInfo.Claims)
@@ -189,6 +190,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		var httpErr *HTTPError
 
 		require.ErrorAs(t, err, &httpErr)
+		require.Error(t, httpErr.Err)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to decode client signature")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -208,6 +210,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		var httpErr *HTTPError
 
 		require.ErrorAs(t, err, &httpErr)
+		require.NoError(t, httpErr.Err)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to verify signature")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -229,6 +232,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		var httpErr *HTTPError
 
 		require.ErrorAs(t, err, &httpErr)
+		require.NoError(t, httpErr.Err)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to verify signature")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -252,6 +256,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		var httpErr *HTTPError
 
 		require.ErrorAs(t, err, &httpErr)
+		require.NoError(t, httpErr.Err)
 		assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to verify signature")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -275,6 +280,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		var httpErr *HTTPError
 
 		require.ErrorAs(t, err, &httpErr)
+		require.NoError(t, httpErr.Err)
 		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to verify CONNECT destination")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)
@@ -298,6 +304,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 		var httpErr *HTTPError
 
 		require.ErrorAs(t, err, &httpErr)
+		require.Error(t, httpErr.Err)
 		assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 		assert.Contains(t, httpErr.Error(), "failed to parse CONNECT destination")
 		assert.Equal(t, *connectInfo.Claims, gatClaims)

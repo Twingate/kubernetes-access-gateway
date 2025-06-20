@@ -506,9 +506,8 @@ func TestProxy_ForwardRequest(t *testing.T) {
 		// proxy should provide the correct token for the upstream server
 		assert.Equal(t, "Bearer mock-token", r.Header.Get("Authorization"))
 		// response
-		if _, err := io.WriteString(w, "Upstream API Server Response!"); err != nil {
-			t.Fatalf("Failed to write API server response: %v", err)
-		}
+		_, err := io.WriteString(w, "Upstream API Server Response!")
+		assert.NoError(t, err)
 	}))
 
 	// load certs for mock API server
