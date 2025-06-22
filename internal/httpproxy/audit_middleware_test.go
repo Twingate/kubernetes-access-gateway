@@ -1,7 +1,9 @@
 package httpproxy
 
 import (
+	"bufio"
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +23,15 @@ type mockHandler struct {
 
 func (m *mockHandler) serveHTTP(w http.ResponseWriter, r *http.Request, conn *ProxyConn, auditLogger *zap.Logger) {
 	m.Called(w, r, conn, auditLogger)
+}
+
+// Mock implementation of http.ResponseWriter that satisfies http.Hijacker.
+type responseRecorder struct {
+	httptest.ResponseRecorder
+}
+
+func (r *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return nil, nil, nil
 }
 
 func TestAuditMiddleware(t *testing.T) {
@@ -52,6 +63,17 @@ func TestAuditMiddleware(t *testing.T) {
 			expectedLogMessage: "API request completed",
 			expectedLogLevel:   zapcore.InfoLevel,
 			expectedStatusCode: http.StatusOK,
+			expectedPanic:      "",
+		},
+		{
+			name: "Handler being hijacked",
+			handlerFn: func(w http.ResponseWriter) {
+				hijacker, _ := w.(http.Hijacker)
+				_, _, _ = hijacker.Hijack()
+			},
+			expectedLogMessage: "API request completed",
+			expectedLogLevel:   zapcore.InfoLevel,
+			expectedStatusCode: http.StatusSwitchingProtocols,
 			expectedPanic:      "",
 		},
 		{
@@ -93,7 +115,7 @@ func TestAuditMiddleware(t *testing.T) {
 			request := httptest.NewRequestWithContext(ctx, "GET", "/api", nil)
 			request.Header.Set("Kubectl-Command", "kubectl exec")
 
-			recorder := httptest.NewRecorder()
+			recorder := &responseRecorder{ResponseRecorder: *httptest.NewRecorder()}
 			recorder.Header().Set("Audit-Id", "audit-id-1")
 
 			mockHandler.

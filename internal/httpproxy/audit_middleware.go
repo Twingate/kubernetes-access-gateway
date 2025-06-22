@@ -47,7 +47,16 @@ func (rw *responseWriter) Flush() {
 
 func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if hijacker, ok := rw.ResponseWriter.(http.Hijacker); ok {
-		return hijacker.Hijack()
+		conn, brw, err := hijacker.Hijack()
+		if err == nil {
+			// If the connection is hijacked, the caller will write the response headers and body.
+			// We assume it would happen successfully and set the status code to 101.
+			rw.headerWritten = true
+			rw.statusCode = http.StatusSwitchingProtocols
+			rw.headers = rw.Header().Clone()
+		}
+
+		return conn, brw, err
 	}
 
 	return nil, nil, errFailedToHijack
