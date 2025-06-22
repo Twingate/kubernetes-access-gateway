@@ -2,24 +2,20 @@ package httpproxy
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 
@@ -38,12 +34,6 @@ const ConnContextKey connContextKey = "CONN_CONTEXT"
 const (
 	keyingMaterialLabel  = "EXPERIMENTAL_twingate_gat"
 	keyingMaterialLength = 32
-)
-
-const (
-	bodyLogMaxSize           = 16 * 1024 // 16KB
-	bodyLogTruncationSuffix  = " ... [truncated]"
-	bodyLogMaxSizeWithSuffix = bodyLogMaxSize - len(bodyLogTruncationSuffix)
 )
 
 func httpResponseString(httpCode int) string {
@@ -247,39 +237,6 @@ func (l *tcpListener) Addr() net.Addr {
 	return l.Listener.Addr()
 }
 
-type responseLogger struct {
-	http.ResponseWriter
-	statusCode int
-	headers    http.Header
-	body       *bytes.Buffer
-}
-
-func (rl *responseLogger) WriteHeader(code int) {
-	rl.statusCode = code
-	rl.headers = rl.Header().Clone()
-	rl.ResponseWriter.WriteHeader(code)
-}
-
-func (rl *responseLogger) Write(p []byte) (int, error) {
-	rl.body.Write(p)
-
-	return rl.ResponseWriter.Write(p)
-}
-
-func (rl *responseLogger) Flush() {
-	if flusher, ok := rl.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
-}
-
-func truncateBody(body []byte) string {
-	if len(body) > bodyLogMaxSize {
-		return string(body[:bodyLogMaxSizeWithSuffix]) + bodyLogTruncationSuffix
-	}
-
-	return string(body)
-}
-
 type ProxyService interface {
 	Start(ready chan struct{})
 }
@@ -402,8 +359,11 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
-	mux.HandleFunc("/", p.serveHTTP)
-	mux.HandleFunc("GET /api/v1/namespaces/{namespace}/pods/{pod}/exec", p.serveHTTP)
+	handler := auditMiddleware(config{
+		next: p.serveHTTP,
+	})
+	mux.Handle("/", handler)
+	mux.Handle("GET /api/v1/namespaces/{namespace}/pods/{pod}/exec", handler)
 
 	return p, nil
 }
@@ -435,59 +395,9 @@ func (p *Proxy) Start(ready chan struct{}) {
 	}
 }
 
-func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	auditLogger := zap.L().Named("audit").With(
-		zap.String("request_id", uuid.New().String()),
-		zap.String("method", r.Method),
-		zap.String("url", r.URL.String()),
-		zap.String("remote_addr", r.RemoteAddr),
-	)
-	conn, ok := r.Context().Value(ConnContextKey).(*ProxyConn)
-
-	if !ok {
-		auditLogger.Error("Failed to retrieve net.Conn from context")
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-
-		return
-	}
-
-	auditLogger = auditLogger.With(
-		zap.Object("user", conn.claims.User),
-		zap.String("conn_id", conn.id),
-	)
-
-	// read the body, consuming the data
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		auditLogger.Error("failed to read request body", zap.Error(err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-
-		return
-	}
-
-	// close and recreate the body reader
-	if err := r.Body.Close(); err != nil {
-		auditLogger.Error("failed to process request body", zap.Error(err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-
-		return
-	}
-
-	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-
-	// truncate the body log if it's too large
-	logReqBody := truncateBody(bodyBytes)
-
-	auditLogger.Info("API request",
-		zap.Namespace("request"),
-		zap.Any("header", r.Header),
-		zap.String("body", logReqBody),
-	)
-
-	isWebSocketRequest := wsstream.IsWebSocketRequest(r)
-
+func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request, conn *ProxyConn, auditLogger *zap.Logger) {
 	switch {
-	case isWebSocketRequest && !shouldSkipWebSocketRequest(r):
+	case wsstream.IsWebSocketRequest(r) && !shouldSkipWebSocketRequest(r):
 		// Audit Websocket streaming session
 		recorderFactory := func() wsproxy.Recorder {
 			return wsproxy.NewRecorder(
@@ -498,28 +408,10 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
 		p.proxy.ServeHTTP(wsHijacker, r)
-	case !isWebSocketRequest && !shouldSkipRESTRequest(r):
-		// Audit REST API response
-		responseLogger := &responseLogger{ResponseWriter: w, statusCode: http.StatusOK, body: &bytes.Buffer{}}
-		defer func() {
-			// truncate the body log if it's too large
-			logResBody := truncateBody(responseLogger.body.Bytes())
-
-			auditLogger.Info("API response",
-				zap.Namespace("response"),
-				zap.Int("status_code", responseLogger.statusCode),
-				zap.Any("header", responseLogger.headers),
-				zap.String("body", logResBody),
-			)
-		}()
-		p.proxy.ServeHTTP(responseLogger, r)
 	default:
-		// No audit
 		p.proxy.ServeHTTP(w, r)
 	}
 }
-
-var podLogPattern = regexp.MustCompile(`^/api/v1/namespaces/[^/]+/pods/[^/]+/log$`)
 
 func shouldSkipWebSocketRequest(r *http.Request) bool {
 	// Skip tunneling requests (e.g. `kubectl proxy`)
@@ -528,9 +420,4 @@ func shouldSkipWebSocketRequest(r *http.Request) bool {
 		r.Header.Get("Kubectl-Command") == "kubectl cp" ||
 		// Skip executing `tar` command
 		r.URL.Query().Get("command") == "tar"
-}
-
-func shouldSkipRESTRequest(r *http.Request) bool {
-	// Skip requests for pod logs
-	return podLogPattern.MatchString(r.URL.Path)
 }
