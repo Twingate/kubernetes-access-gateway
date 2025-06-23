@@ -122,8 +122,6 @@ func (p *ProxyConn) authenticate() error {
 	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
 
 	if err := tlsConnectConn.Handshake(); err != nil {
-		tlsConnectConn.Close()
-
 		return err
 	}
 
@@ -139,12 +137,9 @@ func (p *ProxyConn) authenticate() error {
 		_, writeErr := tlsConnectConn.Write([]byte(responseStr))
 		if writeErr != nil {
 			p.logger.Error("failed to write response", zap.Error(writeErr))
-			tlsConnectConn.Close()
 
 			return writeErr
 		}
-
-		tlsConnectConn.Close()
 
 		return err
 	}
@@ -156,12 +151,9 @@ func (p *ProxyConn) authenticate() error {
 		_, writeErr := tlsConnectConn.Write([]byte(responseStr))
 		if writeErr != nil {
 			p.logger.Error("failed to write response", zap.Error(writeErr))
-			tlsConnectConn.Close()
 
 			return writeErr
 		}
-
-		tlsConnectConn.Close()
 
 		return nil
 	}
@@ -170,7 +162,6 @@ func (p *ProxyConn) authenticate() error {
 	ekm, err := ExportKeyingMaterial(tlsConnectConn)
 	if err != nil {
 		p.logger.Error("failed to get keying material", zap.Error(err))
-		tlsConnectConn.Close()
 
 		return err
 	}
@@ -204,14 +195,12 @@ func (p *ProxyConn) authenticate() error {
 	_, writeErr := tlsConnectConn.Write([]byte(response))
 	if writeErr != nil {
 		p.logger.Error("failed to write response", zap.Error(writeErr))
-		tlsConnectConn.Close()
 
 		return writeErr
 	}
 
 	if err != nil {
 		p.logger.Error("failed to serve request", zap.Error(err))
-		tlsConnectConn.Close()
 
 		return err
 	}
@@ -219,8 +208,6 @@ func (p *ProxyConn) authenticate() error {
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
 	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
 	if err := tlsConn.Handshake(); err != nil {
-		tlsConn.Close()
-
 		return err
 	}
 
