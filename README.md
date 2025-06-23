@@ -1,7 +1,7 @@
 # Twingate Kubernetes Access Gateway
 
-[![CI](https://github.com/Twingate/kubernetes-access-gateway/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/Twingate/kubernetes-access-gateway/actions/workflows/ci.yaml)
-[![Coverage Status](https://coveralls.io/repos/github/Twingate/kubernetes-access-gateway/badge.svg?branch=main&t=7BQPrK)](https://coveralls.io/github/Twingate/kubernetes-access-gateway?branch=main)
+[![CI](https://github.com/Twingate/kubernetes-access-gateway/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/Twingate/kubernetes-access-gateway/actions/workflows/ci.yaml)
+[![Coverage Status](https://coveralls.io/repos/github/Twingate/kubernetes-access-gateway/badge.svg?branch=master&t=iFagz6)](https://coveralls.io/github/Twingate/kubernetes-access-gateway?branch=master)
 [![Dockerhub](https://img.shields.io/badge/dockerhub-images-info.svg?logo=Docker)](https://hub.docker.com/r/twingate/kubernetes-access-gateway)
 
 > [!IMPORTANT]

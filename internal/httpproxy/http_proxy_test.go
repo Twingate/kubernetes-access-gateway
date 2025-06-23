@@ -18,9 +18,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"k8sgateway/internal/connect"
-	"k8sgateway/internal/log"
 	"k8sgateway/internal/token"
 )
 
@@ -39,7 +39,7 @@ func (m *mockConn) IsClosed() bool {
 	return m.isClosed.Load()
 }
 
-func TestNewProxyConn(t *testing.T) {
+func TestProxyConn_setConnectInfo(t *testing.T) {
 	conn := &mockConn{}
 	claims := &token.GATClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -48,12 +48,29 @@ func TestNewProxyConn(t *testing.T) {
 	}
 	connID := "conn-id-1"
 
-	proxyConn := NewProxyConn(conn, connID, claims)
+	proxyConn := &ProxyConn{Conn: conn}
 
-	assert.NotNil(t, proxyConn)
-	assert.Equal(t, claims, proxyConn.claims)
+	func() {
+		// `setConnectInfo` should only be called after acquiring the lock. This is needed
+		// because the timer is started in a separate goroutine.
+		proxyConn.mu.Lock()
+		defer proxyConn.mu.Unlock()
+
+		proxyConn.setConnectInfo(connect.Info{
+			Claims: claims,
+			ConnID: connID,
+		})
+	}()
+
 	assert.Equal(t, connID, proxyConn.id)
-	assert.Equal(t, conn, proxyConn.Conn)
+	assert.Equal(t, claims, proxyConn.claims)
+
+	// Wait for timer to happen, the connection should be closed
+	time.Sleep(100 * time.Millisecond)
+	assert.True(t, conn.IsClosed())
+
+	assert.Equal(t, connID, proxyConn.id)
+	assert.Equal(t, claims, proxyConn.claims)
 
 	// Wait for timer to happen, the connection should be closed
 	time.Sleep(100 * time.Millisecond)
@@ -80,6 +97,11 @@ func TestProxyConn_Close(t *testing.T) {
 	}
 }
 
+var errValidation = &connect.HTTPError{
+	Code:    http.StatusProxyAuthRequired,
+	Message: "failed to validate token",
+}
+
 type mockValidator struct {
 	shouldFail       bool
 	ProxyAuth        string
@@ -91,12 +113,9 @@ type mockValidator struct {
 func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (connectInfo connect.Info, err error) {
 	if m.shouldFail {
 		return connect.Info{
-				Claims: nil,
-				ConnID: "",
-			}, &connect.HTTPError{
-				Code:    http.StatusProxyAuthRequired,
-				Message: "failed to validate token",
-			}
+			Claims: nil,
+			ConnID: "",
+		}, errValidation
 	}
 
 	claims := &token.GATClaims{
@@ -128,9 +147,7 @@ func startMockListener(t *testing.T) (net.Listener, string) {
 	return listener, addr
 }
 
-func TestTCPListener_Accept_BadRequest(t *testing.T) {
-	log.InitializeLogger("gateway", false)
-
+func TestProxyConn_Read_BadRequest(t *testing.T) {
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 
@@ -146,10 +163,11 @@ func TestTCPListener_Accept_BadRequest(t *testing.T) {
 		shouldFail: false,
 	}
 
-	tcpListener := &tcpListener{
+	listener = &proxyListener{
 		Listener:         listener,
 		TLSConfig:        proxyTLSConfig,
 		ConnectValidator: mockValidator,
+		logger:           zap.NewNop(),
 	}
 
 	// make client TLS
@@ -187,16 +205,17 @@ func TestTCPListener_Accept_BadRequest(t *testing.T) {
 		done <- struct{}{}
 	}()
 
-	conn, err := tcpListener.Accept()
+	conn, err := listener.Accept()
 	require.NoError(t, err)
-	assert.NotNil(t, conn)
+
+	b := make([]byte, 0)
+	_, err = conn.Read(b)
+	assert.ErrorContains(t, err, "malformed HTTP request \"invalid-request\"")
 
 	<-done
 }
 
-func TestTCPListener_Accept_Healthcheck(t *testing.T) {
-	log.InitializeLogger("gateway", false)
-
+func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 
@@ -207,7 +226,7 @@ func TestTCPListener_Accept_Healthcheck(t *testing.T) {
 		Certificates: []tls.Certificate{serverCert},
 	}
 
-	tcpListener := &tcpListener{
+	listener = &proxyListener{
 		Listener:  listener,
 		TLSConfig: proxyTLSConfig,
 	}
@@ -247,24 +266,24 @@ func TestTCPListener_Accept_Healthcheck(t *testing.T) {
 		done <- struct{}{}
 	}()
 
-	conn, err := tcpListener.Accept()
+	conn, err := listener.Accept()
 	require.NoError(t, err)
-	assert.NotNil(t, conn)
+
+	b := make([]byte, 0)
+	_, err = conn.Read(b)
+	require.NoError(t, err)
 
 	<-done
 }
 
-func TestTCPListener_Accept_ValidConnectRequest(t *testing.T) {
-	log.InitializeLogger("gateway", false)
-
+func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 
-	// make proxy TLS
-	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy_server.crt", "../../test/data/proxy_server.key")
+	proxyCert, _ := tls.LoadX509KeyPair("../../test/data/proxy_server.crt", "../../test/data/proxy_server.key")
 
 	proxyTLSConfig := &tls.Config{
-		Certificates: []tls.Certificate{serverCert},
+		Certificates: []tls.Certificate{proxyCert},
 	}
 
 	// mock CONNECT validator
@@ -272,10 +291,11 @@ func TestTCPListener_Accept_ValidConnectRequest(t *testing.T) {
 		shouldFail: false,
 	}
 
-	tcpListener := &tcpListener{
+	listener = &proxyListener{
 		Listener:         listener,
 		TLSConfig:        proxyTLSConfig,
 		ConnectValidator: mockValidator,
+		logger:           zap.NewNop(),
 	}
 
 	// make client TLS
@@ -323,24 +343,25 @@ func TestTCPListener_Accept_ValidConnectRequest(t *testing.T) {
 		done <- struct{}{}
 	}()
 
-	conn, err := tcpListener.Accept()
+	conn, err := listener.Accept()
 	require.NoError(t, err)
-	assert.NotNil(t, conn)
 
-	proxyConn, ok := conn.(*ProxyConn)
-	assert.True(t, ok)
+	b := make([]byte, 0)
+	_, err = conn.Read(b)
+	require.NoError(t, err)
+
+	<-done
+
+	assert.IsType(t, &ProxyConn{}, conn)
+	proxyConn := conn.(*ProxyConn)
 	assert.Equal(t, "user@acme.com", proxyConn.claims.User.Username)
 	assert.ElementsMatch(t, []string{"Everyone", "Engineering"}, proxyConn.claims.User.Groups)
 	assert.Equal(t, "gat_token", mockValidator.ProxyAuth)
 	assert.Equal(t, "auth_sig", mockValidator.TokenSig)
 	assert.Equal(t, "conn-id-1", mockValidator.ConnID)
-
-	<-done
 }
 
-func TestTCPListener_Accept_FailedValidation(t *testing.T) {
-	log.InitializeLogger("gateway", false)
-
+func TestProxyConn_Read_FailedValidation(t *testing.T) {
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 
@@ -356,10 +377,11 @@ func TestTCPListener_Accept_FailedValidation(t *testing.T) {
 		shouldFail: true,
 	}
 
-	tcpListener := &tcpListener{
+	listener = &proxyListener{
 		Listener:         listener,
 		TLSConfig:        proxyTLSConfig,
 		ConnectValidator: mockValidator,
+		logger:           zap.NewNop(),
 	}
 
 	// make client TLS
@@ -397,16 +419,17 @@ func TestTCPListener_Accept_FailedValidation(t *testing.T) {
 		done <- struct{}{}
 	}()
 
-	conn, err := tcpListener.Accept()
+	conn, err := listener.Accept()
 	require.NoError(t, err)
-	assert.NotNil(t, conn)
+
+	b := make([]byte, 0)
+	_, err = conn.Read(b)
+	assert.ErrorIs(t, err, errValidation)
 
 	<-done
 }
 
 func TestProxy_ForwardRequest(t *testing.T) {
-	log.InitializeLogger("gateway", false)
-
 	// create mock API server (upstream)
 	apiServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// proxy should provide the correct 'Impersonate-User' header

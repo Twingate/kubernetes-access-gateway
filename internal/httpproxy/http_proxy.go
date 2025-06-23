@@ -58,28 +58,41 @@ type Config struct {
 	LogFlushInterval      time.Duration
 }
 
-// custom Conn that wraps a net.Conn, adding the user identity field.
+// ProxyConn is a custom connection that wraps the underlying TCP net.Conn, handling downstream
+// proxy (Twingate Client)'s authentication via the initial CONNECT message. It handles 2 TLS
+// upgrades: with downstream proxy and then with downstream client e.g. `kubectl`.
 type ProxyConn struct {
 	net.Conn
+	TLSConfig        *tls.Config
+	ConnectValidator connect.Validator
+	logger           *zap.Logger
+
+	isAuthenticated bool
+
 	id     string
 	claims *token.GATClaims
 	timer  *time.Timer
 	mu     sync.Mutex
 }
 
-func NewProxyConn(conn net.Conn, connID string, claims *token.GATClaims) *ProxyConn {
-	p := &ProxyConn{
-		Conn:   conn,
-		id:     connID,
-		claims: claims,
-	}
+func (p *ProxyConn) Read(b []byte) (int, error) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.timer = time.AfterFunc(time.Until(claims.ExpiresAt.Time), func() {
-		_ = p.Close()
-	})
 
-	return p
+	if p.isAuthenticated {
+		p.mu.Unlock()
+
+		return p.Conn.Read(b)
+	}
+
+	if err := p.authenticate(); err != nil {
+		p.mu.Unlock()
+
+		return 0, err
+	}
+
+	p.mu.Unlock()
+
+	return p.Conn.Read(b)
 }
 
 func (p *ProxyConn) Close() error {
@@ -93,36 +106,13 @@ func (p *ProxyConn) Close() error {
 	return p.Conn.Close()
 }
 
-func ExportKeyingMaterial(conn *tls.Conn) ([]byte, error) {
-	cs := conn.ConnectionState()
+// authenticate sets up TLS and processes the CONNECT message for authentication.
+func (p *ProxyConn) authenticate() error {
+	// Establish TLS connection with the downstream proxy
+	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
 
-	return cs.ExportKeyingMaterial(keyingMaterialLabel, nil, keyingMaterialLength)
-}
-
-// custom listener to handle HTTP CONNECT and then upgrade to HTTPS.
-type tcpListener struct {
-	Listener         net.Listener
-	TLSConfig        *tls.Config
-	ConnectValidator connect.Validator
-}
-
-func (l *tcpListener) Accept() (net.Conn, error) {
-	logger := zap.S()
-
-	// start accepting connections
-	conn, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
-	}
-
-	// now upgrade the net.Conn to a TLS connection
-	tlsConnectConn := tls.Server(conn, l.TLSConfig)
-
-	// start TLS handshake with the downstream proxy
 	if err := tlsConnectConn.Handshake(); err != nil {
-		tlsConnectConn.Close()
-
-		return tlsConnectConn, nil //nolint:nilerr
+		return err
 	}
 
 	// parse HTTP request
@@ -130,111 +120,128 @@ func (l *tcpListener) Accept() (net.Conn, error) {
 
 	req, err := http.ReadRequest(bufReader)
 	if err != nil {
-		logger.Errorf("failed to parse HTTP request: %v", err)
+		p.logger.Error("failed to parse HTTP request", zap.Error(err))
 
 		responseStr := "HTTP/1.1 400 Bad Request\r\n\r\n"
 
 		_, writeErr := tlsConnectConn.Write([]byte(responseStr))
 		if writeErr != nil {
-			logger.Errorf("failed to write response: %v", writeErr)
-			tlsConnectConn.Close()
+			p.logger.Error("failed to write response", zap.Error(writeErr))
 
-			return tlsConnectConn, nil
+			return writeErr
 		}
 
-		tlsConnectConn.Close()
-
-		return tlsConnectConn, nil
+		return err
 	}
 
+	// Health check request
 	if req.Method == http.MethodGet && req.URL.Path == healthCheckPath {
 		responseStr := "HTTP/1.1 200 OK\r\n\r\n"
 
 		_, writeErr := tlsConnectConn.Write([]byte(responseStr))
 		if writeErr != nil {
-			logger.Errorf("failed to write response: %v", writeErr)
-			tlsConnectConn.Close()
+			p.logger.Error("failed to write response", zap.Error(writeErr))
 
-			return tlsConnectConn, nil
+			return writeErr
 		}
 
-		tlsConnectConn.Close()
-
-		return tlsConnectConn, nil
+		return nil
 	}
 
 	// get the keying material for the TLS session
 	ekm, err := ExportKeyingMaterial(tlsConnectConn)
 	if err != nil {
-		logger.Errorf("failed to get keying material: %v", err)
-		tlsConnectConn.Close()
+		p.logger.Error("failed to get keying material", zap.Error(err))
 
-		return tlsConnectConn, nil
+		return err
 	}
 
 	// Parse and validate HTTP request, expecting CONNECT with
 	// valid token and signature
 	response := httpResponseString(http.StatusOK)
 
-	connectInfo, err := l.ConnectValidator.ParseConnect(req, ekm)
+	connectInfo, err := p.ConnectValidator.ParseConnect(req, ekm)
 	if err != nil {
 		var httpErr *connect.HTTPError
 		if errors.As(err, &httpErr) {
 			response = httpResponseString(httpErr.Code)
 		} else {
-			logger.Error("failed to parse CONNECT:", zap.Error(err))
+			p.logger.Error("failed to parse CONNECT:", zap.Error(err))
 
 			response = httpResponseString(http.StatusBadRequest)
 		}
 	}
 
 	if connectInfo.Claims != nil {
-		logger = logger.With(
+		p.logger = p.logger.With(
 			zap.Object("user", connectInfo.Claims.User),
 		)
 	}
 
-	logger = logger.With(
+	p.logger = p.logger.With(
 		zap.String("conn_id", connectInfo.ConnID),
 	)
 
 	_, writeErr := tlsConnectConn.Write([]byte(response))
 	if writeErr != nil {
-		logger.Errorf("failed to write response: %v", writeErr)
-		tlsConnectConn.Close()
+		p.logger.Error("failed to write response", zap.Error(writeErr))
 
-		return tlsConnectConn, nil
+		return writeErr
 	}
 
 	if err != nil {
-		logger.Errorf("failed to serve request: %v", err)
-		tlsConnectConn.Close()
+		p.logger.Error("failed to serve request", zap.Error(err))
 
-		return tlsConnectConn, nil
+		return err
 	}
 
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
-	tlsConn := tls.Server(tlsConnectConn, l.TLSConfig)
+	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
 	if err := tlsConn.Handshake(); err != nil {
-		tlsConn.Close()
-
-		return tlsConn, nil //nolint:nilerr
+		return err
 	}
 
-	// add auth information to the net.Conn by using ProxyConn which wraps net.Conn with
-	// a field for the user identity
-	proxyConn := NewProxyConn(tlsConn, connectInfo.ConnID, connectInfo.Claims)
+	// Replace the underlying connection with the downstream client TLS connection
+	p.Conn = tlsConn
+	p.setConnectInfo(connectInfo)
+	p.isAuthenticated = true
 
-	// return the wrapped and 'upgraded to TLS' net.Conn (ProxyConn) to the caller
-	return proxyConn, nil
+	return nil
 }
 
-func (l *tcpListener) Close() error {
-	return l.Listener.Close()
+func (p *ProxyConn) setConnectInfo(connectInfo connect.Info) {
+	p.id = connectInfo.ConnID
+	p.claims = connectInfo.Claims
+	p.timer = time.AfterFunc(time.Until(connectInfo.Claims.ExpiresAt.Time), func() {
+		_ = p.Close()
+	})
 }
 
-func (l *tcpListener) Addr() net.Addr {
-	return l.Listener.Addr()
+func ExportKeyingMaterial(conn *tls.Conn) ([]byte, error) {
+	cs := conn.ConnectionState()
+
+	return cs.ExportKeyingMaterial(keyingMaterialLabel, nil, keyingMaterialLength)
+}
+
+type proxyListener struct {
+	net.Listener
+	TLSConfig        *tls.Config
+	ConnectValidator connect.Validator
+	logger           *zap.Logger
+}
+
+func (l *proxyListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProxyConn{
+		Conn:             conn,
+		TLSConfig:        l.TLSConfig,
+		ConnectValidator: l.ConnectValidator,
+		logger:           l.logger,
+	}, nil
 }
 
 type ProxyService interface {
@@ -369,29 +376,27 @@ func NewProxy(cfg Config) (*Proxy, error) {
 }
 
 func (p *Proxy) Start(ready chan struct{}) {
-	logger := zap.S()
+	logger := zap.L()
 
-	// create the TCP listener
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", p.config.Port))
 	if err != nil {
-		logger.Fatal(err)
+		logger.Fatal("failed to create listener", zap.Error(err))
 	}
 
 	if ready != nil {
 		close(ready)
 	}
 
-	// use custom listener with TLS config
-	customListener := &tcpListener{
+	listener = &proxyListener{
 		Listener:         listener,
 		TLSConfig:        p.downstreamTLSConfig,
 		ConnectValidator: p.config.ConnectValidator,
+		logger:           logger,
 	}
 
-	// start serving HTTP
-	err = p.httpServer.Serve(customListener)
+	err = p.httpServer.Serve(listener)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Fatal("failed to start HTTP server", zap.Error(err))
 	}
 }
 
