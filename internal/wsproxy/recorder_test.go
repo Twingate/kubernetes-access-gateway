@@ -86,10 +86,8 @@ func TestRecorder_WriteHeader(t *testing.T) {
 	err := r.WriteHeader(header)
 	require.NoError(t, err, "WriteHeader should not return an error")
 
-	assert.Len(t, r.recordedLines, 1, "Recorder should have one event")
-
 	var recordedHeader asciinemaHeader
-	err = json.Unmarshal([]byte(r.recordedLines[0]), &recordedHeader)
+	err = json.Unmarshal([]byte(r.header), &recordedHeader)
 	require.NoError(t, err, "Header should be valid JSON")
 	assert.Equal(t, header, recordedHeader)
 }
@@ -109,17 +107,17 @@ func TestRecorder_MultipleEvents(t *testing.T) {
 	require.NoError(t, r.WriteResizeEvent(100, 30))
 	require.NoError(t, r.WriteOutputEvent([]byte("second output")))
 
-	assert.Len(t, r.recordedLines, 4, "Recorder should have four events")
+	assert.Len(t, r.recordedLines, 3, "Recorder should have 3 events")
 
 	// Validate header
 	var recordedHeader asciinemaHeader
-	err := json.Unmarshal([]byte(r.recordedLines[0]), &recordedHeader)
+	err := json.Unmarshal([]byte(r.header), &recordedHeader)
 	require.NoError(t, err)
 	assert.Equal(t, header.Version, recordedHeader.Version)
 
 	// Validate second output event
 	var lastEvent []any
-	err = json.Unmarshal([]byte(r.recordedLines[3]), &lastEvent)
+	err = json.Unmarshal([]byte(r.recordedLines[2]), &lastEvent)
 	require.NoError(t, err)
 	assert.Equal(t, "o", lastEvent[1])
 	assert.Equal(t, "second output", lastEvent[2])
@@ -162,6 +160,7 @@ func TestRecorder_PeriodicFlush(t *testing.T) {
 	// Create recorder with fake clock
 	core, logs := observer.New(zap.DebugLevel)
 	r := NewRecorder(zap.New(core), WithClock(fakeClock), WithFlushInterval(time.Minute))
+	r.header = "header"
 
 	// 1st interval
 
@@ -234,14 +233,14 @@ func TestRecorderFlow(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	require.NoError(t, r.WriteOutputEvent([]byte("output 2")))
 
-	assert.Len(t, r.recordedLines, 4, "Recorder should have four events")
+	assert.Len(t, r.recordedLines, 3, "Recorder should have three events")
 
 	// Verify timing order is correct
 	var event1, event2, event3 []any
 
-	require.NoError(t, json.Unmarshal([]byte(r.recordedLines[1]), &event1))
-	require.NoError(t, json.Unmarshal([]byte(r.recordedLines[2]), &event2))
-	require.NoError(t, json.Unmarshal([]byte(r.recordedLines[3]), &event3))
+	require.NoError(t, json.Unmarshal([]byte(r.recordedLines[0]), &event1))
+	require.NoError(t, json.Unmarshal([]byte(r.recordedLines[1]), &event2))
+	require.NoError(t, json.Unmarshal([]byte(r.recordedLines[2]), &event3))
 
 	time1 := event1[0].(float64)
 	time2 := event2[0].(float64)
@@ -287,6 +286,7 @@ func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeThreshold(t *testing.T) {
 	core, logs := observer.New(zap.DebugLevel)
 	r := NewRecorder(zap.New(core))
 	r.config.flushSizeThreshold = 15
+	r.header = "header"
 
 	_ = r.writeJSON([]any{0, "o", "a"}) // 11 bytes
 
