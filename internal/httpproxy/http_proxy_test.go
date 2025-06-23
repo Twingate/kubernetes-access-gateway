@@ -187,6 +187,11 @@ func TestResponseLogger(t *testing.T) {
 	})
 }
 
+var errValidation = &connect.HTTPError{
+	Code:    http.StatusProxyAuthRequired,
+	Message: "failed to validate token",
+}
+
 type mockValidator struct {
 	shouldFail       bool
 	ProxyAuth        string
@@ -198,12 +203,9 @@ type mockValidator struct {
 func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (connectInfo connect.Info, err error) {
 	if m.shouldFail {
 		return connect.Info{
-				Claims: nil,
-				ConnID: "",
-			}, &connect.HTTPError{
-				Code:    http.StatusProxyAuthRequired,
-				Message: "failed to validate token",
-			}
+			Claims: nil,
+			ConnID: "",
+		}, errValidation
 	}
 
 	claims := &token.GATClaims{
@@ -297,7 +299,8 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	b := make([]byte, 0)
-	_, _ = conn.Read(b)
+	_, err = conn.Read(b)
+	assert.ErrorContains(t, err, "malformed HTTP request \"invalid-request\"")
 
 	<-done
 }
@@ -357,7 +360,8 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	require.NoError(t, err)
 
 	b := make([]byte, 0)
-	_, _ = conn.Read(b)
+	_, err = conn.Read(b)
+	require.NoError(t, err)
 
 	<-done
 }
@@ -433,7 +437,8 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	b := make([]byte, 0)
-	_, _ = conn.Read(b)
+	_, err = conn.Read(b)
+	require.NoError(t, err)
 
 	<-done
 
@@ -508,7 +513,8 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	b := make([]byte, 0)
-	_, _ = conn.Read(b)
+	_, err = conn.Read(b)
+	assert.ErrorIs(t, err, errValidation)
 
 	<-done
 }
