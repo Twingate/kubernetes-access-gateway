@@ -255,7 +255,8 @@ func (r *AsciinemaRecorder) flush(isFinal bool) {
 	defer r.mu.Unlock()
 
 	// Always flush final logs. Otherwise, flush if there is a header and some events.
-	if !isFinal && (len(r.recordedLines) == 0 || r.header == "") {
+	shouldFlush := isFinal || (len(r.recordedLines) > 0 && r.header != "")
+	if !shouldFlush {
 		return
 	}
 
