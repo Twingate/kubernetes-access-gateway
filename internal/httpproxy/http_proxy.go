@@ -86,13 +86,21 @@ type ProxyConn struct {
 }
 
 func (p *ProxyConn) Read(b []byte) (int, error) {
+	p.mu.Lock()
+
 	if p.isAuthenticated {
+		p.mu.Unlock()
+
 		return p.Conn.Read(b)
 	}
 
 	if err := p.authenticate(); err != nil {
+		p.mu.Unlock()
+
 		return 0, err
 	}
+
+	p.mu.Unlock()
 
 	return p.Conn.Read(b)
 }
@@ -225,9 +233,6 @@ func (p *ProxyConn) authenticate() error {
 }
 
 func (p *ProxyConn) setConnectInfo(connectInfo connect.Info) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	p.id = connectInfo.ConnID
 	p.claims = connectInfo.Claims
 	p.timer = time.AfterFunc(time.Until(connectInfo.Claims.ExpiresAt.Time), func() {

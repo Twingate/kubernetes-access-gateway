@@ -51,10 +51,24 @@ func TestProxyConn_setConnectInfo(t *testing.T) {
 
 	proxyConn := &ProxyConn{Conn: conn}
 
-	proxyConn.setConnectInfo(connect.Info{
-		Claims: claims,
-		ConnID: connID,
-	})
+	func() {
+		// `setConnectInfo` should only be called after acquiring the lock. This is needed
+		// because the timer is started in a separate goroutine.
+		proxyConn.mu.Lock()
+		defer proxyConn.mu.Unlock()
+
+		proxyConn.setConnectInfo(connect.Info{
+			Claims: claims,
+			ConnID: connID,
+		})
+	}()
+
+	assert.Equal(t, connID, proxyConn.id)
+	assert.Equal(t, claims, proxyConn.claims)
+
+	// Wait for timer to happen, the connection should be closed
+	time.Sleep(100 * time.Millisecond)
+	assert.True(t, conn.IsClosed())
 
 	assert.Equal(t, connID, proxyConn.id)
 	assert.Equal(t, claims, proxyConn.claims)
