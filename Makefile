@@ -96,12 +96,20 @@ build: prepare-buildx ##@build Build the go binaries and container images
 
 .PHONY: cut-release-prod
 cut-release-prod: ##@release Cut a new release (create a version tagt and push it)
+	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then \
+		echo "❌ Error: cut-release-prod can only be run on master branch. Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
+		exit 1; \
+	fi
 	echo "🚀 Cutting a new release - $(shell go tool svu next)"
 	git tag "$(shell go tool svu next)"
 	git push --tags
 
 .PHONY: cut-release-dev
 cut-release: ##@release Cut a new release (create a version tagt and push it)
+	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then \
+		echo "❌ Error: cut-release can only be run on master branch. Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
+		exit 1; \
+	fi
 	echo "🚀 Cutting a new release - $(shell go tool svu next)"
 	git tag "$(shell go tool svu next --prerelease dev --metadata $(shell git rev-parse --short HEAD))"
 	git push --tags
