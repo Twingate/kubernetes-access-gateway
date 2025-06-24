@@ -259,9 +259,16 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 		// send a healthcheck request
 		fmt.Fprintf(proxyTLSConn, "GET /healthz HTTP/1.1\r\n\r\n")
 
-		resp, err := bufio.NewReader(proxyTLSConn).ReadString('\n')
+		buf := bufio.NewReader(proxyTLSConn)
+		resp, err := buf.ReadString('\n')
 		assert.NoError(t, err)
 		assert.Equal(t, "HTTP/1.1 200 OK\r\n", resp)
+		resp, err = buf.ReadString('\n')
+		assert.NoError(t, err)
+		assert.Equal(t, "Content-Length: 0\r\n", resp)
+		resp, err = buf.ReadString('\n')
+		assert.NoError(t, err)
+		assert.Equal(t, "Connection: close\r\n", resp)
 
 		done <- struct{}{}
 	}()
@@ -271,7 +278,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 
 	b := make([]byte, 0)
 	_, err = conn.Read(b)
-	require.NoError(t, err)
+	require.ErrorIs(t, io.EOF, err)
 
 	<-done
 }
