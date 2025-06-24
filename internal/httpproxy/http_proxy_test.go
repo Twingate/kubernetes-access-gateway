@@ -2,7 +2,6 @@ package httpproxy
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -96,95 +95,6 @@ func TestProxyConn_Close(t *testing.T) {
 		assert.Fail(t, "Timer should have been stopped")
 	default:
 	}
-}
-
-func TestTruncateBody(t *testing.T) {
-	testCases := []struct {
-		name     string
-		input    []byte
-		expected string
-	}{
-		{
-			name:     "Empty body",
-			input:    []byte{},
-			expected: "",
-		},
-		{
-			name:     "Short body",
-			input:    []byte("This is a short body"),
-			expected: "This is a short body",
-		},
-		{
-			name:     "Exactly max size body",
-			input:    bytes.Repeat([]byte("a"), bodyLogMaxSize),
-			expected: string(bytes.Repeat([]byte("a"), bodyLogMaxSize)),
-		},
-		{
-			name:     "Body longer than max size",
-			input:    bytes.Repeat([]byte("a"), bodyLogMaxSize+50),
-			expected: string(bytes.Repeat([]byte("a"), bodyLogMaxSizeWithSuffix)) + bodyLogTruncationSuffix,
-		},
-		{
-			name:     "Unicode body truncation",
-			input:    bytes.Repeat([]byte("こんにちは世界"), bodyLogMaxSize),
-			expected: string(bytes.Repeat([]byte("こんにちは世界"), bodyLogMaxSize)[:bodyLogMaxSizeWithSuffix]) + bodyLogTruncationSuffix,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := truncateBody(tc.input)
-
-			assert.Equal(t, tc.expected, result)
-			assert.LessOrEqual(t, len(result), bodyLogMaxSize, "Truncated body exceeds max size")
-		})
-	}
-}
-
-func TestResponseLogger(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	buffer := &bytes.Buffer{}
-	logger := &responseLogger{
-		ResponseWriter: recorder,
-		body:           buffer,
-	}
-
-	t.Run("WriteHeader", func(t *testing.T) {
-		testStatusCode := http.StatusBadRequest
-		logger.WriteHeader(testStatusCode)
-		assert.Equal(t, testStatusCode, logger.statusCode, "Status code not set correctly")
-		assert.NotNil(t, logger.headers, "Headers should be cloned")
-	})
-
-	t.Run("Write", func(t *testing.T) {
-		testData := []byte("hello!!!")
-		n, err := logger.Write(testData)
-
-		require.NoError(t, err, "Write should not return an error")
-		assert.Equal(t, len(testData), n, "Number of bytes written should match input")
-		assert.Equal(t, testData, logger.body.Bytes(), "Body buffer should contain written data")
-	})
-
-	t.Run("Write and WriteHeader combined", func(t *testing.T) {
-		recorder := httptest.NewRecorder()
-		buffer := &bytes.Buffer{}
-		logger := &responseLogger{
-			ResponseWriter: recorder,
-			body:           buffer,
-		}
-
-		testStatusCode := http.StatusOK
-		testData := []byte("test response")
-
-		logger.WriteHeader(testStatusCode)
-		n, err := logger.Write(testData)
-
-		require.NoError(t, err, "Write should not return an error")
-		assert.Equal(t, testStatusCode, logger.statusCode, "Status code should be set correctly")
-		assert.Equal(t, len(testData), n, "Number of bytes written should match input")
-		assert.Equal(t, testData, logger.body.Bytes(), "Body buffer should contain written data")
-		assert.Equal(t, recorder.Body.Bytes(), testData, "Underlying ResponseWriter should receive data")
-	})
 }
 
 var errValidation = &connect.HTTPError{
@@ -640,37 +550,6 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	// check response
 	assert.Equal(t, "Upstream API Server Response!", string(body))
-}
-
-func TestShouldSkipRESTRequest(t *testing.T) {
-	tests := []struct {
-		name     string
-		request  *http.Request
-		expected bool
-	}{
-		{
-			name:     "Get a pod log request",
-			request:  httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/pods/pod-1/log", nil),
-			expected: true,
-		},
-		{
-			name:     "Get a pod request",
-			request:  httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/pods/pod-1", nil),
-			expected: false,
-		},
-		{
-			name:     "Get a namespace request",
-			request:  httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default", nil),
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := shouldSkipRESTRequest(tt.request)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 func TestShouldSkipWebSocketRequest(t *testing.T) {

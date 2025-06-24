@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"net/http"
 	"net/url"
 	"strconv"
 	"testing"
@@ -107,7 +108,7 @@ func TestSingleUser(t *testing.T) {
 		"username": "alex@acme.com",
 		"groups":   []any{"OnCall", "Engineering"},
 	}
-	testutil.AssertLogsForREST(t, logs, "/apis/authentication.k8s.io/v1/selfsubjectreviews", expectedUser)
+	testutil.AssertLogsForREST(t, logs, "/apis/authentication.k8s.io/v1/selfsubjectreviews", expectedUser, http.StatusCreated)
 
 	// Test `kubectl exec`
 	output, err = user.Kubectl.Command("exec", "test-pod", "--", "cat", "/etc/hostname")

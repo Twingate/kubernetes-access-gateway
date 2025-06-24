@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,24 +39,16 @@ func AssertGetPods(t *testing.T, output []byte) {
 	assert.Equal(t, "test-pod", podList.Items[0].Name)
 }
 
-func AssertLogsForREST(t *testing.T, logs *observer.ObservedLogs, expectedURL string, expectedUser map[string]any) {
+func AssertLogsForREST(t *testing.T, logs *observer.ObservedLogs, expectedURL string, expectedUser map[string]any, expectedStatusCode int) {
 	t.Helper()
 
 	expectedLogs := logs.FilterField(zap.String("url", expectedURL)).All()
-	assert.Len(t, expectedLogs, 2)
+	assert.Len(t, expectedLogs, 1)
 
 	firstLog := expectedLogs[0]
-	assert.Equal(t, "API request", firstLog.Message)
+	assert.Equal(t, "API request completed", firstLog.Message)
 	assert.Equal(t, expectedUser, firstLog.ContextMap()["user"])
-	assert.NotEmpty(t, firstLog.ContextMap()["request"])
-
-	secondLog := expectedLogs[1]
-	assert.Equal(t, "API response", secondLog.Message)
-	assert.Equal(t, expectedUser, secondLog.ContextMap()["user"])
-	assert.NotEmpty(t, secondLog.ContextMap()["response"])
-
-	// Request and response logs must have the same request ID
-	assert.Equal(t, firstLog.ContextMap()["request_id"], secondLog.ContextMap()["request_id"])
+	assert.Subset(t, firstLog.ContextMap()["response"], map[string]any{"status_code": expectedStatusCode})
 }
 
 func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL, expectedOutput string, expectedUser map[string]any) {
@@ -65,13 +58,14 @@ func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL, e
 	assert.Len(t, expectedLogs, 2)
 
 	firstLog := expectedLogs[0]
-	assert.Equal(t, "API request", firstLog.Message)
+	assert.Equal(t, "session finished", firstLog.Message)
 	assert.Equal(t, expectedUser, firstLog.ContextMap()["user"])
+	assert.Contains(t, firstLog.ContextMap()["asciinema_data"], expectedOutput)
 
 	secondLog := expectedLogs[1]
-	assert.Equal(t, "session finished", secondLog.Message)
+	assert.Equal(t, "API request completed", secondLog.Message)
 	assert.Equal(t, expectedUser, secondLog.ContextMap()["user"])
-	assert.Contains(t, secondLog.ContextMap()["asciinema_data"], expectedOutput)
+	assert.Subset(t, secondLog.ContextMap()["response"], map[string]any{"status_code": http.StatusSwitchingProtocols})
 
 	// Request and response logs must have the same request ID
 	assert.Equal(t, firstLog.ContextMap()["request_id"], secondLog.ContextMap()["request_id"])

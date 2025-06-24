@@ -3,6 +3,7 @@ package integration
 import (
 	"fmt"
 	"math/rand/v2"
+	"net/http"
 	"net/url"
 	"strconv"
 	"sync"
@@ -136,7 +137,7 @@ func TestConcurrentUsers(t *testing.T) {
 					},
 					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
 						t.Helper()
-						testutil.AssertLogsForREST(t, logs, "/apis/authentication.k8s.io/v1/selfsubjectreviews", expectedUser)
+						testutil.AssertLogsForREST(t, logs, "/apis/authentication.k8s.io/v1/selfsubjectreviews", expectedUser, http.StatusCreated)
 					},
 				},
 				{
@@ -145,7 +146,7 @@ func TestConcurrentUsers(t *testing.T) {
 					assertOutputFn: testutil.AssertGetPods,
 					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
 						t.Helper()
-						testutil.AssertLogsForREST(t, logs, "/api/v1/namespaces/default/pods?limit=500", expectedUser)
+						testutil.AssertLogsForREST(t, logs, "/api/v1/namespaces/default/pods?limit=500", expectedUser, http.StatusOK)
 					},
 				},
 				{
