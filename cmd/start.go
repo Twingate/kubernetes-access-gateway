@@ -82,6 +82,8 @@ func start(newProxy ProxyFactory) error {
 
 	metricsPort := viper.GetInt("metricsPort")
 	go func() {
+		logger.Infof("Starting metrics server on: %v", metricsPort)
+
 		err := metrics.Start(metrics.Config{
 			Port: metricsPort,
 		})

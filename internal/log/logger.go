@@ -20,9 +20,7 @@ var destroyFunc func()
 func InitializeLogger(name string, debug bool) {
 	loggingConfig := loggingConfiguration(debug)
 
-	const linesToSkip = 2
-
-	logger, err := loggingConfig.Build(zap.AddCallerSkip(linesToSkip))
+	logger, err := loggingConfig.Build()
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize logger: %v", err))
 	}
