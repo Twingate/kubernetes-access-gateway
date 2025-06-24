@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -142,10 +143,14 @@ func (p *ProxyConn) authenticate() error {
 		if writeErr != nil {
 			p.logger.Error("failed to write response", zap.Error(writeErr))
 
+			_ = tlsConnectConn.Close()
+
 			return writeErr
 		}
 
-		return nil
+		_ = tlsConnectConn.Close()
+
+		return io.EOF
 	}
 
 	// get the keying material for the TLS session

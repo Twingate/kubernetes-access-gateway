@@ -278,7 +278,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 
 	b := make([]byte, 0)
 	_, err = conn.Read(b)
-	require.NoError(t, err)
+	require.ErrorIs(t, io.EOF, err)
 
 	<-done
 }
