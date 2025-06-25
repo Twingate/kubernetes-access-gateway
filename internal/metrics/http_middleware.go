@@ -31,7 +31,7 @@ func initHTTPMetrics(reg *prometheus.Registry) {
 		Name:      "http_request_size_bytes",
 		Help:      "Size of incoming HTTP request in bytes",
 		Buckets:   []float64{100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000},
-	}, []string{"method", "code"})
+	}, []string{"type", "method", "code"})
 
 	httpResponseSizeBytes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
@@ -66,17 +66,20 @@ func HTTPMetricsMiddleware(reg *prometheus.Registry, next http.Handler) http.Han
 				next,
 				opts,
 			),
+			opts,
 		),
 	)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+
 		switch {
 		case wsstream.IsWebSocketRequest(r):
 			ctx = context.WithValue(ctx, httpMetricsContextKey, "streaming")
 		default:
 			ctx = context.WithValue(ctx, httpMetricsContextKey, "rest")
 		}
+
 		base.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
