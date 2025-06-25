@@ -70,13 +70,13 @@ func HTTPMetricsMiddleware(reg *prometheus.Registry, next http.Handler) http.Han
 	)
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		switch {
 		case wsstream.IsWebSocketRequest(r):
-			ctx := context.WithValue(r.Context(), httpMetricsContextKey, "streaming")
-			base.ServeHTTP(w, r.WithContext(ctx))
+			ctx = context.WithValue(ctx, httpMetricsContextKey, "streaming")
 		default:
-			ctx := context.WithValue(r.Context(), httpMetricsContextKey, "rest")
-			base.ServeHTTP(w, r.WithContext(ctx))
+			ctx = context.WithValue(ctx, httpMetricsContextKey, "rest")
 		}
+		base.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
