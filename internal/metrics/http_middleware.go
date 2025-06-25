@@ -24,14 +24,14 @@ func initHTTPMetrics(reg *prometheus.Registry) {
 		Namespace: namespace,
 		Name:      "http_request_size_bytes",
 		Help:      "Size of incoming HTTP request in bytes",
-		Buckets:   []float64{100, 1_000, 10_000, 100_000, 1000_000, 1_0000_000},
+		Buckets:   []float64{100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000},
 	}, []string{"method", "code"})
 
 	httpResponseSizeBytes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Name:      "http_response_size_bytes",
 		Help:      "Size of outgoing HTTP response in bytes (only for audited requests)",
-		Buckets:   []float64{100, 1_000, 10_000, 100_000, 1000_000, 1_0000_000},
+		Buckets:   []float64{100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000},
 	}, []string{"method", "code"},
 	)
 
