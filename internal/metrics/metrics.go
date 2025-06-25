@@ -22,7 +22,7 @@ type Config struct {
 
 func Start(config Config) error {
 	initMetricCollectors(config.Registry)
-	
+
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(
 		config.Registry,

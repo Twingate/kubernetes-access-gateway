@@ -6,7 +6,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 )
 
@@ -45,6 +44,7 @@ func initHTTPMetrics(reg *prometheus.Registry) {
 
 func HTTPMetricsMiddleware(reg *prometheus.Registry, next http.Handler) http.HandlerFunc {
 	initHTTPMetrics(reg)
+
 	opts := promhttp.WithLabelFromCtx("type",
 		func(ctx context.Context) string {
 			return ctx.Value(httpMetricsContextKey).(string)
