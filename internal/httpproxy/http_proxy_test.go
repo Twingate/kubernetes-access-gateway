@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -475,6 +476,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 		K8sAPIServerToken: "mock-token",
 		ConnectValidator:  mockValidator,
 		Port:              45678,
+		Registry:          prometheus.NewRegistry(),
 	}
 
 	// create and start the proxy

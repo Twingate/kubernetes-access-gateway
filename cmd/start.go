@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -54,6 +55,7 @@ func start(newProxy ProxyFactory) error {
 		return fmt.Errorf("failed to create token parser %w", err)
 	}
 
+	registry := prometheus.NewRegistry()
 	cfg := httpproxy.Config{
 		Port:              viper.GetInt("port"),
 		TLSKey:            viper.GetString("tlsKey"),
@@ -66,6 +68,7 @@ func start(newProxy ProxyFactory) error {
 		},
 		LogFlushSizeThreshold: viper.GetInt("logFlushSizeThreshold"),
 		LogFlushInterval:      viper.GetDuration("logFlushInterval"),
+		Registry:              registry,
 	}
 
 	if inClusterK8sCfg, err := rest.InClusterConfig(); inClusterK8sCfg != nil {
@@ -82,10 +85,11 @@ func start(newProxy ProxyFactory) error {
 
 	metricsPort := viper.GetInt("metricsPort")
 	go func() {
-		logger.Infof("Starting metrics server on: %v", metricsPort)
+		logger.Infof("1Starting metrics server on: %v", metricsPort)
 
 		err := metrics.Start(metrics.Config{
-			Port: metricsPort,
+			Port:     metricsPort,
+			Registry: registry,
 		})
 		if err != nil {
 			logger.Fatal("failed to start metrics server:", zap.Error(err))
