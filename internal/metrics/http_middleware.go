@@ -1,11 +1,16 @@
 package metrics
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 )
+
+const httpMetricsContextKey = "HTTP_CONTEXT"
 
 var (
 	httpRequestsTotal     *prometheus.CounterVec
@@ -31,15 +36,20 @@ func initHTTPMetrics(reg *prometheus.Registry) {
 		Namespace: namespace,
 		Name:      "http_response_size_bytes",
 		Help:      "Size of outgoing HTTP response in bytes (only for audited requests)",
-		Buckets:   []float64{100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000},
-	}, []string{"method", "code"},
+		Buckets:   []float64{100, 1_000, 10_000, 100_000, 1000_000, 10_000_000},
+	}, []string{"type", "method", "code"},
 	)
 
 	reg.MustRegister(httpRequestsTotal, httpRequestSizeBytes, httpResponseSizeBytes)
 }
 
-func HTTPMetricsMiddleware(reg *prometheus.Registry, handler http.Handler) http.HandlerFunc {
+func HTTPMetricsMiddleware(reg *prometheus.Registry, next http.Handler) http.HandlerFunc {
 	initHTTPMetrics(reg)
+	opts := promhttp.WithLabelFromCtx("type",
+		func(ctx context.Context) string {
+			return ctx.Value(httpMetricsContextKey).(string)
+		},
+	)
 
 	base := promhttp.InstrumentHandlerCounter(
 		httpRequestsTotal,
@@ -47,10 +57,20 @@ func HTTPMetricsMiddleware(reg *prometheus.Registry, handler http.Handler) http.
 			httpRequestSizeBytes,
 			promhttp.InstrumentHandlerResponseSize(
 				httpResponseSizeBytes,
-				handler,
+				next,
+				opts,
 			),
 		),
 	)
 
-	return base.ServeHTTP
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case wsstream.IsWebSocketRequest(r):
+			ctx := context.WithValue(r.Context(), httpMetricsContextKey, "streaming")
+			base.ServeHTTP(w, r.WithContext(ctx))
+		default:
+			ctx := context.WithValue(r.Context(), httpMetricsContextKey, "rest")
+			base.ServeHTTP(w, r.WithContext(ctx))
+		}
+	}
 }
