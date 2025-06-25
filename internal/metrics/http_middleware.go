@@ -9,7 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 )
 
-const httpMetricsContextKey = "HTTP_CONTEXT"
+type metricsContextKey string
+
+const httpMetricsContextKey metricsContextKey = "HTTP_CONTEXT"
 
 var (
 	httpRequestsTotal     *prometheus.CounterVec
@@ -47,7 +49,11 @@ func HTTPMetricsMiddleware(reg *prometheus.Registry, next http.Handler) http.Han
 
 	opts := promhttp.WithLabelFromCtx("type",
 		func(ctx context.Context) string {
-			return ctx.Value(httpMetricsContextKey).(string)
+			if value, ok := ctx.Value(httpMetricsContextKey).(string); ok {
+				return value
+			}
+
+			return "unknown"
 		},
 	)
 
