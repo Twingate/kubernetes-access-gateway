@@ -20,7 +20,7 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 	}{
 		{
 			name:         "HTTP Request",
-			setupRequest: func(req *http.Request) {}, // No special headers for regular HTTP
+			setupRequest: func(_ *http.Request) {}, // No special headers for regular HTTP
 			expectedLabels: map[string]map[string]string{
 				"twingate_gateway_http_requests_total": {
 					"method": "get",
