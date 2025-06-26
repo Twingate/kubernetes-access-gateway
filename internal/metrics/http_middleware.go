@@ -10,6 +10,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 )
 
+type HTTPMiddlewareConfig struct {
+	Registry *prometheus.Registry
+	Next     http.Handler
+}
+
 type metricsContextKey string
 
 const httpMetricsContextKey metricsContextKey = "HTTP_CONTEXT"
@@ -45,8 +50,8 @@ func initHTTPMetrics(reg *prometheus.Registry) {
 	reg.MustRegister(httpRequestsTotal, httpRequestSizeBytes, httpResponseSizeBytes)
 }
 
-func HTTPMetricsMiddleware(reg *prometheus.Registry, next http.Handler) http.HandlerFunc {
-	initHTTPMetrics(reg)
+func HTTPMetricsMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
+	initHTTPMetrics(config.Registry)
 
 	opts := promhttp.WithLabelFromCtx("type",
 		func(ctx context.Context) string {
@@ -64,7 +69,7 @@ func HTTPMetricsMiddleware(reg *prometheus.Registry, next http.Handler) http.Han
 			httpRequestSizeBytes,
 			promhttp.InstrumentHandlerResponseSize(
 				httpResponseSizeBytes,
-				next,
+				config.Next,
 				opts,
 			),
 			opts,

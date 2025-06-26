@@ -92,10 +92,13 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testRegistry := prometheus.NewRegistry()
 
-			server := httptest.NewServer(HTTPMetricsMiddleware(testRegistry,
-				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusOK)
-				}),
+			server := httptest.NewServer(HTTPMetricsMiddleware(
+				HTTPMiddlewareConfig{
+					Registry: testRegistry,
+					Next: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+						w.WriteHeader(http.StatusOK)
+					}),
+				},
 			))
 			defer server.Close()
 

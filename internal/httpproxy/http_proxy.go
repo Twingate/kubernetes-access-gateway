@@ -375,10 +375,12 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
-	handler := auditMiddleware(config{
-		next: p.serveHTTP,
+	handler := metrics.HTTPMetricsMiddleware(metrics.HTTPMiddlewareConfig{
+		Registry: cfg.Registry,
+		Next: auditMiddleware(config{
+			next: p.serveHTTP,
+		}),
 	})
-	handler = metrics.HTTPMetricsMiddleware(cfg.Registry, handler)
 	mux.Handle("/", handler)
 	mux.Handle("GET /api/v1/namespaces/{namespace}/pods/{pod}/exec", handler)
 
