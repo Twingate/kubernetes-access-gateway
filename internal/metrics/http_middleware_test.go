@@ -28,28 +28,40 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 	require.NoError(t, err, "failed to send request")
 	defer getResp.Body.Close()
 
-	expectedMetrics := []string{
-		"twingate_gateway_http_requests_total",
-		"twingate_gateway_http_request_size_bytes",
-		"twingate_gateway_http_response_size_bytes",
-	}
-
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
 
-	registeredMetrics := make([]string, len(metricFamilies))
-	for i, mf := range metricFamilies {
-		registeredMetrics[i] = mf.GetName()
+	registeredLabels := make(map[string]map[string]string, len(metricFamilies))
 
+	for _, mf := range metricFamilies {
 		labels := mf.GetMetric()[0].GetLabel()
 		for _, label := range labels {
-			if label.GetName() == "type" {
-				assert.Equal(t, "rest", label.GetValue())
+			val, ok := registeredLabels[mf.GetName()]
+			if !ok {
+				val = make(map[string]string)
 			}
+
+			val[label.GetName()] = label.GetValue()
+			registeredLabels[mf.GetName()] = val
 		}
 	}
 
-	assert.ElementsMatch(t, registeredMetrics, expectedMetrics)
+	assert.Equal(t, map[string]map[string]string{
+		"twingate_gateway_http_requests_total": {
+			"method": "get",
+			"code":   "200",
+		},
+		"twingate_gateway_http_request_size_bytes": {
+			"type":   "rest",
+			"method": "get",
+			"code":   "200",
+		},
+		"twingate_gateway_http_response_size_bytes": {
+			"type":   "rest",
+			"method": "get",
+			"code":   "200",
+		},
+	}, registeredLabels)
 }
 
 func TestHTTPMetricsMiddleware_WebSocketRequest(t *testing.T) {
@@ -78,14 +90,35 @@ func TestHTTPMetricsMiddleware_WebSocketRequest(t *testing.T) {
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
 
-	assert.Len(t, metricFamilies, 3)
+	registeredLabels := make(map[string]map[string]string, len(metricFamilies))
 
 	for _, mf := range metricFamilies {
 		labels := mf.GetMetric()[0].GetLabel()
 		for _, label := range labels {
-			if label.GetName() == "type" {
-				assert.Equal(t, "streaming", label.GetValue())
+			val, ok := registeredLabels[mf.GetName()]
+			if !ok {
+				val = make(map[string]string)
 			}
+
+			val[label.GetName()] = label.GetValue()
+			registeredLabels[mf.GetName()] = val
 		}
 	}
+
+	assert.Equal(t, map[string]map[string]string{
+		"twingate_gateway_http_requests_total": {
+			"method": "get",
+			"code":   "200",
+		},
+		"twingate_gateway_http_request_size_bytes": {
+			"type":   "streaming",
+			"method": "get",
+			"code":   "200",
+		},
+		"twingate_gateway_http_response_size_bytes": {
+			"type":   "streaming",
+			"method": "get",
+			"code":   "200",
+		},
+	}, registeredLabels)
 }
