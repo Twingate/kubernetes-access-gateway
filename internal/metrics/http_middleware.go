@@ -26,22 +26,32 @@ func HTTPMetricsMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 		Help:      "Total number of HTTP requests processed",
 	}, []string{"type", "method", "code"})
 
+	httpRequestDuration := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "http_request_duration_seconds",
+			Help:      "Tracks the latencies for HTTP requests",
+			Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600},
+		},
+		[]string{"type", "method", "code"},
+	)
+
 	httpRequestSizeBytes := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Name:      "http_request_size_bytes",
 		Help:      "Size of incoming HTTP request in bytes",
-		Buckets:   []float64{100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000},
+		Buckets:   prometheus.ExponentialBuckets(100, 10, 6),
 	}, []string{"type", "method", "code"})
 
 	httpResponseSizeBytes := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Name:      "http_response_size_bytes",
-		Help:      "Size of outgoing HTTP response in bytes (only for audited requests)",
-		Buckets:   []float64{100, 1_000, 10_000, 100_000, 1000_000, 10_000_000},
+		Help:      "Size of outgoing HTTP response in bytes",
+		Buckets:   prometheus.ExponentialBuckets(100, 10, 6),
 	}, []string{"type", "method", "code"},
 	)
 
-	config.Registry.MustRegister(httpRequestsTotal, httpRequestSizeBytes, httpResponseSizeBytes)
+	config.Registry.MustRegister(httpRequestsTotal, httpRequestDuration, httpRequestSizeBytes, httpResponseSizeBytes)
 
 	opts := promhttp.WithLabelFromCtx("type",
 		func(ctx context.Context) string {
@@ -55,16 +65,19 @@ func HTTPMetricsMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 
 	base := promhttp.InstrumentHandlerCounter(
 		httpRequestsTotal,
-		promhttp.InstrumentHandlerRequestSize(
-			httpRequestSizeBytes,
-			promhttp.InstrumentHandlerResponseSize(
-				httpResponseSizeBytes,
-				config.Next,
+		promhttp.InstrumentHandlerDuration(
+			httpRequestDuration,
+			promhttp.InstrumentHandlerRequestSize(
+				httpRequestSizeBytes,
+				promhttp.InstrumentHandlerResponseSize(
+					httpResponseSizeBytes,
+					config.Next,
+					opts,
+				),
 				opts,
 			),
 			opts,
 		),
-		opts,
 	)
 
 	return func(w http.ResponseWriter, r *http.Request) {
