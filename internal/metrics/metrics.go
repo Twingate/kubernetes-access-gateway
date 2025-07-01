@@ -21,7 +21,7 @@ type Config struct {
 }
 
 func Start(config Config) error {
-	initMetricCollectors(config.Registry)
+	createMetricCollectors(config.Registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(
@@ -40,7 +40,7 @@ func Start(config Config) error {
 	return server.ListenAndServe()
 }
 
-func initMetricCollectors(reg *prometheus.Registry) {
+func createMetricCollectors(reg *prometheus.Registry) {
 	buildInfo := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "build_info",

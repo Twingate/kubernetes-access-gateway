@@ -23,6 +23,7 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 			setupRequest: func(_ *http.Request) {}, // No special headers for regular HTTP
 			expectedLabels: map[string]map[string]string{
 				"twingate_gateway_http_requests_total": {
+					"type":   "http",
 					"method": "get",
 					"code":   "200",
 				},
@@ -47,6 +48,7 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 			},
 			expectedLabels: map[string]map[string]string{
 				"twingate_gateway_http_requests_total": {
+					"type":   "websocket",
 					"method": "get",
 					"code":   "200",
 				},
@@ -71,6 +73,7 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 			},
 			expectedLabels: map[string]map[string]string{
 				"twingate_gateway_http_requests_total": {
+					"type":   "spdy",
 					"method": "get",
 					"code":   "200",
 				},
