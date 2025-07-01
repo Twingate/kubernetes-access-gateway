@@ -3,10 +3,12 @@ package metrics
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/apimachinery/pkg/util/httpstream"
+	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 )
 
@@ -32,9 +34,7 @@ func HTTPMetricsMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 			Name:      "http_request_duration_seconds",
 			Help:      "Tracks the latencies for HTTP requests",
 			Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600},
-		},
-		[]string{"type", "method", "code"},
-	)
+		}, []string{"type", "method", "code"})
 
 	httpRequestSizeBytes := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
@@ -78,15 +78,16 @@ func HTTPMetricsMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 			),
 			opts,
 		),
+		opts,
 	)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		switch {
-		case wsstream.IsWebSocketRequestWithTunnelingProtocol(r):
+		case isSpdyRequest(r):
 			ctx = context.WithValue(ctx, httpMetricsContextKey, "spdy")
-		case httpstream.IsUpgradeRequest(r):
+		case wsstream.IsWebSocketRequest(r):
 			ctx = context.WithValue(ctx, httpMetricsContextKey, "websocket")
 		default:
 			ctx = context.WithValue(ctx, httpMetricsContextKey, "http")
@@ -94,4 +95,12 @@ func HTTPMetricsMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 
 		base.ServeHTTP(w, r.WithContext(ctx))
 	}
+}
+
+func isSpdyRequest(r *http.Request) bool {
+	if !strings.EqualFold(r.Header.Get(httpstream.HeaderUpgrade), spdy.HeaderSpdy31) {
+		return false
+	}
+
+	return httpstream.IsUpgradeRequest(r)
 }

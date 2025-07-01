@@ -12,82 +12,90 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-func TestHTTPMetricsMiddleware(t *testing.T) {
-	testCases := []struct {
-		name           string
-		setupRequest   func(*http.Request)
-		expectedLabels map[string]map[string]string
+func TestIsSpdyRequest(t *testing.T) {
+	tests := []struct {
+		name         string
+		newRequestFn func() *http.Request
+		expected     bool
 	}{
 		{
-			name:         "HTTP Request",
-			setupRequest: func(_ *http.Request) {}, // No special headers for regular HTTP
-			expectedLabels: map[string]map[string]string{
-				"twingate_gateway_http_requests_total": {
-					"type":   "http",
-					"method": "get",
-					"code":   "200",
-				},
-				"twingate_gateway_http_request_size_bytes": {
-					"type":   "http",
-					"method": "get",
-					"code":   "200",
-				},
-				"twingate_gateway_http_response_size_bytes": {
-					"type":   "http",
-					"method": "get",
-					"code":   "200",
-				},
+			name: "SPDY request",
+			newRequestFn: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/", nil)
+				r.Header.Set("Upgrade", "spdy/3.1")
+				r.Header.Set("Connection", "upgrade")
+
+				return r
 			},
+			expected: true,
+		},
+		{
+			name: "SPDY request without connection header",
+			newRequestFn: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/", nil)
+				r.Header.Set("Upgrade", "spdy/3.1")
+
+				return r
+			},
+			expected: false,
+		},
+		{
+			name: "Request without upgrade header",
+			newRequestFn: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/", nil)
+				r.Header.Set("Connection", "upgrade")
+
+				return r
+			},
+			expected: false,
+		},
+		{
+			name: "Websocket request",
+			newRequestFn: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/", nil)
+				r.Header.Set("Upgrade", "websocket")
+				r.Header.Set("Connection", "upgrade")
+
+				return r
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isSpdyRequest(tt.newRequestFn())
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestHTTPMetricsMiddleware(t *testing.T) {
+	testCases := []struct {
+		name                string
+		setupRequest        func(*http.Request)
+		expectedRequestType string
+	}{
+		{
+			name:                "HTTP Request",
+			setupRequest:        func(_ *http.Request) {}, // No special headers for regular HTTP
+			expectedRequestType: "http",
 		},
 		{
 			name: "WebSocket Request",
 			setupRequest: func(req *http.Request) {
 				req.Header.Set("Upgrade", "websocket")
 				req.Header.Set("Connection", "upgrade")
-				req.Header.Set("Sec-WebSocket-Protocol", "v5.channel.k8s.io")
 			},
-			expectedLabels: map[string]map[string]string{
-				"twingate_gateway_http_requests_total": {
-					"type":   "websocket",
-					"method": "get",
-					"code":   "200",
-				},
-				"twingate_gateway_http_request_size_bytes": {
-					"type":   "websocket",
-					"method": "get",
-					"code":   "200",
-				},
-				"twingate_gateway_http_response_size_bytes": {
-					"type":   "websocket",
-					"method": "get",
-					"code":   "200",
-				},
-			},
+			expectedRequestType: "websocket",
 		},
 		{
 			name: "SPDY Request",
 			setupRequest: func(req *http.Request) {
-				req.Header.Set("Upgrade", "websocket")
+				req.Header.Set("Upgrade", "spdy/3.1")
 				req.Header.Set("Connection", "upgrade")
-				req.Header.Set("Sec-WebSocket-Protocol", "SPDY/3.1+portforward.k8s.io")
 			},
-			expectedLabels: map[string]map[string]string{
-				"twingate_gateway_http_requests_total": {
-					"type":   "spdy",
-					"method": "get",
-					"code":   "200",
-				},
-				"twingate_gateway_http_request_size_bytes": {
-					"type":   "spdy",
-					"method": "get",
-					"code":   "200",
-				},
-				"twingate_gateway_http_response_size_bytes": {
-					"type":   "spdy",
-					"method": "get",
-					"code":   "200",
-				},
-			},
+			expectedRequestType: "spdy",
 		},
 	}
 
@@ -118,7 +126,29 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 			require.NoError(t, err)
 
 			registeredLabels := extractLabelsFromMetrics(metricFamilies)
-			assert.Equal(t, tc.expectedLabels, registeredLabels)
+			expectedLabels := map[string]map[string]string{
+				"twingate_gateway_http_requests_total": {
+					"type":   tc.expectedRequestType,
+					"method": "get",
+					"code":   "200",
+				},
+				"twingate_gateway_http_request_duration_seconds": {
+					"type":   tc.expectedRequestType,
+					"method": "get",
+					"code":   "200",
+				},
+				"twingate_gateway_http_request_size_bytes": {
+					"type":   tc.expectedRequestType,
+					"method": "get",
+					"code":   "200",
+				},
+				"twingate_gateway_http_response_size_bytes": {
+					"type":   tc.expectedRequestType,
+					"method": "get",
+					"code":   "200",
+				},
+			}
+			assert.Equal(t, expectedLabels, registeredLabels)
 		})
 	}
 }
