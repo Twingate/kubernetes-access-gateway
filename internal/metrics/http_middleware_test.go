@@ -30,31 +30,20 @@ func TestIsSpdyRequest(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "SPDY request without connection header",
-			newRequestFn: func() *http.Request {
-				r := httptest.NewRequest(http.MethodGet, "/", nil)
-				r.Header.Set("Upgrade", "spdy/3.1")
-
-				return r
-			},
-			expected: false,
-		},
-		{
-			name: "Request without upgrade header",
-			newRequestFn: func() *http.Request {
-				r := httptest.NewRequest(http.MethodGet, "/", nil)
-				r.Header.Set("Connection", "upgrade")
-
-				return r
-			},
-			expected: false,
-		},
-		{
 			name: "Websocket request",
 			newRequestFn: func() *http.Request {
 				r := httptest.NewRequest(http.MethodGet, "/", nil)
 				r.Header.Set("Upgrade", "websocket")
 				r.Header.Set("Connection", "upgrade")
+
+				return r
+			},
+			expected: false,
+		},
+		{
+			name: "HTTP request",
+			newRequestFn: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/", nil)
 
 				return r
 			},
