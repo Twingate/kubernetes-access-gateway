@@ -92,7 +92,7 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testRegistry := prometheus.NewRegistry()
 
-			server := httptest.NewServer(HTTPMetricsMiddleware(
+			server := httptest.NewServer(HTTPMiddleware(
 				HTTPMiddlewareConfig{
 					Registry: testRegistry,
 					Next: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -114,7 +114,7 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 			metricFamilies, err := testRegistry.Gather()
 			require.NoError(t, err)
 
-			registeredLabels := extractLabelsFromMetrics(metricFamilies)
+			labelsByMetric := extractLabelsFromMetrics(metricFamilies)
 			expectedLabels := map[string]map[string]string{
 				"twingate_gateway_http_requests_total": {
 					"type":   tc.expectedRequestType,
@@ -137,26 +137,22 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 					"code":   "200",
 				},
 			}
-			assert.Equal(t, expectedLabels, registeredLabels)
+			assert.Equal(t, expectedLabels, labelsByMetric)
 		})
 	}
 }
 
 func extractLabelsFromMetrics(metricFamilies []*dto.MetricFamily) map[string]map[string]string {
-	registeredLabels := make(map[string]map[string]string, len(metricFamilies))
+	labelsByMetric := make(map[string]map[string]string, len(metricFamilies))
 
-	for _, mf := range metricFamilies {
-		labels := mf.GetMetric()[0].GetLabel()
-		for _, label := range labels {
-			value, ok := registeredLabels[mf.GetName()]
-			if !ok {
-				value = make(map[string]string)
-			}
-
-			value[label.GetName()] = label.GetValue()
-			registeredLabels[mf.GetName()] = value
+	for _, family := range metricFamilies {
+		labels := make(map[string]string)
+		for _, label := range family.GetMetric()[0].GetLabel() {
+			labels[label.GetName()] = label.GetValue()
 		}
+
+		labelsByMetric[family.GetName()] = labels
 	}
 
-	return registeredLabels
+	return labelsByMetric
 }

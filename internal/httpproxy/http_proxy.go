@@ -375,7 +375,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
-	handler := metrics.HTTPMetricsMiddleware(metrics.HTTPMiddlewareConfig{
+	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,
 		Next: auditMiddleware(config{
 			next: p.serveHTTP,
