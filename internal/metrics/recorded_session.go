@@ -35,7 +35,7 @@ var (
 )
 
 func registerRecordedSessionMetrics(registry *prometheus.Registry) {
-	registry.MustRegister(recordedSessionsActive, recordedSessionDuration)
+	registry.MustRegister(recordedSessionsActive, recordedSessionDuration, recordedSessionErrors)
 }
 
 func InstrumentRecordedSession(next http.HandlerFunc) http.HandlerFunc {
