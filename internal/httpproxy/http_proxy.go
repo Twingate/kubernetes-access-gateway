@@ -424,7 +424,7 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request, conn *ProxyCon
 			)
 		}
 		wsHijacker := wsproxy.NewHijacker(r, w, conn.claims.User.Username, recorderFactory, wsproxy.NewConn)
-		handler := metrics.HandleRecordedSession(p.proxy.ServeHTTP)
+		handler := metrics.InstrumentRecordedSession(p.proxy.ServeHTTP)
 		handler.ServeHTTP(wsHijacker, r)
 	default:
 		p.proxy.ServeHTTP(w, r)

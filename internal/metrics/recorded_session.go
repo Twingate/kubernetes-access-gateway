@@ -1,9 +1,16 @@
 package metrics
 
 import (
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
+)
+
+const (
+	timeoutErrorType          = "timeout"
+	connectionClosedErrorType = "connection_closed"
 )
 
 var (
@@ -31,7 +38,7 @@ func registerRecordedSessionMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(recordedSessionsActive, recordedSessionDuration)
 }
 
-func HandleRecordedSession(next http.HandlerFunc) http.HandlerFunc {
+func InstrumentRecordedSession(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		recordedSessionsActive.Inc()
 		defer recordedSessionsActive.Dec()
@@ -41,8 +48,12 @@ func HandleRecordedSession(next http.HandlerFunc) http.HandlerFunc {
 
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				if recovered == http.ErrHandlerTimeout { //nolint:err113,errorlint
-					recordedSessionErrors.WithLabelValues("timeout").Inc()
+				if err, ok := recovered.(error); ok {
+					if errors.Is(err, http.ErrHandlerTimeout) {
+						recordedSessionErrors.WithLabelValues(timeoutErrorType).Inc()
+					} else if errors.Is(err, io.ErrUnexpectedEOF) {
+						recordedSessionErrors.WithLabelValues(connectionClosedErrorType).Inc()
+					}
 				}
 
 				// Re-panic to let others handle it
