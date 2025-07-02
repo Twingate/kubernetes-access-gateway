@@ -190,6 +190,9 @@ func TestConcurrentUsers(t *testing.T) {
 
 				cmd.assertOutputFn(t, output)
 
+				// Wait for the logs to be flushed
+				time.Sleep(100 * time.Millisecond)
+
 				// Get user logs since last command
 				userLogs := logs.Filter(func(e observer.LoggedEntry) bool {
 					if !e.Time.After(lastLogTime) {

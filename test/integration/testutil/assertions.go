@@ -43,7 +43,7 @@ func AssertLogsForREST(t *testing.T, logs *observer.ObservedLogs, expectedURL st
 	t.Helper()
 
 	expectedLogs := logs.FilterField(zap.String("url", expectedURL)).All()
-	assert.Len(t, expectedLogs, 1)
+	assert.Len(t, expectedLogs, 1, "expected 1 log for URL %s, user %v", expectedURL, expectedUser)
 
 	firstLog := expectedLogs[0]
 	assert.Equal(t, "API request completed", firstLog.Message)
@@ -55,7 +55,7 @@ func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL, e
 	t.Helper()
 
 	expectedLogs := logs.FilterField(zap.String("url", expectedURL)).All()
-	assert.Len(t, expectedLogs, 2)
+	assert.Len(t, expectedLogs, 2, "expected 2 logs for URL %s, user %v", expectedURL, expectedUser)
 
 	firstLog := expectedLogs[0]
 	assert.Equal(t, "session finished", firstLog.Message)
