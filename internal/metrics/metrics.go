@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"k8sgateway/internal/version"
+	"k8sgateway/internal/wsproxy"
 )
 
 const namespace = "twingate_gateway"
@@ -22,7 +23,7 @@ type Config struct {
 
 func Start(config Config) error {
 	registerCoreMetrics(config.Registry)
-	registerRecordedSessionMetrics(config.Registry)
+	wsproxy.RegisterRecordedSessionMetrics(config.Registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(

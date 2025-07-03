@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -17,6 +18,19 @@ var (
 	errFailedToWriteEvent  = errors.New("failed to write recording")
 	errAlreadyFinished     = errors.New("recording already finished")
 )
+
+var (
+	recordedSessionDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "twingate_gateway",
+		Name:      "recorded_session_duration_seconds",
+		Help:      "Duration of WebSocket session in seconds",
+		Buckets:   []float64{1, 5, 10, 30, 60, 300, 600, 1800, 3600},
+	})
+)
+
+func RegisterRecordedSessionMetrics(registry *prometheus.Registry) {
+	registry.MustRegister(recordedSessionDuration)
+}
 
 type resizeMsg struct {
 	Width  int `json:"width"`
@@ -175,6 +189,7 @@ func (r *AsciinemaRecorder) Stop() {
 	}
 
 	r.stopped = true
+	recordedSessionDuration.Observe(time.Since(r.start).Seconds())
 	r.mu.Unlock()
 
 	// Signal stop and wait for flush goroutine to finish
