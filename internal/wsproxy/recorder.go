@@ -189,8 +189,10 @@ func (r *AsciinemaRecorder) Stop() {
 	}
 
 	r.stopped = true
-	recordedSessionDuration.Observe(time.Since(r.start).Seconds())
+	duration := time.Since(r.start).Seconds()
 	r.mu.Unlock()
+
+	recordedSessionDuration.Observe(duration)
 
 	// Signal stop and wait for flush goroutine to finish
 	close(r.flushCh)
