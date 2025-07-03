@@ -123,6 +123,7 @@ func getRequestContextValue(ctx context.Context) string {
 	if value, ok := ctx.Value(contextKey{}).(string); ok {
 		return value
 	}
+
 	return requestTypeUnknown
 }
 
