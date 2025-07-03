@@ -39,6 +39,12 @@ func HTTPMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 		Help:      "Total number of HTTP requests processed",
 	}, []string{"type", "method", "code"})
 
+	activeRequests := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "http_active_requests",
+		Help:      "Number of currently active HTTP requests",
+	}, []string{"type"})
+
 	requestDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: namespace,
@@ -62,32 +68,26 @@ func HTTPMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 	}, []string{"type", "method", "code"},
 	)
 
-	config.Registry.MustRegister(requestsTotal, requestDuration, requestSizeBytes, responseSizeBytes)
+	config.Registry.MustRegister(requestsTotal, activeRequests, requestDuration, requestSizeBytes, responseSizeBytes)
 
-	opts := promhttp.WithLabelFromCtx(labelRequestType,
-		func(ctx context.Context) string {
-			if value, ok := ctx.Value(contextKey{}).(string); ok {
-				return value
-			}
-
-			return requestTypeUnknown
-		},
-	)
+	opts := promhttp.WithLabelFromCtx(labelRequestType, getRequestContextValue)
 
 	base := promhttp.InstrumentHandlerCounter(
 		requestsTotal,
-		promhttp.InstrumentHandlerDuration(
-			requestDuration,
-			promhttp.InstrumentHandlerRequestSize(
-				requestSizeBytes,
-				promhttp.InstrumentHandlerResponseSize(
-					responseSizeBytes,
-					config.Next,
+		instrumentHandlerInFlight(activeRequests,
+			promhttp.InstrumentHandlerDuration(
+				requestDuration,
+				promhttp.InstrumentHandlerRequestSize(
+					requestSizeBytes,
+					promhttp.InstrumentHandlerResponseSize(
+						responseSizeBytes,
+						config.Next,
+						opts,
+					),
 					opts,
 				),
 				opts,
 			),
-			opts,
 		),
 		opts,
 	)
@@ -106,6 +106,24 @@ func HTTPMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 
 		base.ServeHTTP(w, r.WithContext(ctx))
 	}
+}
+
+func instrumentHandlerInFlight(activeRequests *prometheus.GaugeVec, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestType := getRequestContextValue(r.Context())
+
+		activeRequests.WithLabelValues(requestType).Inc()
+		defer activeRequests.WithLabelValues(requestType).Dec()
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func getRequestContextValue(ctx context.Context) string {
+	if value, ok := ctx.Value(contextKey{}).(string); ok {
+		return value
+	}
+	return requestTypeUnknown
 }
 
 func isSpdyRequest(r *http.Request) bool {

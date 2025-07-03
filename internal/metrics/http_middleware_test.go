@@ -121,6 +121,9 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 					"method": "get",
 					"code":   "200",
 				},
+				"twingate_gateway_http_active_requests": {
+					"type": tc.expectedRequestType,
+				},
 				"twingate_gateway_http_request_duration_seconds": {
 					"type":   tc.expectedRequestType,
 					"method": "get",
