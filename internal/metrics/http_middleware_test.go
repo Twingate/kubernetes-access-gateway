@@ -59,7 +59,7 @@ func TestIsSpdyRequest(t *testing.T) {
 	}
 }
 
-func TestHTTPMetricsMiddleware(t *testing.T) {
+func TestHTTPMiddleware(t *testing.T) {
 	testCases := []struct {
 		name                string
 		setupRequest        func(*http.Request)
