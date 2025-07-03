@@ -1,6 +1,6 @@
 module k8sgateway
 
-go 1.24.3
+go 1.24.4
 
 require (
 	github.com/MicahParks/jwkset v0.9.6
