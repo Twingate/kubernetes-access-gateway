@@ -1,7 +1,4 @@
-// Copyright (c) Twingate Inc.
-// SPDX-License-Identifier: MPL-2.0
-//
-
+// Package token manages the parsing of bearer tokens
 package token
 
 import (
