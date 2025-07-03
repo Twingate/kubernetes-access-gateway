@@ -35,6 +35,10 @@ linters:
           - err113
           - gosec
   settings:
+    goheader:
+      template: |
+        Copyright (c) Twingate Inc.
+        SPDX-License-Identifier: MPL-2.0
     nestif:
       min-complexity: 7
     revive:
