@@ -36,7 +36,7 @@ linters:
           - gosec
   settings:
     goheader:
-      template: |
+      template: |-
         Copyright (c) Twingate Inc.
         SPDX-License-Identifier: MPL-2.0
     nestif:
