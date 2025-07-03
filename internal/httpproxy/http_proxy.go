@@ -351,7 +351,10 @@ func NewProxy(cfg Config) (*Proxy, error) {
 				r.Out.Header.Add("Impersonate-Group", group)
 			}
 		},
-		Transport: transport,
+		Transport: metrics.RoundTripperMiddleware(metrics.RoundTripperMiddlewareConfig{
+			Registry: cfg.Registry,
+			Next:     transport,
+		}),
 	}
 
 	mux := http.NewServeMux()
