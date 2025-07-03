@@ -59,7 +59,7 @@ func TestIsSpdyRequest(t *testing.T) {
 	}
 }
 
-func TestHTTPMetricsMiddleware(t *testing.T) {
+func TestHTTPMiddleware(t *testing.T) {
 	testCases := []struct {
 		name                string
 		setupRequest        func(*http.Request)
@@ -120,6 +120,9 @@ func TestHTTPMetricsMiddleware(t *testing.T) {
 					"type":   tc.expectedRequestType,
 					"method": "get",
 					"code":   "200",
+				},
+				"twingate_gateway_http_active_requests": {
+					"type": tc.expectedRequestType,
 				},
 				"twingate_gateway_http_request_duration_seconds": {
 					"type":   tc.expectedRequestType,
