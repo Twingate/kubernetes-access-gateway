@@ -20,12 +20,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 
 	k8stransport "k8s.io/client-go/transport"
 
 	"k8sgateway/internal/connect"
+	"k8sgateway/internal/metrics"
 	"k8sgateway/internal/token"
 	"k8sgateway/internal/wsproxy"
 )
@@ -60,6 +62,8 @@ type Config struct {
 
 	LogFlushSizeThreshold int
 	LogFlushInterval      time.Duration
+
+	Registry *prometheus.Registry
 }
 
 // ProxyConn is a custom connection that wraps the underlying TCP net.Conn, handling downstream
@@ -374,8 +378,11 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
-	handler := auditMiddleware(config{
-		next: p.serveHTTP,
+	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
+		Registry: cfg.Registry,
+		Next: auditMiddleware(config{
+			next: p.serveHTTP,
+		}),
 	})
 	mux.Handle("/", handler)
 	mux.Handle("GET /api/v1/namespaces/{namespace}/pods/{pod}/exec", handler)

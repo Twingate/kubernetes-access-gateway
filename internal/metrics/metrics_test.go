@@ -13,7 +13,7 @@ import (
 
 func TestInitMetricCollectors(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	initMetricCollectors(testRegistry)
+	registerCoreMetrics(testRegistry)
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)

@@ -19,17 +19,17 @@ import (
 const namespace = "twingate_gateway"
 
 type Config struct {
-	Port int
+	Port     int
+	Registry *prometheus.Registry
 }
 
 func Start(config Config) error {
-	registry := prometheus.NewRegistry()
-	initMetricCollectors(registry)
+	registerCoreMetrics(config.Registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(
-		registry,
-		promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}),
+		config.Registry,
+		promhttp.HandlerFor(config.Registry, promhttp.HandlerOpts{Registry: config.Registry}),
 	))
 
 	server := &http.Server{
@@ -43,7 +43,7 @@ func Start(config Config) error {
 	return server.ListenAndServe()
 }
 
-func initMetricCollectors(reg *prometheus.Registry) {
+func registerCoreMetrics(reg *prometheus.Registry) {
 	buildInfo := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "build_info",
