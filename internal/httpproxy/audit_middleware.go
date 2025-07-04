@@ -20,6 +20,7 @@ var (
 
 type responseWriter struct {
 	http.ResponseWriter
+
 	headerWritten bool
 	statusCode    int
 	headers       http.Header

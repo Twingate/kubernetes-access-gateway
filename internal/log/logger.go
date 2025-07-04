@@ -41,6 +41,7 @@ func InitializeLogger(name string, debug bool) {
 		defer func() {
 			err = logger.Sync()
 		}()
+
 		undoGlobals()
 		undoStd()
 	}

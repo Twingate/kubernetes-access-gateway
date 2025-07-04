@@ -136,6 +136,7 @@ func TestAuditMiddleware(t *testing.T) {
 					// Recover if handler panics
 					_ = recover()
 				}()
+
 				auditMiddleware(config{
 					next:   mockHandler.serveHTTP,
 					logger: logger,

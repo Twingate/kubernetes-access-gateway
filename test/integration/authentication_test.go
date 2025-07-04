@@ -53,6 +53,7 @@ func TestKubernetesAuthentication(t *testing.T) {
 	// Start the Controller
 	controller := fake.NewController(network)
 	defer controller.Close()
+
 	t.Log("Controller is serving at", controller.URL)
 
 	// Start the Gateway
@@ -337,6 +338,7 @@ func assertWhoAmI(t *testing.T, output []byte, expectedUsername string, expected
 	t.Helper()
 
 	var whoami authv1.SelfSubjectReview
+
 	err := json.Unmarshal(output, &whoami)
 
 	require.NoError(t, err, "failed to parse kubectl auth whoami output")

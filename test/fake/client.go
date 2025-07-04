@@ -109,6 +109,7 @@ func (c *Client) serve(ctx context.Context) {
 		}
 
 		c.wg.Add(1)
+
 		go c.handleConnection(ctx, clientConn, gat)
 	}
 }

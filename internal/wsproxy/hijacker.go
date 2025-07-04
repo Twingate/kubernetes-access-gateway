@@ -22,6 +22,7 @@ type ConnFactory func(net.Conn, Recorder, asciinemaHeader, bool) net.Conn
 
 type WsHijacker struct {
 	http.ResponseWriter
+
 	request     *http.Request
 	user        string
 	newRecorder RecorderFactory
