@@ -23,6 +23,7 @@ linters:
     - testpackage
     - varnamelen
     - wrapcheck
+    - noinlineerr
   exclusions:
     presets:
       - comments

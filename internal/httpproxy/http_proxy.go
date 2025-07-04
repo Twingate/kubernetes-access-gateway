@@ -67,6 +67,7 @@ type Config struct {
 // upgrades: with downstream proxy and then with downstream client e.g. `kubectl`.
 type ProxyConn struct {
 	net.Conn
+
 	TLSConfig        *tls.Config
 	ConnectValidator connect.Validator
 	logger           *zap.Logger
@@ -233,6 +234,7 @@ func ExportKeyingMaterial(conn *tls.Conn) ([]byte, error) {
 
 type proxyListener struct {
 	net.Listener
+
 	TLSConfig        *tls.Config
 	ConnectValidator connect.Validator
 	logger           *zap.Logger
@@ -267,7 +269,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	logger := zap.S()
 
 	if cfg.ConnectValidator == nil {
-		logger.Fatalf("connect validator is nil")
+		logger.Fatal("connect validator is nil")
 	}
 
 	// create TLS configuration for downstream
@@ -292,7 +294,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
-		logger.Fatalf("failed to append K8sAPIServerCA cert to pool")
+		logger.Fatal("failed to append K8sAPIServerCA cert to pool")
 	}
 
 	logger.Infof("loaded upstream K8sAPIServerCA cert")

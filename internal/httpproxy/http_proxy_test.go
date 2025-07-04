@@ -29,6 +29,7 @@ import (
 
 type mockConn struct {
 	net.Conn
+
 	isClosed atomic.Bool
 }
 
@@ -184,10 +185,12 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 	}
 
 	done := make(chan struct{})
+
 	go func() {
 		// open TCP connection
 		conn, err := net.Dial("tcp", addr)
 		assert.NoError(t, err)
+
 		defer conn.Close()
 
 		// establish TLS (as downstream proxy)
@@ -199,7 +202,7 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 		}
 
 		// send a malformed request
-		fmt.Fprintf(proxyTLSConn, "invalid-request\r\n\r\n")
+		fmt.Fprint(proxyTLSConn, "invalid-request\r\n\r\n")
 
 		resp, err := bufio.NewReader(proxyTLSConn).ReadString('\n')
 		assert.NoError(t, err)
@@ -245,10 +248,12 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	}
 
 	done := make(chan struct{})
+
 	go func() {
 		// open TCP connection
 		conn, err := net.Dial("tcp", addr)
 		assert.NoError(t, err)
+
 		defer conn.Close()
 
 		// establish TLS (as downstream proxy)
@@ -260,7 +265,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 		}
 
 		// send a healthcheck request
-		fmt.Fprintf(proxyTLSConn, "GET /healthz HTTP/1.1\r\n\r\n")
+		fmt.Fprint(proxyTLSConn, "GET /healthz HTTP/1.1\r\n\r\n")
 
 		buf := bufio.NewReader(proxyTLSConn)
 		resp, err := buf.ReadString('\n')
@@ -319,10 +324,12 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	}
 
 	done := make(chan struct{})
+
 	go func() {
 		// open TCP connection
 		conn, err := net.Dial("tcp", addr)
 		assert.NoError(t, err)
+
 		defer conn.Close()
 
 		// establish TLS (as downstream proxy)
@@ -405,10 +412,12 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 	}
 
 	done := make(chan struct{})
+
 	go func() {
 		// open TCP connection
 		conn, err := net.Dial("tcp", addr)
 		assert.NoError(t, err)
+
 		defer conn.Close()
 
 		// establish TLS (as downstream proxy)
@@ -485,9 +494,11 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	ready := make(chan struct{})
+
 	go func() {
 		proxy.Start(ready)
 	}()
+
 	<-ready
 
 	// downstream proxy and client certs
@@ -504,6 +515,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	// HTTPS CONNECT (downstream proxy) then HTTPS requests (client)
 	conn, err := net.Dial("tcp", "127.0.0.1:45678")
 	require.NoError(t, err, "Failed to connect to proxy")
+
 	defer conn.Close()
 
 	// perform Proxy TLS handshake
@@ -524,6 +536,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	// read response
 	connectResp, err := http.ReadResponse(bufio.NewReader(proxyTLSConn), connectReq)
 	require.NoError(t, err, "Failed to read CONNECT response")
+
 	defer connectResp.Body.Close()
 
 	// check 200 response
@@ -549,6 +562,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	// send request
 	getResp, err := client.Do(getReq)
 	require.NoError(t, err, "Failed to send request")
+
 	defer getResp.Body.Close()
 
 	// check 200 response
