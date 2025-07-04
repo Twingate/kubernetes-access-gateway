@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package metrics
 
 import (
@@ -70,7 +73,7 @@ func HTTPMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 
 	config.Registry.MustRegister(requestsTotal, activeRequests, requestDuration, requestSizeBytes, responseSizeBytes)
 
-	opts := promhttp.WithLabelFromCtx(labelRequestType, getRequestContextValue)
+	opts := promhttp.WithLabelFromCtx(labelRequestType, getRequestTypeFromContext)
 
 	base := promhttp.InstrumentHandlerCounter(
 		requestsTotal,
@@ -110,7 +113,7 @@ func HTTPMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 
 func instrumentHandlerInFlight(activeRequests *prometheus.GaugeVec, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestType := getRequestContextValue(r.Context())
+		requestType := getRequestTypeFromContext(r.Context())
 
 		activeRequests.WithLabelValues(requestType).Inc()
 		defer activeRequests.WithLabelValues(requestType).Dec()
@@ -119,7 +122,7 @@ func instrumentHandlerInFlight(activeRequests *prometheus.GaugeVec, next http.Ha
 	})
 }
 
-func getRequestContextValue(ctx context.Context) string {
+func getRequestTypeFromContext(ctx context.Context) string {
 	if value, ok := ctx.Value(contextKey{}).(string); ok {
 		return value
 	}
