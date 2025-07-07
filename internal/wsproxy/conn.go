@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package wsproxy
 
 import (
@@ -33,6 +36,7 @@ func NewConn(c net.Conn, recorder Recorder, asciinemaHeader asciinemaHeader, ses
 // creating an asciinema recording of a kubernetes ssh session.
 type conn struct {
 	net.Conn
+
 	recorder        Recorder        // asciinema recording
 	asciinemaHeader asciinemaHeader // header for the asciinema recording
 
@@ -69,7 +73,6 @@ func (c *conn) Read(data []byte) (int, error) {
 	defer c.readMutex.Unlock()
 
 	bytesRead, readErr := c.Conn.Read(data)
-
 	if readErr != nil {
 		// since this connection can be a hijacked connection from the HTTP server
 		// we could be dealing with a tls.Conn or some other wrapper around net.Conn, which
@@ -270,9 +273,11 @@ func (c *conn) Write(data []byte) (int, error) {
 
 func (c *conn) Close() error {
 	c.readMutex.Lock()
+	defer c.readMutex.Unlock()
+
 	c.writeMutex.Lock()
 	defer c.writeMutex.Unlock()
-	defer c.readMutex.Unlock()
+
 	c.recorder.Stop() // stop recording
 
 	return c.Conn.Close()

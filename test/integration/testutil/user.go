@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package testutil
 
 import (
@@ -10,6 +13,7 @@ import (
 // User represents a user, its Kubectl instance and its fake Client.
 type User struct {
 	token.User
+
 	Kubectl *Kubectl
 
 	client *fake.Client

@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package httpproxy
 
 import (
@@ -17,6 +20,7 @@ var (
 
 type responseWriter struct {
 	http.ResponseWriter
+
 	headerWritten bool
 	statusCode    int
 	headers       http.Header
@@ -107,9 +111,11 @@ func auditMiddleware(config config) http.Handler {
 		rw := &responseWriter{ResponseWriter: w}
 
 		defer func() {
+			recovered := recover()
+
 			// Check if there was a panic. `http.ErrAbortHandler` is considered
 			// okay e.g. client closes connection during HTTP streaming.
-			if recovered := recover(); recovered != nil && recovered != http.ErrAbortHandler { //nolint:err113,errorlint
+			if recovered != nil && recovered != http.ErrAbortHandler { //nolint:err113,errorlint
 				auditLogger.Error("API request failed",
 					zap.Any("request", map[string]any{
 						"headers": r.Header,
@@ -120,20 +126,22 @@ func auditMiddleware(config config) http.Handler {
 					}),
 					zap.Any("panic", recovered),
 				)
+			} else {
+				auditLogger.Info("API request completed",
+					zap.Any("request", map[string]any{
+						"headers": r.Header,
+					}),
+					zap.Any("response", map[string]any{
+						"status_code": rw.statusCode,
+						"headers":     rw.headers,
+					}),
+				)
+			}
 
+			if recovered != nil {
 				// Re-panic to let others handle it
 				panic(recovered)
 			}
-
-			auditLogger.Info("API request completed",
-				zap.Any("request", map[string]any{
-					"headers": r.Header,
-				}),
-				zap.Any("response", map[string]any{
-					"status_code": rw.statusCode,
-					"headers":     rw.headers,
-				}),
-			)
 		}()
 
 		config.next(rw, r, conn, auditLogger)

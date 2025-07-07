@@ -82,6 +82,13 @@ tolerations: []
 
 affinity: {}
 
+# Extra environment variables to add to the container.
+#
+# extraEnvVars:
+#   - name: FOO
+#     value: "bar"
+extraEnvVars: []
+
 
 # TLS configuration for the Gateway
 tls:

@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package testutil
 
 import (
@@ -18,6 +21,7 @@ func AssertWhoAmI(t *testing.T, output []byte, expectedUsername string, expected
 	t.Helper()
 
 	var whoami authv1.SelfSubjectReview
+
 	err := json.Unmarshal(output, &whoami)
 	require.NoError(t, err, "failed to parse kubectl auth whoami output")
 
@@ -32,6 +36,7 @@ func AssertGetPods(t *testing.T, output []byte) {
 	t.Helper()
 
 	var podList corev1.PodList
+
 	err := json.Unmarshal(output, &podList)
 	require.NoError(t, err, "failed to parse kubectl get pods output")
 

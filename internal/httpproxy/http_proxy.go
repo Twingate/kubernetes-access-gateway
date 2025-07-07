@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package httpproxy
 
 import (
@@ -17,12 +20,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 
 	k8stransport "k8s.io/client-go/transport"
 
 	"k8sgateway/internal/connect"
+	"k8sgateway/internal/metrics"
 	"k8sgateway/internal/token"
 	"k8sgateway/internal/wsproxy"
 )
@@ -57,6 +62,8 @@ type Config struct {
 
 	LogFlushSizeThreshold int
 	LogFlushInterval      time.Duration
+
+	Registry *prometheus.Registry
 }
 
 // ProxyConn is a custom connection that wraps the underlying TCP net.Conn, handling downstream
@@ -64,6 +71,7 @@ type Config struct {
 // upgrades: with downstream proxy and then with downstream client e.g. `kubectl`.
 type ProxyConn struct {
 	net.Conn
+
 	TLSConfig        *tls.Config
 	ConnectValidator connect.Validator
 	logger           *zap.Logger
@@ -230,6 +238,7 @@ func ExportKeyingMaterial(conn *tls.Conn) ([]byte, error) {
 
 type proxyListener struct {
 	net.Listener
+
 	TLSConfig        *tls.Config
 	ConnectValidator connect.Validator
 	logger           *zap.Logger
@@ -264,7 +273,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	logger := zap.S()
 
 	if cfg.ConnectValidator == nil {
-		logger.Fatalf("connect validator is nil")
+		logger.Fatal("connect validator is nil")
 	}
 
 	// create TLS configuration for downstream
@@ -289,7 +298,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
-		logger.Fatalf("failed to append K8sAPIServerCA cert to pool")
+		logger.Fatal("failed to append K8sAPIServerCA cert to pool")
 	}
 
 	logger.Infof("loaded upstream K8sAPIServerCA cert")
@@ -371,8 +380,11 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
-	handler := auditMiddleware(config{
-		next: p.serveHTTP,
+	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
+		Registry: cfg.Registry,
+		Next: auditMiddleware(config{
+			next: p.serveHTTP,
+		}),
 	})
 	mux.Handle("/", handler)
 	mux.Handle("GET /api/v1/namespaces/{namespace}/pods/{pod}/exec", handler)

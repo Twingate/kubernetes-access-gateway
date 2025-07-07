@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package token
 
 import (
@@ -161,6 +164,7 @@ func TestPublicKey_UnmarshalJSON(t *testing.T) {
 		jsonBytes := []byte("\"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFelBCVWRDUVRDTC85eWhPUzI3S1AyWTN1cjR5aApYd1N6enhZOGJhT3hESlIyVHYzL3pMOW1JWExZSld0NzlHeE5hL0h2MWFJRi9SS2hZdHRPc0JvaUZnPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==\"")
 
 		var publicKey PublicKey
+
 		err := publicKey.UnmarshalJSON(jsonBytes)
 		require.NoError(t, err)
 
@@ -211,6 +215,7 @@ func TestPublicKey_UnmarshalJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var publicKey PublicKey
+
 			err := publicKey.UnmarshalJSON(tt.json)
 
 			require.ErrorIs(t, err, tt.expectedError)

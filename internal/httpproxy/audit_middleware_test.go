@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package httpproxy
 
 import (
@@ -133,6 +136,7 @@ func TestAuditMiddleware(t *testing.T) {
 					// Recover if handler panics
 					_ = recover()
 				}()
+
 				auditMiddleware(config{
 					next:   mockHandler.serveHTTP,
 					logger: logger,

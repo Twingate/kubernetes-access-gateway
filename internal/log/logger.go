@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package log
 
 import (
@@ -38,6 +41,7 @@ func InitializeLogger(name string, debug bool) {
 		defer func() {
 			err = logger.Sync()
 		}()
+
 		undoGlobals()
 		undoStd()
 	}

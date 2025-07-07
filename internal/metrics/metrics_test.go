@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package metrics
 
 import (
@@ -10,7 +13,7 @@ import (
 
 func TestInitMetricCollectors(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	initMetricCollectors(testRegistry)
+	registerCoreMetrics(testRegistry)
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)

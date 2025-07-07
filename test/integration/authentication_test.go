@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package integration
 
 import (
@@ -34,6 +37,7 @@ func TestSingleUser(t *testing.T) {
 	// Start the Controller
 	controller := fake.NewController(network)
 	defer controller.Close()
+
 	t.Log("Controller is serving at", controller.URL)
 
 	// Start the Gateway
@@ -93,6 +97,7 @@ func TestSingleUser(t *testing.T) {
 		controller.URL,
 	)
 	require.NoError(t, err, "failed to create user")
+
 	defer user.Close()
 
 	testutil.CreateK8sRoleBinding(t, kindKubectl, []string{user.Username})

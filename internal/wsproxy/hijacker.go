@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package wsproxy
 
 import (
@@ -19,6 +22,7 @@ type ConnFactory func(net.Conn, Recorder, asciinemaHeader, bool) net.Conn
 
 type WsHijacker struct {
 	http.ResponseWriter
+
 	request     *http.Request
 	user        string
 	newRecorder RecorderFactory
