@@ -53,6 +53,7 @@ func TestKubernetesAuthentication(t *testing.T) {
 	// Start the Controller
 	controller := fake.NewController(network)
 	defer controller.Close()
+
 	t.Log("Controller is serving at", controller.URL)
 
 	// Start the Gateway
@@ -317,14 +318,16 @@ func gatewayHealthCheck(t *testing.T) {
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		resp, err := client.Get(gatewayURL)
 		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
+			err := resp.Body.Close()
+			require.NoError(t, err)
 			t.Log("Gateway is ready at", "127.0.0.1:8443")
 
 			break
 		}
 
 		if resp != nil {
-			resp.Body.Close()
+			err := resp.Body.Close()
+			require.NoError(t, err)
 		}
 
 		require.NotEqual(t, maxAttempts, attempt, "Gateway failed to start after %d attempts", maxAttempts)
@@ -337,6 +340,7 @@ func assertWhoAmI(t *testing.T, output []byte, expectedUsername string, expected
 	t.Helper()
 
 	var whoami authv1.SelfSubjectReview
+
 	err := json.Unmarshal(output, &whoami)
 
 	require.NoError(t, err, "failed to parse kubectl auth whoami output")
