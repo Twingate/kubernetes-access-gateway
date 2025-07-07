@@ -203,7 +203,8 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 		}
 
 		// send a malformed request
-		fmt.Fprint(proxyTLSConn, "invalid-request\r\n\r\n")
+		_, err = fmt.Fprint(proxyTLSConn, "invalid-request\r\n\r\n")
+		assert.NoError(t, err)
 
 		resp, err := bufio.NewReader(proxyTLSConn).ReadString('\n')
 		assert.NoError(t, err)
@@ -266,7 +267,8 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 		}
 
 		// send a healthcheck request
-		fmt.Fprint(proxyTLSConn, "GET /healthz HTTP/1.1\r\n\r\n")
+		_, err = fmt.Fprint(proxyTLSConn, "GET /healthz HTTP/1.1\r\n\r\n")
+		assert.NoError(t, err)
 
 		buf := bufio.NewReader(proxyTLSConn)
 		resp, err := buf.ReadString('\n')
@@ -342,8 +344,9 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 		}
 
 		// send a valid CONNECT request
-		fmt.Fprintf(proxyTLSConn, "CONNECT example.com:443 HTTP/1.1\r\n%s: gat_token\r\n%s: auth_sig\r\n%s: conn-id-1\r\n\r\n",
+		_, err = fmt.Fprintf(proxyTLSConn, "CONNECT example.com:443 HTTP/1.1\r\n%s: gat_token\r\n%s: auth_sig\r\n%s: conn-id-1\r\n\r\n",
 			connect.AuthHeaderKey, connect.AuthSignatureHeaderKey, connect.ConnIDHeaderKey)
+		assert.NoError(t, err)
 
 		// expect 200 Connection Established back
 		resp, err := bufio.NewReader(proxyTLSConn).ReadString('\n')
@@ -429,8 +432,9 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 			return
 		}
 
-		fmt.Fprintf(proxyTLSConn, "CONNECT example.com:443 HTTP/1.1\r\n%s: bad_token\r\n%s: auth_sig\r\n%s: conn-id-1\r\n\r\n",
+		_, err = fmt.Fprintf(proxyTLSConn, "CONNECT example.com:443 HTTP/1.1\r\n%s: bad_token\r\n%s: auth_sig\r\n%s: conn-id-1\r\n\r\n",
 			connect.AuthHeaderKey, connect.AuthSignatureHeaderKey, connect.ConnIDHeaderKey)
+		assert.NoError(t, err)
 
 		resp, err := bufio.NewReader(proxyTLSConn).ReadString('\n')
 		assert.NoError(t, err)

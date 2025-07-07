@@ -273,10 +273,10 @@ func (c *conn) Write(data []byte) (int, error) {
 
 func (c *conn) Close() error {
 	c.readMutex.Lock()
+	defer c.readMutex.Unlock()
 
 	c.writeMutex.Lock()
 	defer c.writeMutex.Unlock()
-	defer c.readMutex.Unlock()
 
 	c.recorder.Stop() // stop recording
 

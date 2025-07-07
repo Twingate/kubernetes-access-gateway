@@ -83,7 +83,11 @@ func NewClient(user *token.User, proxyAddress, controllerURL, apiServerURL strin
 // connection is not properly closed.
 func (c *Client) Close() {
 	c.cancel()
-	c.Listener.Close()
+
+	if err := c.Listener.Close(); err != nil {
+		c.logger.Error("Failed to close listener", zap.Error(err))
+	}
+
 	c.wg.Wait()
 }
 

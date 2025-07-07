@@ -318,14 +318,16 @@ func gatewayHealthCheck(t *testing.T) {
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		resp, err := client.Get(gatewayURL)
 		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
+			err := resp.Body.Close()
+			require.NoError(t, err)
 			t.Log("Gateway is ready at", "127.0.0.1:8443")
 
 			break
 		}
 
 		if resp != nil {
-			resp.Body.Close()
+			err := resp.Body.Close()
+			require.NoError(t, err)
 		}
 
 		require.NotEqual(t, maxAttempts, attempt, "Gateway failed to start after %d attempts", maxAttempts)
