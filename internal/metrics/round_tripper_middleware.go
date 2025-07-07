@@ -1,3 +1,6 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package metrics
 
 import (
@@ -37,7 +40,7 @@ func RoundTripperMiddleware(config RoundTripperMiddlewareConfig) promhttp.RoundT
 
 	config.Registry.MustRegister(requestsTotal, activeRequests, requestDuration)
 
-	opts := promhttp.WithLabelFromCtx(labelRequestType, getRequestContextValue)
+	opts := promhttp.WithLabelFromCtx(labelRequestType, getRequestTypeFromContext)
 
 	base := promhttp.InstrumentRoundTripperCounter(
 		requestsTotal,
@@ -52,7 +55,7 @@ func RoundTripperMiddleware(config RoundTripperMiddlewareConfig) promhttp.RoundT
 		opts,
 	)
 
-	return promhttp.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
+	return func(r *http.Request) (*http.Response, error) {
 		ctx := r.Context()
 
 		switch {
@@ -65,16 +68,16 @@ func RoundTripperMiddleware(config RoundTripperMiddlewareConfig) promhttp.RoundT
 		}
 
 		return base.RoundTrip(r.WithContext(ctx))
-	})
+	}
 }
 
 func instrumentRoundTripperInFlight(activeRequests *prometheus.GaugeVec, next http.RoundTripper) promhttp.RoundTripperFunc {
-	return promhttp.RoundTripperFunc(func(r *http.Request) (*http.Response, error) {
-		requestType := getRequestContextValue(r.Context())
+	return func(r *http.Request) (*http.Response, error) {
+		requestType := getRequestTypeFromContext(r.Context())
 
 		activeRequests.WithLabelValues(requestType).Inc()
 		defer activeRequests.WithLabelValues(requestType).Dec()
 
 		return next.RoundTrip(r)
-	})
+	}
 }
