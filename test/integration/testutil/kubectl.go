@@ -1,7 +1,7 @@
 // Copyright (c) Twingate Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package integration
+package testutil
 
 import (
 	"fmt"
@@ -10,9 +10,15 @@ import (
 	"strings"
 )
 
-// Kubectl contains context to run kubectl commands.
+type KubectlOptions struct {
+	context                  string
+	serverURL                string
+	certificateAuthorityPath string
+}
+
+// Kubectl contains context or server info to run kubectl commands.
 type Kubectl struct {
-	context string
+	options KubectlOptions
 }
 
 // Command is a general func to run kubectl commands.
@@ -26,7 +32,18 @@ func (k *Kubectl) CommandWithInput(stdinInput string, cmdOptions ...string) ([]b
 }
 
 func (k *Kubectl) executeKubectl(stdIn io.Reader, cmdOptions ...string) ([]byte, error) {
-	cmd := exec.Command("kubectl", append([]string{"--context", k.context}, cmdOptions...)...) // #nosec G204 -- kubectl is safe to use
+	var options []string
+	if k.options.context != "" {
+		options = []string{"--context", k.options.context}
+	} else {
+		options = []string{
+			"--server", k.options.serverURL,
+			"--certificate-authority", k.options.certificateAuthorityPath,
+			"--token", "void", // Bearer token is not used but kubectl CLI requires some authentication
+		}
+	}
+
+	cmd := exec.Command("kubectl", append(options, cmdOptions...)...) // #nosec G204 -- kubectl is safe to use
 	cmd.Stdin = stdIn
 
 	output, err := cmd.CombinedOutput()
