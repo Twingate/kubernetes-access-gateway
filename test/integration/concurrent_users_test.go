@@ -188,7 +188,6 @@ func TestConcurrentUsers(t *testing.T) {
 				lastLogTime := time.Time{}
 
 				output, err := user.Kubectl.Command(cmd.args...)
-
 				if err != nil {
 					t.Logf("Failed to run kubectl %s: %v", cmd.name, err)
 				}
