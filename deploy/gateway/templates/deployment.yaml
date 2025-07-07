@@ -44,6 +44,9 @@ spec:
               value: {{ .Values.containerPorts.https | quote }}
             - name: TWINGATE_METRICSPORT
               value: {{ .Values.containerPorts.metrics | quote }}
+            {{- with .Values.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           ports:
             - name: https
               containerPort: {{ .Values.containerPorts.https }}
