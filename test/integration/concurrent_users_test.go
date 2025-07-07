@@ -184,10 +184,11 @@ func TestConcurrentUsers(t *testing.T) {
 
 			t.Logf("User %s is running commands: %s", user.ID, commands)
 
-			lastLogTime := time.Time{}
-
 			for _, cmd := range commands {
+				lastLogTime := time.Time{}
+
 				output, err := user.Kubectl.Command(cmd.args...)
+
 				if err != nil {
 					t.Logf("Failed to run kubectl %s: %v", cmd.name, err)
 				}
@@ -212,7 +213,6 @@ func TestConcurrentUsers(t *testing.T) {
 					return false
 				})
 				cmd.assertLogFn(t, userLogs)
-				lastLogTime = userLogs.All()[len(userLogs.All())-1].Time
 			}
 
 			wg.Done()
