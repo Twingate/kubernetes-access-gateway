@@ -21,6 +21,7 @@ import (
 
 type mockHijackerResponseWriter struct {
 	httptest.ResponseRecorder
+
 	conn net.Conn
 	rw   *bufio.ReadWriter
 	err  error
@@ -32,6 +33,7 @@ func (m *mockHijackerResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, erro
 
 type mockHijackerConn struct {
 	net.Conn
+
 	writeData []byte
 }
 

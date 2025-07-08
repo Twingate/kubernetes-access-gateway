@@ -23,5 +23,8 @@ spec:
       port: 443
       targetPort: https
       protocol: TCP
+      {{- if and (or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer")) .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
   selector:
     {{- include "gateway.selectorLabels" . | nindent 4 }}

@@ -109,6 +109,7 @@ func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder 
 	}
 
 	r.flushWg.Add(1)
+
 	go r.flushLoop()
 
 	return r
@@ -171,6 +172,7 @@ func (r *AsciinemaRecorder) IsHeaderWritten() bool {
 
 func (r *AsciinemaRecorder) Stop() {
 	r.mu.Lock()
+
 	if r.stopped {
 		r.mu.Unlock()
 
