@@ -24,14 +24,17 @@ var (
 
 var (
 	recordedSessionDuration prometheus.Histogram
+	initializeMetricsOnce   sync.Once
 )
 
 func RegisterRecordedSessionMetrics(namespace string, registry *prometheus.Registry) {
-	recordedSessionDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: namespace,
-		Name:      "recorded_session_duration_seconds",
-		Help:      "Duration of WebSocket session in seconds",
-		Buckets:   []float64{1, 5, 10, 30, 60, 300, 600, 1800, 3600},
+	initializeMetricsOnce.Do(func() {
+		recordedSessionDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: namespace,
+			Name:      "recorded_session_duration_seconds",
+			Help:      "Duration of WebSocket session in seconds",
+			Buckets:   []float64{1, 5, 10, 30, 60, 300, 600, 1800, 3600},
+		})
 	})
 
 	registry.MustRegister(recordedSessionDuration)
