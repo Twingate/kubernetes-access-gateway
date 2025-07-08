@@ -26,7 +26,7 @@ type Config struct {
 
 func Start(config Config) error {
 	registerCoreMetrics(config.Registry)
-	wsproxy.RegisterRecordedSessionMetrics(config.Registry)
+	wsproxy.RegisterRecordedSessionMetrics(namespace, config.Registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(

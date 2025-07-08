@@ -129,7 +129,7 @@ func TestRecorder_MultipleEvents(t *testing.T) {
 
 func TestRecorder_Stop(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	RegisterRecordedSessionMetrics(testRegistry)
+	RegisterRecordedSessionMetrics("twingate_gateway", testRegistry)
 
 	core, logs := observer.New(zap.DebugLevel)
 	r := NewRecorder(zap.New(core))

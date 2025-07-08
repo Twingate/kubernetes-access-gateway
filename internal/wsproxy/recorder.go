@@ -23,15 +23,17 @@ var (
 )
 
 var (
+	recordedSessionDuration prometheus.Histogram
+)
+
+func RegisterRecordedSessionMetrics(namespace string, registry *prometheus.Registry) {
 	recordedSessionDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: "twingate_gateway",
+		Namespace: namespace,
 		Name:      "recorded_session_duration_seconds",
 		Help:      "Duration of WebSocket session in seconds",
 		Buckets:   []float64{1, 5, 10, 30, 60, 300, 600, 1800, 3600},
 	})
-)
 
-func RegisterRecordedSessionMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(recordedSessionDuration)
 }
 
