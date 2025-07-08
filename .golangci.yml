@@ -5,6 +5,8 @@ run:
 
 linters:
   default: all
+  enable:
+    - wsl_v5
   disable:
     - cyclop
     - dupl
@@ -24,6 +26,7 @@ linters:
     - varnamelen
     - wrapcheck
     - noinlineerr
+    - wsl # Deprecated since v2.2.0 and replaced by wsl_v5
   exclusions:
     presets:
       - comments
@@ -36,6 +39,10 @@ linters:
           - err113
           - gosec
   settings:
+    wsl_v5:
+        allow-first-in-block: true
+        allow-whole-block: false
+        branch-max-lines: 2 
     goheader:
       template: |-
         Copyright (c) Twingate Inc.
@@ -82,3 +89,6 @@ formatters:
         - dot # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
         - alias # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
         - localmodule
+
+severity:
+  default: error
