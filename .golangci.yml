@@ -89,6 +89,3 @@ formatters:
         - dot # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
         - alias # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
         - localmodule
-
-severity:
-  default: error
