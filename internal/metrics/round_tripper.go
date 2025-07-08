@@ -4,20 +4,18 @@
 package metrics
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 )
 
-type RoundTripperMiddlewareConfig struct {
+type RoundTripperConfig struct {
 	Registry *prometheus.Registry
 	Next     http.RoundTripper
 }
 
-func RoundTripperMiddleware(config RoundTripperMiddlewareConfig) promhttp.RoundTripperFunc {
+func RoundTripper(config RoundTripperConfig) promhttp.RoundTripperFunc {
 	requestsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Name:      "api_server_requests_total",
@@ -34,8 +32,8 @@ func RoundTripperMiddleware(config RoundTripperMiddlewareConfig) promhttp.RoundT
 		prometheus.HistogramOpts{
 			Namespace: namespace,
 			Name:      "api_server_request_duration_seconds",
-			Help:      "Latencies of requests from Gateway to API Server in seconds",
-			Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600},
+			Help:      "Latencies of requests from Gateway to API Server in seconds. Note that it does not measure duration of subsequent WebSocket or streaming connections.",
+			Buckets:   prometheus.DefBuckets,
 		}, []string{"type", "method", "code"})
 
 	config.Registry.MustRegister(requestsTotal, activeRequests, requestDuration)
@@ -57,15 +55,7 @@ func RoundTripperMiddleware(config RoundTripperMiddlewareConfig) promhttp.RoundT
 
 	return func(r *http.Request) (*http.Response, error) {
 		ctx := r.Context()
-
-		switch {
-		case isSpdyRequest(r):
-			ctx = context.WithValue(ctx, contextKey{}, requestTypeSPDY)
-		case wsstream.IsWebSocketRequest(r):
-			ctx = context.WithValue(ctx, contextKey{}, requestTypeWebsocket)
-		default:
-			ctx = context.WithValue(ctx, contextKey{}, requestTypeHTTP)
-		}
+		ctx = withRequestType(ctx, r)
 
 		return base.RoundTrip(r.WithContext(ctx))
 	}
