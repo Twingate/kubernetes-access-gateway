@@ -170,7 +170,9 @@ func TestConcurrentUsers(t *testing.T) {
 					args: []string{"exec", "test-pod", "--", "cat", "/etc/hostname"},
 					assertOutputFn: func(t *testing.T, output []byte) {
 						t.Helper()
-						assert.Equal(t, "test-pod\n", string(output))
+						// `kubectl exec` has sporadic warning message "Unknown stream id 1, discarding message", especially when
+						// there are multiple concurrent streams so we can't `assert.Equal` here.
+						assert.Contains(t, "test-pod\n", string(output))
 					},
 					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
 						t.Helper()
