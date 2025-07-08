@@ -134,7 +134,7 @@ func TestRecorder_MultipleEvents(t *testing.T) {
 
 func TestRecorder_Stop(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	RegisterRecordedSessionMetrics("twingate_gateway", testRegistry)
+	RegisterRecordedSessionMetrics("test", testRegistry)
 
 	core, logs := observer.New(zap.DebugLevel)
 	r := NewRecorder(zap.New(core))
@@ -160,7 +160,7 @@ func TestRecorder_Stop(t *testing.T) {
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
 	assert.Len(t, metricFamilies, 1)
-	assert.Equal(t, "twingate_gateway_recorded_session_duration_seconds", metricFamilies[0].GetName())
+	assert.Equal(t, "test_recorded_session_duration_seconds", metricFamilies[0].GetName())
 
 	// Try to write after stop
 	err = r.WriteOutputEvent([]byte("should fail"))
