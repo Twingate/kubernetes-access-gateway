@@ -30,6 +30,7 @@ func TestRecorder_WriteOutputEvent(t *testing.T) {
 	assert.Len(t, r.recordedLines, 1, "Recorder should have one event")
 
 	var event []any
+
 	err = json.Unmarshal([]byte(r.recordedLines[0]), &event)
 	require.NoError(t, err, "Event should be valid JSON")
 	require.Len(t, event, 3, "Event should have three elements")
@@ -54,6 +55,7 @@ func TestRecorder_WriteResizeEvent(t *testing.T) {
 	assert.Len(t, r.recordedLines, 1, "Recorder should have one event")
 
 	var event []any
+
 	err = json.Unmarshal([]byte(r.recordedLines[0]), &event)
 	require.NoError(t, err, "Event should be valid JSON")
 	require.Len(t, event, 3, "Event should have three elements")
@@ -91,6 +93,7 @@ func TestRecorder_WriteHeader(t *testing.T) {
 	require.NoError(t, err, "WriteHeader should not return an error")
 
 	var recordedHeader asciinemaHeader
+
 	err = json.Unmarshal([]byte(r.header), &recordedHeader)
 	require.NoError(t, err, "Header should be valid JSON")
 	assert.Equal(t, header, recordedHeader)
@@ -115,12 +118,14 @@ func TestRecorder_MultipleEvents(t *testing.T) {
 
 	// Validate header
 	var recordedHeader asciinemaHeader
+
 	err := json.Unmarshal([]byte(r.header), &recordedHeader)
 	require.NoError(t, err)
 	assert.Equal(t, header.Version, recordedHeader.Version)
 
 	// Validate second output event
 	var lastEvent []any
+
 	err = json.Unmarshal([]byte(r.recordedLines[2]), &lastEvent)
 	require.NoError(t, err)
 	assert.Equal(t, "o", lastEvent[1])

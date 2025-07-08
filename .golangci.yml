@@ -23,6 +23,7 @@ linters:
     - testpackage
     - varnamelen
     - wrapcheck
+    - noinlineerr
   exclusions:
     presets:
       - comments
@@ -64,6 +65,9 @@ linters:
             - allowRegex: "^_"
         - name: unused-receiver
           disabled: true
+        - name: unhandled-error
+          arguments:
+            - "bytes.Buffer.Write"
 
 formatters:
   enable:

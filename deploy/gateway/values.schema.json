@@ -87,7 +87,7 @@
       "required": ["type"],
       "properties": {
         "type": {
-          "enum": ["ClusterIP", "LoadBalancer"],
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
           "default": "ClusterIP"
         }
       }

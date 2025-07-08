@@ -37,7 +37,24 @@ tests:
   - it: should not allow other Service type
     set:
       service:
-        type: NodePort
+        type: ExternalName
     asserts:
       - failedTemplate:
-          errorPattern: 'service.type must be one of the following: "ClusterIP", "LoadBalancer"'
+          errorPattern: 'service.type must be one of the following: "ClusterIP", "NodePort", "LoadBalancer"'
+  - it: should support NodePort type with custom nodePort
+    set:
+      service:
+        type: NodePort
+        nodePort: 30000
+    asserts:
+      - equal:
+          path: spec.ports[0].nodePort
+          value: 30000
+  - it: should ignore nodePort for ClusterIP type
+    set:
+      service:
+        type: ClusterIP
+        nodePort: 30000
+    asserts:
+      - isNull:
+          path: spec.ports[0].nodePort

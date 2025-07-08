@@ -112,6 +112,7 @@ func TestHTTPMiddleware(t *testing.T) {
 
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err, "failed to send request")
+
 			defer resp.Body.Close()
 
 			metricFamilies, err := testRegistry.Gather()
