@@ -96,7 +96,7 @@ func HTTPMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 	)
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		base.ServeHTTP(w, withRequestType(r))
+		base.ServeHTTP(w, requestWithTypeContext(r))
 	}
 }
 
@@ -127,7 +127,7 @@ func isSpdyRequest(r *http.Request) bool {
 	return httpstream.IsUpgradeRequest(r)
 }
 
-func withRequestType(r *http.Request) *http.Request {
+func requestWithTypeContext(r *http.Request) *http.Request {
 	ctx := r.Context()
 
 	switch {

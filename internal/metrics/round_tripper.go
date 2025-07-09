@@ -54,7 +54,7 @@ func RoundTripper(config RoundTripperConfig) promhttp.RoundTripperFunc {
 	)
 
 	return func(r *http.Request) (*http.Response, error) {
-		return base.RoundTrip(withRequestType(r))
+		return base.RoundTrip(requestWithTypeContext(r))
 	}
 }
 

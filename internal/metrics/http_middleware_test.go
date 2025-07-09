@@ -97,7 +97,7 @@ func TestWithRequestType(t *testing.T) {
 
 			tc.setupRequest(req)
 
-			req = withRequestType(req)
+			req = requestWithTypeContext(req)
 
 			value, ok := req.Context().Value(contextKey{}).(string)
 			assert.True(t, ok)
