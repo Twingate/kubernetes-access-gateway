@@ -28,14 +28,11 @@ linters:
   exclusions:
     presets:
       - comments
-      - common-false-positives
-      - legacy
       - std-error-handling
     rules:
       - path: '_test\.go'
         linters:
           - err113
-          - gosec
   settings:
     goheader:
       template: |-

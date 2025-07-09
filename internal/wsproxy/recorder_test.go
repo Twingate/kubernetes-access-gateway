@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -132,6 +133,9 @@ func TestRecorder_MultipleEvents(t *testing.T) {
 }
 
 func TestRecorder_Stop(t *testing.T) {
+	testRegistry := prometheus.NewRegistry()
+	RegisterRecordedSessionMetrics("test", testRegistry)
+
 	core, logs := observer.New(zap.DebugLevel)
 	r := NewRecorder(zap.New(core))
 
@@ -152,8 +156,14 @@ func TestRecorder_Stop(t *testing.T) {
 	assert.Contains(t, log.ContextMap()["asciinema_data"], "test")
 	assert.Equal(t, int64(1), log.ContextMap()["asciinema_sequence_num"])
 
+	// Check that the duration metric is recorded
+	metricFamilies, err := testRegistry.Gather()
+	require.NoError(t, err)
+	assert.Len(t, metricFamilies, 1)
+	assert.Equal(t, "test_recorded_session_duration_seconds", metricFamilies[0].GetName())
+
 	// Try to write after stop
-	err := r.WriteOutputEvent([]byte("should fail"))
+	err = r.WriteOutputEvent([]byte("should fail"))
 	require.Error(t, err, "Writing after stop should return an error")
 	assert.Contains(t, err.Error(), "recording already finished")
 

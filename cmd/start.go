@@ -19,6 +19,7 @@ import (
 	"k8sgateway/internal/log"
 	"k8sgateway/internal/metrics"
 	"k8sgateway/internal/token"
+	"k8sgateway/internal/wsproxy"
 )
 
 var errRequiredConfig = errors.New("required configuration must be set")
@@ -89,6 +90,8 @@ func start(newProxy ProxyFactory) error {
 	metricsPort := viper.GetInt("metricsPort")
 
 	go func() {
+		wsproxy.RegisterRecordedSessionMetrics(metrics.Namespace, cfg.Registry)
+
 		logger.Infof("Starting metrics server on: %v", metricsPort)
 
 		err := metrics.Start(metrics.Config{
