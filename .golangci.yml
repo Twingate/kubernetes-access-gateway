@@ -5,8 +5,6 @@ run:
 
 linters:
   default: all
-  enable:
-    - wsl_v5
   disable:
     - cyclop
     - dupl
@@ -39,10 +37,6 @@ linters:
           - err113
           - gosec
   settings:
-    wsl_v5:
-        allow-first-in-block: true
-        allow-whole-block: false
-        branch-max-lines: 2 
     goheader:
       template: |-
         Copyright (c) Twingate Inc.
