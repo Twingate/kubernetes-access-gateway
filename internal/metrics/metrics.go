@@ -16,7 +16,7 @@ import (
 	"k8sgateway/internal/version"
 )
 
-const namespace = "twingate_gateway"
+const Namespace = "twingate_gateway"
 
 type Config struct {
 	Port     int
@@ -45,7 +45,7 @@ func Start(config Config) error {
 
 func registerCoreMetrics(reg *prometheus.Registry) {
 	buildInfo := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: namespace,
+		Namespace: Namespace,
 		Name:      "build_info",
 		Help:      "A metric with a constant '1' value labeled by version, goversion, goos and goarch from which Twingate Kubernetes Access Gateway was built.",
 		ConstLabels: prometheus.Labels{

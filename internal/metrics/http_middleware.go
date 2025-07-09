@@ -37,34 +37,34 @@ type contextKey struct{}
 
 func HTTPMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 	requestsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: namespace,
+		Namespace: Namespace,
 		Name:      "http_requests_total",
 		Help:      "Total number of HTTP requests processed",
 	}, []string{"type", "method", "code"})
 
 	activeRequests := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: namespace,
+		Namespace: Namespace,
 		Name:      "http_active_requests",
 		Help:      "Number of currently active HTTP requests",
 	}, []string{"type"})
 
 	requestDuration := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: namespace,
+			Namespace: Namespace,
 			Name:      "http_request_duration_seconds",
 			Help:      "Latencies of HTTP requests in seconds",
 			Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600},
 		}, []string{"type", "method", "code"})
 
 	requestSizeBytes := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: namespace,
+		Namespace: Namespace,
 		Name:      "http_request_size_bytes",
 		Help:      "Size of incoming HTTP request in bytes",
 		Buckets:   prometheus.ExponentialBuckets(100, 10, 6),
 	}, []string{"type", "method", "code"})
 
 	responseSizeBytes := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: namespace,
+		Namespace: Namespace,
 		Name:      "http_response_size_bytes",
 		Help:      "Size of outgoing HTTP response in bytes",
 		Buckets:   prometheus.ExponentialBuckets(100, 10, 6),
