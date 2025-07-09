@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func GatewayHealthCheck(t *testing.T, port int) {
@@ -32,14 +34,17 @@ func GatewayHealthCheck(t *testing.T, port int) {
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		resp, err := client.Get(gatewayURL)
 		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
+			err := resp.Body.Close()
+			require.NoError(t, err)
+
 			t.Log("Gateway is ready at", gatewayURL)
 
 			break
 		}
 
 		if resp != nil {
-			resp.Body.Close()
+			err := resp.Body.Close()
+			require.NoError(t, err)
 		}
 
 		if attempt == maxAttempts {
