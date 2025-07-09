@@ -161,6 +161,7 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
+		MinVersion:   tls.VersionTLS13,
 	}
 
 	// mock CONNECT validator
@@ -183,6 +184,7 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 	clientTLSConfig := &tls.Config{
 		ServerName: "127.0.0.1",
 		RootCAs:    caCertPool,
+		MinVersion: tls.VersionTLS13,
 	}
 
 	done := make(chan struct{})
@@ -232,6 +234,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
+		MinVersion:   tls.VersionTLS13,
 	}
 
 	listener = &proxyListener{
@@ -247,6 +250,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	clientTLSConfig := &tls.Config{
 		ServerName: "127.0.0.1",
 		RootCAs:    caCertPool,
+		MinVersion: tls.VersionTLS13,
 	}
 
 	done := make(chan struct{})
@@ -302,6 +306,7 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{proxyCert},
+		MinVersion:   tls.VersionTLS13,
 	}
 
 	// mock CONNECT validator
@@ -324,6 +329,7 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	clientTLSConfig := &tls.Config{
 		ServerName: "127.0.0.1",
 		RootCAs:    caCertPool,
+		MinVersion: tls.VersionTLS13,
 	}
 
 	done := make(chan struct{})
@@ -391,6 +397,7 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
+		MinVersion:   tls.VersionTLS13,
 	}
 
 	// mock CONNECT validator
@@ -413,6 +420,7 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 	clientTLSConfig := &tls.Config{
 		ServerName: "127.0.0.1",
 		RootCAs:    caCertPool,
+		MinVersion: tls.VersionTLS13,
 	}
 
 	done := make(chan struct{})
@@ -472,6 +480,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	apiServerTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
+		MinVersion:   tls.VersionTLS13,
 	}
 	apiServer.TLS = apiServerTLSConfig
 
@@ -515,6 +524,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	tlsConfig := &tls.Config{
 		ServerName: "127.0.0.1",
 		RootCAs:    caCertPool,
+		MinVersion: tls.VersionTLS13,
 	}
 
 	// manually create a TCP connection to be able to reuse for
