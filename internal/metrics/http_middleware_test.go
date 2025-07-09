@@ -4,7 +4,6 @@
 package metrics
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -98,9 +97,9 @@ func TestWithRequestType(t *testing.T) {
 
 			tc.setupRequest(req)
 
-			ctx := withRequestType(context.Background(), req)
+			req = withRequestType(req)
 
-			value, ok := ctx.Value(contextKey{}).(string)
+			value, ok := req.Context().Value(contextKey{}).(string)
 			assert.True(t, ok)
 			assert.Equal(t, tc.expectedRequestType, value)
 		})

@@ -32,7 +32,7 @@ func RoundTripper(config RoundTripperConfig) promhttp.RoundTripperFunc {
 		prometheus.HistogramOpts{
 			Namespace: namespace,
 			Name:      "api_server_request_duration_seconds",
-			Help:      "Latencies of requests from Gateway to API Server in seconds. Note that it does not measure duration of subsequent WebSocket or streaming connections.",
+			Help:      "Measures the initial HTTP request-response latency between Gateway and API Server in seconds. For HTTP streaming, WebSocket, and SPDY connections, this metric captures only the setup time and not the duration of the data transfer.",
 			Buckets:   prometheus.DefBuckets,
 		}, []string{"type", "method", "code"})
 
@@ -54,10 +54,7 @@ func RoundTripper(config RoundTripperConfig) promhttp.RoundTripperFunc {
 	)
 
 	return func(r *http.Request) (*http.Response, error) {
-		ctx := r.Context()
-		ctx = withRequestType(ctx, r)
-
-		return base.RoundTrip(r.WithContext(ctx))
+		return base.RoundTrip(withRequestType(r))
 	}
 }
 
