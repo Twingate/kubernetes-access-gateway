@@ -36,7 +36,6 @@ func GatewayHealthCheck(t *testing.T, port int) {
 		if err == nil && resp.StatusCode == http.StatusOK {
 			err := resp.Body.Close()
 			require.NoError(t, err)
-
 			t.Log("Gateway is ready at", gatewayURL)
 
 			break

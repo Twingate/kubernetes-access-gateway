@@ -24,6 +24,7 @@ linters:
     - varnamelen
     - wrapcheck
     - noinlineerr
+    - wsl # Deprecated since v2.2.0 and replaced by wsl_v5
   exclusions:
     presets:
       - comments
