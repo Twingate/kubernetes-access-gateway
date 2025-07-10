@@ -62,7 +62,7 @@ func TestIsSpdyRequest(t *testing.T) {
 	}
 }
 
-func TestHTTPMiddleware(t *testing.T) {
+func TestWithRequestType(t *testing.T) {
 	testCases := []struct {
 		name                string
 		setupRequest        func(*http.Request)
@@ -90,63 +90,73 @@ func TestHTTPMiddleware(t *testing.T) {
 			expectedRequestType: "spdy",
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			testRegistry := prometheus.NewRegistry()
-
-			server := httptest.NewServer(HTTPMiddleware(
-				HTTPMiddlewareConfig{
-					Registry: testRegistry,
-					Next: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.WriteHeader(http.StatusOK)
-					}),
-				},
-			))
-			defer server.Close()
-
-			req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+			req, err := http.NewRequest(http.MethodGet, "/", nil)
 			require.NoError(t, err, "failed to create request")
 
 			tc.setupRequest(req)
 
-			resp, err := http.DefaultClient.Do(req)
-			require.NoError(t, err, "failed to send request")
+			req = requestWithTypeContext(req)
 
-			defer resp.Body.Close()
-
-			metricFamilies, err := testRegistry.Gather()
-			require.NoError(t, err)
-
-			labelsByMetric := extractLabelsFromMetrics(metricFamilies)
-			expectedLabels := map[string]map[string]string{
-				"twingate_gateway_http_requests_total": {
-					"type":   tc.expectedRequestType,
-					"method": "get",
-					"code":   "200",
-				},
-				"twingate_gateway_http_active_requests": {
-					"type": tc.expectedRequestType,
-				},
-				"twingate_gateway_http_request_duration_seconds": {
-					"type":   tc.expectedRequestType,
-					"method": "get",
-					"code":   "200",
-				},
-				"twingate_gateway_http_request_size_bytes": {
-					"type":   tc.expectedRequestType,
-					"method": "get",
-					"code":   "200",
-				},
-				"twingate_gateway_http_response_size_bytes": {
-					"type":   tc.expectedRequestType,
-					"method": "get",
-					"code":   "200",
-				},
-			}
-			assert.Equal(t, expectedLabels, labelsByMetric)
+			value, ok := req.Context().Value(contextKey{}).(string)
+			assert.True(t, ok)
+			assert.Equal(t, tc.expectedRequestType, value)
 		})
 	}
+}
+
+func TestHTTPMiddleware(t *testing.T) {
+	testRegistry := prometheus.NewRegistry()
+
+	server := httptest.NewServer(HTTPMiddleware(
+		HTTPMiddlewareConfig{
+			Registry: testRegistry,
+			Next: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}),
+		},
+	))
+	defer server.Close()
+
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	require.NoError(t, err, "failed to create request")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err, "failed to send request")
+
+	defer resp.Body.Close()
+
+	metricFamilies, err := testRegistry.Gather()
+	require.NoError(t, err)
+
+	labelsByMetric := extractLabelsFromMetrics(metricFamilies)
+	expectedLabels := map[string]map[string]string{
+		"twingate_gateway_http_requests_total": {
+			"type":   "http",
+			"method": "get",
+			"code":   "200",
+		},
+		"twingate_gateway_http_active_requests": {
+			"type": "http",
+		},
+		"twingate_gateway_http_request_duration_seconds": {
+			"type":   "http",
+			"method": "get",
+			"code":   "200",
+		},
+		"twingate_gateway_http_request_size_bytes": {
+			"type":   "http",
+			"method": "get",
+			"code":   "200",
+		},
+		"twingate_gateway_http_response_size_bytes": {
+			"type":   "http",
+			"method": "get",
+			"code":   "200",
+		},
+	}
+	assert.Equal(t, expectedLabels, labelsByMetric)
 }
 
 func extractLabelsFromMetrics(metricFamilies []*dto.MetricFamily) map[string]map[string]string {

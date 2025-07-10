@@ -96,18 +96,7 @@ func HTTPMiddleware(config HTTPMiddlewareConfig) http.HandlerFunc {
 	)
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-
-		switch {
-		case isSpdyRequest(r):
-			ctx = context.WithValue(ctx, contextKey{}, requestTypeSPDY)
-		case wsstream.IsWebSocketRequest(r):
-			ctx = context.WithValue(ctx, contextKey{}, requestTypeWebsocket)
-		default:
-			ctx = context.WithValue(ctx, contextKey{}, requestTypeHTTP)
-		}
-
-		base.ServeHTTP(w, r.WithContext(ctx))
+		base.ServeHTTP(w, requestWithTypeContext(r))
 	}
 }
 
@@ -136,4 +125,19 @@ func isSpdyRequest(r *http.Request) bool {
 	}
 
 	return httpstream.IsUpgradeRequest(r)
+}
+
+func requestWithTypeContext(r *http.Request) *http.Request {
+	ctx := r.Context()
+
+	switch {
+	case isSpdyRequest(r):
+		ctx = context.WithValue(ctx, contextKey{}, requestTypeSPDY)
+	case wsstream.IsWebSocketRequest(r):
+		ctx = context.WithValue(ctx, contextKey{}, requestTypeWebsocket)
+	default:
+		ctx = context.WithValue(ctx, contextKey{}, requestTypeHTTP)
+	}
+
+	return r.WithContext(ctx)
 }
