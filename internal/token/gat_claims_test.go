@@ -88,14 +88,6 @@ func TestGATTokenClaims_Validate(t *testing.T) {
 			expectedErrorMessage: "\"user.username\"",
 		},
 		{
-			name: "Missing device ID",
-			setupFn: func(claims *GATClaims) {
-				claims.Device.ID = ""
-			},
-			expectedError:        jwt.ErrTokenRequiredClaimMissing,
-			expectedErrorMessage: "\"device.id\"",
-		},
-		{
 			name: "Missing resource ID",
 			setupFn: func(claims *GATClaims) {
 				claims.Resource.ID = ""

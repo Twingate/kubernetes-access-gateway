@@ -41,7 +41,6 @@ func (p GATClaims) Validate() error {
 		{p.ClientPublicKey == (PublicKey{}), "cpk"},
 		{p.User.ID == "", "user.id"},
 		{p.User.Username == "", "user.username"},
-		{p.Device.ID == "", "device.id"},
 		{p.Resource.ID == "", "resource.id"},
 		{p.Resource.Address == "", "resource.address"},
 	}
