@@ -32,6 +32,8 @@ Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes 
 ### Integration testing
 
 - Integration tests are located in `test/integration` directory. The test would setup [a KinD cluster](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) and use [`kubectl`](https://kubernetes.io/docs/reference/kubectl/kubectl/) CLI to run the tests. Make sure you have Docker runtime so that the KinD cluster can be created automatically.
+- Install [Caddy](https://caddyserver.com/docs/install) to run a local reverse proxy. Run `sudo caddy run` to start the server.
+- In `/etc/hosts`, add the following line: `127.0.0.1 acme.localhost`.
 - Run `make test-integration` to run integration tests.
 
 ### Helm testing
