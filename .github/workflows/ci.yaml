@@ -73,11 +73,24 @@ jobs:
       - name: Run Tests
         run: make test-with-coverage
 
+      # Integration tests
       - name: Setup Docker
         uses: docker/setup-docker-action@v4
+      - name: Install Caddy
+        run: |
+          curl -fsSL https://github.com/caddyserver/caddy/releases/download/v2.10.0/caddy_2.10.0_linux_amd64.tar.gz | tar -xzv
+          sudo mv caddy /usr/local/bin/
+          caddy version
+      - name: Run Caddy
+        run: |
+          sudo caddy run &
+      - name: Map acme.localhost to 127.0.0.1
+        run: |
+          echo "127.0.0.1 acme.localhost" | sudo tee -a /etc/hosts
       - name: Run Integration Tests
         run: make test-integration-with-coverage
 
+      # Combined code coverage
       - name: Send coverage to Coveralls
         env:
           COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
