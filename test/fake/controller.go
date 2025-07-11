@@ -117,7 +117,7 @@ func NewController(network string, port int) *httptest.Server {
 		logger.Info("JWT generated")
 	})
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		logger.Error("Failed to listen on port", zap.Error(err))
 
@@ -127,7 +127,6 @@ func NewController(network string, port int) *httptest.Server {
 	server := httptest.NewUnstartedServer(mux)
 	server.Listener = listener
 	server.Start()
-	logger.Info("Controller started")
 
 	return server
 }
