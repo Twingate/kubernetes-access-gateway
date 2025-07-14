@@ -35,4 +35,4 @@ Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes 
 
 ## Developers
 
-- See [Developer](https://github.com/Twingate/kubernetes-access-gateway/wiki/Developer) for how to setup development environment and release process.
+- See [Developer](https://github.com/Twingate/kubernetes-access-gateway/wiki/Developer) for how to set up a development environment and release process.
