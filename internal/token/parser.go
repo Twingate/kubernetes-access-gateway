@@ -16,7 +16,7 @@ var errInvalidTokenType = errors.New("token type is invalid")
 var allowedSigningMethods = []string{jwt.SigningMethodES256.Alg()}
 
 var allowedIssuerByHost = map[string]string{
-	"localhost":     "twingate-local",
+	"test":          "twingate-local",
 	"dev.opstg.com": "twingate-dev",
 	"stg.opstg.com": "twingate-stg",
 	"twingate.com":  "twingate",

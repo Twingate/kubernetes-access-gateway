@@ -84,10 +84,10 @@ jobs:
           caddy version
       - name: Run Caddy
         run: |
-          sudo caddy run &
-      - name: Map acme.localhost to 127.0.0.1
+          sudo caddy start
+      - name: Map acme.test to 127.0.0.1
         run: |
-          echo "127.0.0.1 acme.localhost" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 acme.test" | sudo tee -a /etc/hosts
       - name: Run Integration Tests
         run: make test-integration-with-coverage
 

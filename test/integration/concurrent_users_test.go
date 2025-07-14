@@ -53,7 +53,7 @@ func TestConcurrentUsers(t *testing.T) {
 			"--port",
 			strconv.Itoa(gatewayPort),
 			"--host",
-			"localhost",
+			"test",
 			"--network",
 			network,
 			"--tlsKey",
