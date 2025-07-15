@@ -93,19 +93,13 @@ func TestProxyConnWithMetrics(t *testing.T) {
 			runConn: func(conn *ProxyConnWithMetrics) (int, error) {
 				b := make([]byte, 0)
 				_, err := conn.Read(b)
-				if err != nil {
-					return 0, err
-				}
+				require.NoError(t, err)
 
 				_, err = conn.Write(b)
-				if err != nil {
-					return 0, err
-				}
+				require.NoError(t, err)
 
 				err = conn.Close()
-				if err != nil {
-					return 0, err
-				}
+				require.NoError(t, err)
 
 				return 0, nil
 			},
