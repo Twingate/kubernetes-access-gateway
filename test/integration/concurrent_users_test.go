@@ -156,25 +156,40 @@ func TestConcurrentUsers(t *testing.T) {
 					args: []string{"exec", "test-pod", "--", "sleep", "2"},
 					assertOutputFn: func(t *testing.T, output []byte) {
 						t.Helper()
-						assert.Empty(t, string(output))
+						// `kubectl exec` has sporadic warning message "Unknown stream id 1, discarding message", especially when
+						// there are multiple concurrent streams so while `sleep` command has no output, `assert.Empty` would occasionally
+						// fail. We'll assert the output doesn't contain the other `cat /etc/hostname` output instead.
+						assert.NotContains(t, string(output), testutil.TestPodName)
 					},
 					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
 						t.Helper()
-						testutil.AssertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=sleep&command=2&container=test-pod&stderr=true&stdout=true", "", expectedUser)
+						testutil.AssertLogsForExec(
+							t,
+							logs,
+							fmt.Sprintf("/api/v1/namespaces/default/pods/%s/exec?command=sleep&command=2&container=%s&stderr=true&stdout=true", testutil.TestPodName, testutil.TestPodName),
+							"",
+							expectedUser,
+						)
 					},
 				},
 				{
 					name: "exec-cat",
-					args: []string{"exec", "test-pod", "--", "cat", "/etc/hostname"},
+					args: []string{"exec", testutil.TestPodName, "--", "cat", "/etc/hostname"},
 					assertOutputFn: func(t *testing.T, output []byte) {
 						t.Helper()
 						// `kubectl exec` has sporadic warning message "Unknown stream id 1, discarding message", especially when
 						// there are multiple concurrent streams so we can't `assert.Equal` here.
-						assert.Contains(t, string(output), "test-pod\n")
+						assert.Contains(t, string(output), testutil.TestPodName)
 					},
 					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
 						t.Helper()
-						testutil.AssertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", "test-pod", expectedUser)
+						testutil.AssertLogsForExec(
+							t,
+							logs,
+							fmt.Sprintf("/api/v1/namespaces/default/pods/%s/exec?command=cat&command=%%2Fetc%%2Fhostname&container=%s&stderr=true&stdout=true", testutil.TestPodName, testutil.TestPodName),
+							testutil.TestPodName,
+							expectedUser,
+						)
 					},
 				},
 			}

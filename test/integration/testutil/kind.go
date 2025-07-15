@@ -20,6 +20,9 @@ import (
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 )
 
+// TestPodName is the name of the test pod created in the KinD cluster.
+const TestPodName = "test-pod"
+
 const kindClusterYaml = `
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -32,7 +35,8 @@ nodes:
       containerPath: /etc/kubernetes/pki/ca.key
 `
 
-const setupYaml = `
+// setupYamlTemplate is used to generate the YAML for setting up resources in the KinD cluster.
+const setupYamlTemplate = `
 # Setup default service account for impersonation
 #
 apiVersion: rbac.authorization.k8s.io/v1
@@ -76,10 +80,10 @@ type: kubernetes.io/service-account-token
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-pod
+  name: %s
 spec:
   containers:
-  - name: test-pod
+  - name: %s
     image: busybox
     command: ["sleep", "3600"]
 ---
@@ -128,6 +132,7 @@ func SetupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 	})
 	require.NoError(t, err, "failed waiting for default service account")
 
+	setupYaml := fmt.Sprintf(setupYamlTemplate, TestPodName, TestPodName)
 	_, err = k.CommandWithInput(setupYaml, "apply", "-f", "-")
 	require.NoError(t, err, "failed to apply setup YAML")
 
@@ -139,7 +144,7 @@ func SetupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 
 	t.Log("Waiting for test-pod to be ready...")
 
-	_, err = k.Command("wait", "--for=condition=Ready", "pod/test-pod", "--timeout=30s")
+	_, err = k.Command("wait", "--for=condition=Ready", "pod/"+TestPodName, "--timeout=30s")
 	require.NoError(t, err, "failed waiting for busybox pod")
 
 	return k, kubeConfig, string(bearerToken)
