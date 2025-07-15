@@ -24,9 +24,9 @@ import (
 	"k8sgateway/test/integration/testutil"
 )
 
-// The test assumes that Docker image is already built and available in the local Docker daemon.
-// Run `make build` to build the image.
-// Caddy must be already running
+// Prerequisites for running this test:
+// - Caddy must be already running. Run `caddy run` to start Caddy.
+// - Docker image must be already built and available in the local Docker daemon. Run `make build` to build Docker images.
 
 const archARM64 = "arm64"
 
@@ -58,7 +58,7 @@ func TestInCluster(t *testing.T) {
 	dockerImageTag := getDockerImageTag(t)
 	t.Log("Docker image tag:", dockerImageTag)
 
-	loadDockerImageToKind(t, clusterName, "twingate/kubernetes-access-gateway:"+dockerImageTag)
+	loadDockerImageToKinD(t, clusterName, "twingate/kubernetes-access-gateway:"+dockerImageTag)
 
 	// Deploy Gateway onto KinD using Helm
 	deployHelmChart(t, clusterName, dockerImageTag)
@@ -91,11 +91,11 @@ func setupKinD(t *testing.T, clusterName string) {
 	provider := cluster.NewProvider(cluster.ProviderWithLogger(kindcmd.NewLogger()))
 
 	err := provider.Create(clusterName, cluster.CreateWithRawConfig([]byte(kindClusterYaml)))
-	require.NoError(t, err, "failed to create kind cluster")
+	require.NoError(t, err, "failed to create KinD cluster")
 
 	t.Cleanup(func() {
 		err := provider.Delete(clusterName, "")
-		require.NoError(t, err, "failed to delete kind cluster")
+		require.NoError(t, err, "failed to delete KinD cluster")
 	})
 }
 
@@ -109,7 +109,6 @@ func createCaddyCACertConfigMap(t *testing.T) {
 
 	// #nosec G204 -- Certificate comes from trusted local Caddy server
 	cmd := exec.Command("kubectl", "create", "configmap", "caddy-local-ca", "--from-literal", fmt.Sprintf("%s=%s", caddyCAConfigMapKey, caCert))
-
 	_, err := testutil.RunCommand(cmd)
 	require.NoError(t, err, "failed to create ConfigMap for Caddy CA certificate")
 }
@@ -132,6 +131,8 @@ func downloadCaddyCACert(t *testing.T) string {
 	return string(body)
 }
 
+// Returns the latest tag of the Gateway Docker image that uses the host machine's architecture.
+// Only supports 2 architectures: arm64 (for local development on macOS) and amd64 (for CI running on Linux).
 func getDockerImageTag(t *testing.T) string {
 	t.Helper()
 
@@ -149,13 +150,12 @@ func getDockerImageTag(t *testing.T) string {
 	return strings.TrimSpace(string(output))
 }
 
-func loadDockerImageToKind(t *testing.T, clusterName, image string) {
+func loadDockerImageToKinD(t *testing.T, clusterName, image string) {
 	t.Helper()
 
 	cmd := exec.Command("kind", "load", "docker-image", image, "-n", clusterName)
-
 	_, err := testutil.RunCommand(cmd)
-	require.NoError(t, err, "failed to load docker image to kind")
+	require.NoError(t, err, "failed to load docker image to KinD")
 }
 
 const helmValuesYamlTemplate = `
@@ -179,9 +179,9 @@ volumeMounts:
   readOnly: true
 
 hostAliases:
-  - ip: %s
-    hostnames:
-    - acme.test
+- ip: %s
+  hostnames:
+  - acme.test
 
 service:
   type: NodePort
@@ -215,7 +215,6 @@ func deployHelmChart(t *testing.T, clusterName, imageTag string) {
 
 	cmd := exec.Command("helm", "install", "gateway", "../../deploy/gateway", "--wait", "-f", "-")
 	cmd.Stdin = strings.NewReader(helmValuesYaml)
-
 	output, err := testutil.RunCommand(cmd)
 	require.NoError(t, err, "failed to deploy Helm chart")
 
@@ -237,7 +236,6 @@ func getKindHostAccessIP(t *testing.T, clusterName string) string {
 
 	// #nosec G204 -- clusterName comes from a trusted source (KinD cluster name)
 	cmd := exec.Command("docker", "exec", clusterName+"-control-plane", "sh", "-c", "getent ahostsv4 host.docker.internal | awk '{ print $1; exit }'")
-
 	output, err := testutil.RunCommand(cmd)
 	require.NoError(t, err, "failed to get host IP")
 
