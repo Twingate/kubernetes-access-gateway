@@ -143,6 +143,11 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
+	// Update metrics connection type
+	if metricsConn, ok := p.Conn.(*metrics.ProxyConnWithMetrics); ok {
+		metricsConn.SetConnectionType(req)
+	}
+
 	// Health check request
 	if req.Method == http.MethodGet && req.URL.Path == healthCheckPath {
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
@@ -247,7 +252,7 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 	}
 
 	return &ProxyConn{
-		Conn:             conn,
+		Conn:             metrics.NewProxyConnWithMetrics(conn),
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,

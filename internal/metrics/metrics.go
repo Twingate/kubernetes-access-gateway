@@ -25,6 +25,7 @@ type Config struct {
 
 func Start(config Config) error {
 	registerCoreMetrics(config.Registry)
+	registerConnectionMetrics(config.Registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.InstrumentMetricHandler(
