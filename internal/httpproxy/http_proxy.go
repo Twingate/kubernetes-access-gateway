@@ -151,12 +151,8 @@ func (p *ProxyConn) authenticate() error {
 		if writeErr != nil {
 			p.logger.Error("failed to write response", zap.Error(writeErr))
 
-			_ = tlsConnectConn.Close()
-
 			return writeErr
 		}
-
-		_ = tlsConnectConn.Close()
 
 		return io.EOF
 	}
