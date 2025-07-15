@@ -18,6 +18,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 
@@ -40,7 +41,7 @@ type Client struct {
 	user          *token.User
 	proxyAddress  string
 	controllerURL string
-	apiServerURL  string
+	apiServerURL  *url.URL
 
 	cancel context.CancelFunc
 	wg     *sync.WaitGroup
@@ -48,12 +49,20 @@ type Client struct {
 	logger *zap.Logger
 }
 
+// apiServerURL must include both the protocol and the port.
 func NewClient(user *token.User, proxyAddress, controllerURL, apiServerURL string) *Client {
 	logger := zap.Must(zap.NewDevelopment()).Named(fmt.Sprintf("client-%s-%s", user.ID, user.Username))
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		logger.Fatal("Failed to listen", zap.Error(err))
+
+		return nil
+	}
+
+	parsedAPIServerURL, err := url.Parse(apiServerURL)
+	if err != nil {
+		logger.Fatal("Failed to parse API server URL", zap.Error(err))
 
 		return nil
 	}
@@ -65,7 +74,7 @@ func NewClient(user *token.User, proxyAddress, controllerURL, apiServerURL strin
 		URL:           "https://" + listener.Addr().String(),
 		proxyAddress:  proxyAddress,
 		controllerURL: controllerURL,
-		apiServerURL:  apiServerURL,
+		apiServerURL:  parsedAPIServerURL,
 		user:          user,
 		cancel:        cancel,
 		wg:            &sync.WaitGroup{},
@@ -129,7 +138,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS13,
-		ServerName: "127.0.0.1",
+		ServerName: c.apiServerURL.Hostname(),
 		RootCAs:    caCertPool,
 	}
 
@@ -150,7 +159,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	defer proxyTLSConn.Close()
 
 	// Create CONNECT request
-	connectReq, err := http.NewRequest(http.MethodConnect, c.apiServerURL, nil)
+	connectReq, err := http.NewRequest(http.MethodConnect, c.apiServerURL.String(), nil)
 	if err != nil {
 		c.logger.Error("Failed to create request", zap.Error(err))
 
@@ -214,7 +223,7 @@ func (c *Client) fetchGAT() (string, error) {
 		},
 		Resource: &token.Resource{
 			ID:      "resource-1",
-			Address: "127.0.0.1",
+			Address: c.apiServerURL.Hostname(),
 		},
 	}
 

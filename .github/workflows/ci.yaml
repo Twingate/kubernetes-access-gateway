@@ -83,11 +83,9 @@ jobs:
           sudo mv caddy /usr/local/bin/
           caddy version
       - name: Run Caddy
-        run: |
-          sudo caddy start
+        run: sudo caddy start
       - name: Map acme.test to 127.0.0.1
-        run: |
-          echo "127.0.0.1 acme.test" | sudo tee -a /etc/hosts
+        run: echo "127.0.0.1 acme.test" | sudo tee -a /etc/hosts
       - name: Run Integration Tests
         run: make test-integration-with-coverage
 
@@ -100,7 +98,7 @@ jobs:
           make coverall
 
 
-  build:
+  build-and-test-e2e:
     runs-on: ubuntu-latest
     needs: [lint-docker, lint-go, test, test-helm]
     env:
@@ -139,3 +137,14 @@ jobs:
       env:
         VERSION_PRERELEASE: dev
       run: make build
+
+    # Run e2e tests
+    - name: Install Caddy
+      run: |
+        curl -fsSL https://github.com/caddyserver/caddy/releases/download/v${{ env.CADDY_VERSION }}/caddy_${{ env.CADDY_VERSION }}_linux_amd64.tar.gz | tar -xzv
+        sudo mv caddy /usr/local/bin/
+        caddy version
+    - name: Run Caddy
+      run: sudo caddy start
+    - name: Run E2E Tests
+      run: make test-e2e
