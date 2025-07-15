@@ -34,7 +34,6 @@ import (
 
 type connContextKey string
 
-const healthCheckPath = "/healthz"
 const ConnContextKey connContextKey = "CONN_CONTEXT"
 
 const (
@@ -149,7 +148,7 @@ func (p *ProxyConn) authenticate() error {
 	}
 
 	// Health check request
-	if req.Method == http.MethodGet && req.URL.Path == healthCheckPath {
+	if req.Method == http.MethodGet && req.URL.Path == metrics.HealthCheckPath {
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 
 		_, writeErr := tlsConnectConn.Write([]byte(responseStr))

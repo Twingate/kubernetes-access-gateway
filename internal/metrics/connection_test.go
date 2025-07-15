@@ -51,12 +51,12 @@ func TestSetConnectionType(t *testing.T) {
 	}{
 		{
 			name:           "Healthcheck request",
-			request:        httptest.NewRequest(http.MethodGet, healthCheckPath, nil),
+			request:        httptest.NewRequest(http.MethodGet, HealthCheckPath, nil),
 			expectedResult: connectionTypeHealthcheck,
 		},
 		{
 			name:           "POST request to healthcheck path",
-			request:        httptest.NewRequest(http.MethodPost, healthCheckPath, nil),
+			request:        httptest.NewRequest(http.MethodPost, HealthCheckPath, nil),
 			expectedResult: connectionTypeProxy,
 		},
 		{

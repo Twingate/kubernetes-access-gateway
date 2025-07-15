@@ -25,7 +25,7 @@ const (
 	connectionTypeHealthcheck = "health"
 )
 
-const healthCheckPath = "/healthz"
+const HealthCheckPath = "/healthz"
 
 type ProxyConnWithMetrics struct {
 	net.Conn
@@ -68,7 +68,11 @@ func NewProxyConnWithMetrics(conn net.Conn) *ProxyConnWithMetrics {
 }
 
 func (p *ProxyConnWithMetrics) SetConnectionType(req *http.Request) {
-	p.connectionType = getConnectionType(req)
+	if req.Method == http.MethodGet && req.URL.Path == HealthCheckPath {
+		p.connectionType = connectionTypeHealthcheck
+	} else {
+		p.connectionType = connectionTypeProxy
+	}
 }
 
 func (p *ProxyConnWithMetrics) Read(b []byte) (int, error) {
@@ -99,12 +103,4 @@ func (p *ProxyConnWithMetrics) Close() error {
 	connectionDuration.WithLabelValues(p.connectionType).Observe(time.Since(p.start).Seconds())
 
 	return err
-}
-
-func getConnectionType(req *http.Request) string {
-	if req.Method == http.MethodGet && req.URL.Path == healthCheckPath {
-		return connectionTypeHealthcheck
-	}
-
-	return connectionTypeProxy
 }
