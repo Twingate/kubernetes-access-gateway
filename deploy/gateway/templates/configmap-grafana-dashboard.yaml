@@ -1,0 +1,23 @@
+{{- if .Values.metrics.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gateway.fullname" . }}-dashboard
+  labels:
+    {{- with .Values.metrics.grafanaDashboard.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  gateway-dashboard.json: |-
+    {
+      "title": "Kubernetes Access Gateway Dashboard",
+      "panels": [],
+      "tags": [],
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "schemaVersion": 40,
+      "version": 1
+    }
+{{- end }}
