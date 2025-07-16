@@ -1,0 +1,11 @@
+{
+  "title": "Kubernetes Access Gateway Dashboard",
+  "panels": [],
+  "tags": [],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "schemaVersion": 40,
+  "version": 1
+}
