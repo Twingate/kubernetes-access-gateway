@@ -124,6 +124,9 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
+	// Replace the underlying connection with the downstream proxy TLS connection
+	p.Conn = tlsConnectConn
+
 	// parse HTTP request
 	bufReader := bufio.NewReader(tlsConnectConn)
 
