@@ -7,6 +7,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -33,7 +35,7 @@ type requestBody struct {
 // It has two endpoints:
 // - /api/v1/jwk/ec: Returns the JWK Set that is used to verify GAT tokens.
 // - /api/v1/gat: Returns a GAT token for a client.
-func NewController(network string) *httptest.Server {
+func NewController(network string, port int) *httptest.Server {
 	logger := zap.Must(zap.NewDevelopment()).Named("controller")
 
 	controllerKey, _ := ReadECKey("../data/controller/key.pem")
@@ -115,7 +117,18 @@ func NewController(network string) *httptest.Server {
 		logger.Info("JWT generated")
 	})
 
-	return httptest.NewServer(mux)
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		logger.Error("Failed to listen on port", zap.Error(err))
+
+		return nil
+	}
+
+	server := httptest.NewUnstartedServer(mux)
+	server.Listener = listener
+	server.Start()
+
+	return server
 }
 
 func createJWKSet(controllerKey *ecdsa.PrivateKey) (json.RawMessage, error) {
