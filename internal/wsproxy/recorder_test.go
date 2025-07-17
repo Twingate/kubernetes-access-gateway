@@ -153,8 +153,8 @@ func TestRecorder_Stop(t *testing.T) {
 	assert.Equal(t, 1, logs.Len(), "Should have one log entry")
 	log := logs.All()[0]
 	assert.Equal(t, "session finished", log.Message)
-	assert.Contains(t, log.ContextMap()["asciinema_data"], "test")
-	assert.Equal(t, int64(1), log.ContextMap()["asciinema_sequence_num"])
+	assert.Contains(t, log.ContextMap()["asciicast"], "test")
+	assert.Equal(t, int64(1), log.ContextMap()["asciicast_sequence_num"])
 
 	// Check that the duration metric is recorded
 	metricFamilies, err := testRegistry.Gather()
@@ -195,8 +195,8 @@ func TestRecorder_PeriodicFlush(t *testing.T) {
 	assert.Equal(t, 1, logs.Len(), "Should have one log entry")
 	log := logs.TakeAll()[0]
 	assert.Equal(t, "session recording", log.Message)
-	assert.Contains(t, log.ContextMap()["asciinema_data"], "a")
-	assert.Equal(t, int64(1), log.ContextMap()["asciinema_sequence_num"])
+	assert.Contains(t, log.ContextMap()["asciicast"], "a")
+	assert.Equal(t, int64(1), log.ContextMap()["asciicast_sequence_num"])
 
 	// 2nd interval
 	// Advance time to trigger flush
@@ -223,8 +223,8 @@ func TestRecorder_PeriodicFlush(t *testing.T) {
 	assert.Equal(t, 1, logs.Len(), "Should have one log entry")
 	log = logs.TakeAll()[0]
 	assert.Equal(t, "session recording", log.Message)
-	assert.Contains(t, log.ContextMap()["asciinema_data"], "b")
-	assert.Equal(t, int64(2), log.ContextMap()["asciinema_sequence_num"])
+	assert.Contains(t, log.ContextMap()["asciicast"], "b")
+	assert.Equal(t, int64(2), log.ContextMap()["asciicast_sequence_num"])
 }
 
 func TestRecorderFlow(t *testing.T) {
@@ -322,7 +322,7 @@ func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeThreshold(t *testing.T) {
 
 	log := logs.TakeAll()[0]
 	assert.Equal(t, "session recording", log.Message)
-	assert.Equal(t, int64(1), log.ContextMap()["asciinema_sequence_num"])
+	assert.Equal(t, int64(1), log.ContextMap()["asciicast_sequence_num"])
 
 	_ = r.writeJSON([]any{0, "o", "c"}) // 11 bytes
 
@@ -338,7 +338,7 @@ func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeThreshold(t *testing.T) {
 
 	log = logs.TakeAll()[0]
 	assert.Equal(t, "session finished", log.Message)
-	assert.Equal(t, int64(2), log.ContextMap()["asciinema_sequence_num"])
+	assert.Equal(t, int64(2), log.ContextMap()["asciicast_sequence_num"])
 }
 
 func TestRecorder_WriteJSON_Error(t *testing.T) {
