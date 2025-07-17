@@ -65,7 +65,7 @@ func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL, e
 	firstLog := expectedLogs[0]
 	assert.Equal(t, "session finished", firstLog.Message)
 	assert.Equal(t, expectedUser, firstLog.ContextMap()["user"])
-	assert.Contains(t, firstLog.ContextMap()["asciinema_data"], expectedOutput)
+	assert.Contains(t, firstLog.ContextMap()["asciicast"], expectedOutput)
 
 	secondLog := expectedLogs[1]
 	assert.Equal(t, "API request completed", secondLog.Message)

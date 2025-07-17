@@ -292,8 +292,8 @@ func (r *AsciinemaRecorder) flush(isFinal bool) {
 
 	r.flushCount++
 	r.config.logger.Info(message,
-		zap.String("asciinema_data", strings.Join(append([]string{r.header}, r.recordedLines...), "\n")),
-		zap.Int("asciinema_sequence_num", r.flushCount),
+		zap.String("asciicast", strings.Join(append([]string{r.header}, r.recordedLines...), "\n")),
+		zap.Int("asciicast_sequence_num", r.flushCount),
 	)
 
 	r.recordedLines = r.recordedLines[:0]
