@@ -15,8 +15,7 @@ type User struct {
 	token.User
 
 	Kubectl *Kubectl
-
-	client *fake.Client
+	client  *fake.Client
 }
 
 func NewUser(user *token.User, gatewayPort int, kindURL, controllerURL string) (*User, error) {
@@ -28,9 +27,9 @@ func NewUser(user *token.User, gatewayPort int, kindURL, controllerURL string) (
 	)
 
 	kubectl := &Kubectl{
-		options: KubectlOptions{
-			serverURL:                client.URL,
-			certificateAuthorityPath: "../data/proxy/tls.crt",
+		Options: KubectlOptions{
+			ServerURL:                client.URL,
+			CertificateAuthorityPath: "../data/proxy/tls.crt",
 		},
 	}
 

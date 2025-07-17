@@ -114,8 +114,8 @@ func SetupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 	t.Log("KinD cluster was created at ", kubeConfig.Host)
 
 	k := &Kubectl{
-		options: KubectlOptions{
-			context: "kind-" + clusterName,
+		Options: KubectlOptions{
+			Context: "kind-" + clusterName,
 		},
 	}
 
