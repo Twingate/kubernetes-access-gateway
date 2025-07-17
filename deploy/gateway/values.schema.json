@@ -136,6 +136,23 @@
               "default": {}
             }
           }
+        },
+        "grafanaDashboard": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create Grafana Dashboard for Kubernetes Access Gateway.",
+              "default": false
+            },
+            "labels": {
+              "type": "object",
+              "description": "Labels that can be used to auto-discover and provision dashboards from ConfigMaps by Grafana.",
+              "default": {
+                "grafana_dashboard": "1"
+              }
+            }
+          }
         }
       },
       "additionalProperties": false
