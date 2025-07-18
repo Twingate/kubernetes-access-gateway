@@ -5,7 +5,7 @@ go 1.24.5
 require (
 	github.com/MicahParks/jwkset v0.9.6
 	github.com/MicahParks/keyfunc/v3 v3.4.0
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/google/uuid v1.6.0
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/prometheus/client_golang v1.22.0
@@ -15,9 +15,9 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.42.0
-	k8s.io/api v0.33.2
-	k8s.io/apimachinery v0.33.2
-	k8s.io/client-go v0.33.2
+	k8s.io/api v0.33.3
+	k8s.io/apimachinery v0.33.3
+	k8s.io/client-go v0.33.3
 	sigs.k8s.io/kind v0.29.0
 )
 

@@ -53,7 +53,6 @@ func start(newProxy ProxyFactory) error {
 	parser, err := token.NewParser(token.ParserConfig{
 		Network: network,
 		Host:    viper.GetString("host"),
-		URL:     viper.GetString("fakeControllerURL"),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create token parser %w", err)
@@ -140,7 +139,6 @@ func init() { //nolint:gochecknoinits
 
 	// Misc flags
 	flags.BoolP("debug", "d", false, "Run in debug mode")
-	flags.String("fakeControllerURL", "", "URL of fake Controller which issues and verifies GAT. Used for testing")
 
 	if err := viper.BindPFlags(flags); err != nil {
 		panic(fmt.Sprintf("failed to bind flags: %v", err))

@@ -40,7 +40,7 @@ func TestConcurrentUsers(t *testing.T) {
 	require.NoError(t, err, "failed to parse API server URL")
 
 	// Start the Controller
-	controller := fake.NewController(network)
+	controller := fake.NewController(network, 8080)
 	defer controller.Close()
 
 	t.Log("Controller is serving at", controller.URL)
@@ -53,7 +53,7 @@ func TestConcurrentUsers(t *testing.T) {
 			"--port",
 			strconv.Itoa(gatewayPort),
 			"--host",
-			"twingate.local",
+			"test",
 			"--network",
 			network,
 			"--tlsKey",
@@ -66,8 +66,6 @@ func TestConcurrentUsers(t *testing.T) {
 			"../data/api_server/tls.crt",
 			"--k8sAPIServerToken",
 			kindBearerToken,
-			"--fakeControllerURL",
-			controller.URL,
 			"--metricsPort",
 			"0",
 		})

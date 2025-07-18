@@ -16,7 +16,7 @@ var errInvalidTokenType = errors.New("token type is invalid")
 var allowedSigningMethods = []string{jwt.SigningMethodES256.Alg()}
 
 var allowedIssuerByHost = map[string]string{
-	"test.local":    "twingate-local",
+	"test":          "twingate-local",
 	"dev.opstg.com": "twingate-dev",
 	"stg.opstg.com": "twingate-stg",
 	"twingate.com":  "twingate",
@@ -31,8 +31,6 @@ type ParserConfig struct {
 	Network string
 	// Twingate service domain
 	Host string
-	// URL which issues JWKs to verify token. Default to `https://<Network>.<Host>`
-	URL string
 	// Keyfunc to verify token. Default to using remote JWKs
 	Keyfunc jwt.Keyfunc
 }
@@ -44,11 +42,7 @@ type Parser struct {
 
 func NewParser(config ParserConfig) (*Parser, error) {
 	if config.Keyfunc == nil {
-		if config.URL == "" {
-			config.URL = fmt.Sprintf("https://%s.%s", config.Network, config.Host)
-		}
-
-		jwkURL := config.URL + "/api/v1/jwk/ec"
+		jwkURL := fmt.Sprintf("https://%s.%s/api/v1/jwk/ec", config.Network, config.Host)
 
 		jwks, err := keyfunc.NewDefault([]string{jwkURL})
 		if err != nil {

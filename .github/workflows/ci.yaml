@@ -12,6 +12,7 @@ concurrency:
 
 env:
   GOLANG_VERSION: 1.24.5
+  CADDY_VERSION: 2.10.0
 
 permissions:
   contents: read
@@ -73,11 +74,24 @@ jobs:
       - name: Run Tests
         run: make test-with-coverage
 
+      # Integration tests
       - name: Setup Docker
         uses: docker/setup-docker-action@v4
+      - name: Install Caddy
+        run: |
+          curl -fsSL https://github.com/caddyserver/caddy/releases/download/v${{ env.CADDY_VERSION }}/caddy_${{ env.CADDY_VERSION }}_linux_amd64.tar.gz | tar -xzv
+          sudo mv caddy /usr/local/bin/
+          caddy version
+      - name: Run Caddy
+        run: |
+          sudo caddy start
+      - name: Map acme.test to 127.0.0.1
+        run: |
+          echo "127.0.0.1 acme.test" | sudo tee -a /etc/hosts
       - name: Run Integration Tests
         run: make test-integration-with-coverage
 
+      # Combined code coverage
       - name: Send coverage to Coveralls
         env:
           COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
