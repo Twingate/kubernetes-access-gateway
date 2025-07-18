@@ -643,3 +643,33 @@ func TestShouldSkipWebSocketRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestIsHealthCheckRequest(t *testing.T) {
+	testCases := []struct {
+		name           string
+		request        *http.Request
+		expectedResult bool
+	}{
+		{
+			name:           "Healthcheck request",
+			request:        httptest.NewRequest(http.MethodGet, healthCheckPath, nil),
+			expectedResult: true,
+		},
+		{
+			name:           "POST request to healthcheck path",
+			request:        httptest.NewRequest(http.MethodPost, healthCheckPath, nil),
+			expectedResult: false,
+		},
+		{
+			name:           "Proxy request",
+			request:        httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/pods", nil),
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedResult, isHealthCheckRequest(tc.request))
+		})
+	}
+}

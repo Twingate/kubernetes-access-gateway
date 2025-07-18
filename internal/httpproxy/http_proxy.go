@@ -124,6 +124,9 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
+	// Store reference to original metrics wrapper before TLS upgrade
+	originalMetricsConn, hasMetrics := p.Conn.(*connWithMetrics)
+
 	// Replace the underlying connection with the downstream proxy TLS connection
 	p.Conn = tlsConnectConn
 
@@ -146,8 +149,12 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
+	if hasMetrics {
+		originalMetricsConn.setConnectionCategory(req)
+	}
+
 	// Health check request
-	if req.Method == http.MethodGet && req.URL.Path == healthCheckPath {
+	if isHealthCheckRequest(req) {
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 
 		_, writeErr := tlsConnectConn.Write([]byte(responseStr))
@@ -250,7 +257,7 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 	}
 
 	return &ProxyConn{
-		Conn:             conn,
+		Conn:             newConnWithMetrics(conn),
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
@@ -382,6 +389,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
+	registerConnectionMetrics(cfg.Registry)
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,
 		Next: auditMiddleware(config{
@@ -444,4 +452,8 @@ func shouldSkipWebSocketRequest(r *http.Request) bool {
 		r.Header.Get("Kubectl-Command") == "kubectl cp" ||
 		// Skip executing `tar` command
 		r.URL.Query().Get("command") == "tar"
+}
+
+func isHealthCheckRequest(r *http.Request) bool {
+	return r.Method == http.MethodGet && r.URL.Path == healthCheckPath
 }
