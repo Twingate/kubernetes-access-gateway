@@ -34,6 +34,7 @@ import (
 
 type connContextKey string
 
+const healthCheckPath = "/healthz"
 const ConnContextKey connContextKey = "CONN_CONTEXT"
 
 const (
@@ -146,12 +147,12 @@ func (p *ProxyConn) authenticate() error {
 	}
 
 	// Update metrics connection type
-	if metricsConn, ok := p.Conn.(*metrics.ProxyConnWithMetrics); ok {
-		metricsConn.SetConnectionType(req)
+	if metricsConn, ok := p.Conn.(*ConnWithMetrics); ok {
+		metricsConn.setConnectionCategory(req)
 	}
 
 	// Health check request
-	if req.Method == http.MethodGet && req.URL.Path == metrics.HealthCheckPath {
+	if isHealthCheckRequest(req) {
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 
 		_, writeErr := tlsConnectConn.Write([]byte(responseStr))
@@ -254,7 +255,7 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 	}
 
 	return &ProxyConn{
-		Conn:             metrics.NewProxyConnWithMetrics(conn),
+		Conn:             newConnWithMetrics(conn),
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
@@ -386,6 +387,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
+	registerConnectionMetrics(cfg.Registry)
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,
 		Next: auditMiddleware(config{
@@ -448,4 +450,8 @@ func shouldSkipWebSocketRequest(r *http.Request) bool {
 		r.Header.Get("Kubectl-Command") == "kubectl cp" ||
 		// Skip executing `tar` command
 		r.URL.Query().Get("command") == "tar"
+}
+
+func isHealthCheckRequest(r *http.Request) bool {
+	return r.Method == http.MethodGet && r.URL.Path == healthCheckPath
 }
