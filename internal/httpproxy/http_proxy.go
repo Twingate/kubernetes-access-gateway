@@ -124,6 +124,8 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
+	metricsConn, ok := p.Conn.(*connWithMetrics)
+
 	// Replace the underlying connection with the downstream proxy TLS connection
 	p.Conn = tlsConnectConn
 
@@ -146,8 +148,8 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
-	// Update metrics connection type
-	if metricsConn, ok := p.Conn.(*ConnWithMetrics); ok {
+	// Update metrics connection category
+	if ok {
 		metricsConn.setConnectionCategory(req)
 	}
 

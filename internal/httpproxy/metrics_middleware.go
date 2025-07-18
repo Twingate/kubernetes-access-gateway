@@ -19,7 +19,7 @@ const (
 	connectionCategoryHealth  = "health"
 )
 
-type ConnWithMetrics struct {
+type connWithMetrics struct {
 	net.Conn
 
 	start              time.Time
@@ -49,17 +49,17 @@ func registerConnectionMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(activeConnections, connectionsTotal, connectionDuration)
 }
 
-func newConnWithMetrics(conn net.Conn) *ConnWithMetrics {
+func newConnWithMetrics(conn net.Conn) *connWithMetrics {
 	activeConnections.Inc()
 
-	return &ConnWithMetrics{
+	return &connWithMetrics{
 		Conn:               conn,
 		start:              time.Now(),
 		connectionCategory: connectionCategoryUnknown,
 	}
 }
 
-func (p *ConnWithMetrics) Close() error {
+func (p *connWithMetrics) Close() error {
 	err := p.Conn.Close()
 
 	activeConnections.Dec()
@@ -69,7 +69,7 @@ func (p *ConnWithMetrics) Close() error {
 	return err
 }
 
-func (p *ConnWithMetrics) setConnectionCategory(req *http.Request) {
+func (p *connWithMetrics) setConnectionCategory(req *http.Request) {
 	if isHealthCheckRequest(req) {
 		p.connectionCategory = connectionCategoryHealth
 	} else {
