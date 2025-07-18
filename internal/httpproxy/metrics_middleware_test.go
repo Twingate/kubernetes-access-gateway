@@ -62,11 +62,11 @@ func TestProxyConnWithMetrics(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedLabels := map[string]map[string]string{
-		"twingate_gateway_active_client_connections": {},
-		"twingate_gateway_client_connections_total": {
+		"twingate_gateway_active_tcp_connections": {},
+		"twingate_gateway_tcp_connections_total": {
 			"conn_category": "proxy",
 		},
-		"twingate_gateway_client_connection_duration_seconds": {
+		"twingate_gateway_tcp_connection_duration_seconds": {
 			"conn_category": "proxy",
 		},
 	}
