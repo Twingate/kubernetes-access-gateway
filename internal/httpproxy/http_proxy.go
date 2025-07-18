@@ -124,7 +124,8 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
-	metricsConn, ok := p.Conn.(*connWithMetrics)
+	// Store reference to original metrics wrapper before TLS upgrade
+	originalMetricsConn, hasMetrics := p.Conn.(*connWithMetrics)
 
 	// Replace the underlying connection with the downstream proxy TLS connection
 	p.Conn = tlsConnectConn
@@ -148,9 +149,8 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
-	// Update metrics connection category
-	if ok {
-		metricsConn.setConnectionCategory(req)
+	if hasMetrics {
+		originalMetricsConn.setConnectionCategory(req)
 	}
 
 	// Health check request
