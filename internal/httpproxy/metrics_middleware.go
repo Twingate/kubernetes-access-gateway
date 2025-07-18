@@ -4,12 +4,13 @@
 package httpproxy
 
 import (
-	"k8sgateway/internal/metrics"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+
+	"k8sgateway/internal/metrics"
 )
 
 const (
@@ -58,14 +59,6 @@ func newConnWithMetrics(conn net.Conn) *ConnWithMetrics {
 	}
 }
 
-func (p *ConnWithMetrics) setConnectionCategory(req *http.Request) {
-	if isHealthCheckRequest(req) {
-		p.connectionCategory = connectionCategoryHealth
-	} else {
-		p.connectionCategory = connectionCategoryProxy
-	}
-}
-
 func (p *ConnWithMetrics) Close() error {
 	err := p.Conn.Close()
 
@@ -74,4 +67,12 @@ func (p *ConnWithMetrics) Close() error {
 	connectionDuration.WithLabelValues(p.connectionCategory).Observe(time.Since(p.start).Seconds())
 
 	return err
+}
+
+func (p *ConnWithMetrics) setConnectionCategory(req *http.Request) {
+	if isHealthCheckRequest(req) {
+		p.connectionCategory = connectionCategoryHealth
+	} else {
+		p.connectionCategory = connectionCategoryProxy
+	}
 }

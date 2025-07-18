@@ -55,7 +55,8 @@ func TestProxyConnWithMetrics(t *testing.T) {
 	conn := newConnWithMetrics(&mockConn{})
 	conn.setConnectionCategory(&http.Request{})
 
-	conn.Close()
+	err := conn.Close()
+	require.NoError(t, err)
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
@@ -69,6 +70,7 @@ func TestProxyConnWithMetrics(t *testing.T) {
 			"conn_category": "proxy",
 		},
 	}
+
 	labelsByMetric := make(map[string]map[string]string, len(metricFamilies))
 	for _, family := range metricFamilies {
 		labels := make(map[string]string)
