@@ -59,7 +59,7 @@ func TestInstrumentHTTPConnect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			registry := prometheus.NewRegistry()
-			RegisterConnectMetrics(registry)
+			RegisterHTTPConnectMetrics(registry)
 
 			mockValidator := &mockValidator{}
 			tt.setupValidator(mockValidator)

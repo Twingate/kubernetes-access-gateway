@@ -19,7 +19,7 @@ var (
 	authenticationDuration *prometheus.HistogramVec
 )
 
-func RegisterConnectMetrics(registry *prometheus.Registry) {
+func RegisterHTTPConnectMetrics(registry *prometheus.Registry) {
 	authenticationsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metrics.Namespace,
 		Name:      "tcp_connection_authentication_total",
