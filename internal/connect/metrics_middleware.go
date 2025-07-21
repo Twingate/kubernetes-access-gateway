@@ -51,8 +51,9 @@ func InstrumentHTTPConnect(validator Validator) func(req *http.Request, ekm []by
 			}
 		}
 
-		authenticationDuration.WithLabelValues(strconv.Itoa(code)).Observe(time.Since(start).Seconds())
-		authenticationsTotal.WithLabelValues(strconv.Itoa(code)).Inc()
+		codeStr := strconv.Itoa(code)
+		authenticationDuration.WithLabelValues(codeStr).Observe(time.Since(start).Seconds())
+		authenticationsTotal.WithLabelValues(codeStr).Inc()
 
 		return connectInfo, err
 	}
