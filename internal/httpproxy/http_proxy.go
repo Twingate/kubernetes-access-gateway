@@ -390,6 +390,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		config:              cfg,
 	}
 	registerConnectionMetrics(cfg.Registry)
+	connect.RegisterConnectMetrics(cfg.Registry)
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,
 		Next: auditMiddleware(config{
