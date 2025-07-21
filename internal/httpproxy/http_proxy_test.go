@@ -153,6 +153,9 @@ func startMockListener(t *testing.T) (net.Listener, string) {
 }
 
 func TestProxyConn_Read_BadRequest(t *testing.T) {
+	testRegistry := prometheus.NewRegistry()
+	registerConnectionMetrics(testRegistry)
+
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 

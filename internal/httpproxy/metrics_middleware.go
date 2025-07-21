@@ -27,6 +27,12 @@ type connWithMetrics struct {
 }
 
 var (
+	activeConnections  prometheus.Gauge
+	connectionsTotal   *prometheus.CounterVec
+	connectionDuration *prometheus.HistogramVec
+)
+
+func registerConnectionMetrics(registry *prometheus.Registry) {
 	activeConnections = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metrics.Namespace,
 		Name:      "active_tcp_connections",
@@ -43,9 +49,7 @@ var (
 		Help:      "Duration of client TCP connections in seconds",
 		Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600},
 	}, []string{"conn_category"})
-)
 
-func registerConnectionMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(activeConnections, connectionsTotal, connectionDuration)
 }
 
