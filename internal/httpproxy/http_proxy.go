@@ -124,6 +124,9 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
+	// Replace the underlying connection with the downstream proxy TLS connection
+	p.Conn = tlsConnectConn
+
 	// parse HTTP request
 	bufReader := bufio.NewReader(tlsConnectConn)
 
@@ -151,12 +154,8 @@ func (p *ProxyConn) authenticate() error {
 		if writeErr != nil {
 			p.logger.Error("failed to write response", zap.Error(writeErr))
 
-			_ = tlsConnectConn.Close()
-
 			return writeErr
 		}
-
-		_ = tlsConnectConn.Close()
 
 		return io.EOF
 	}
