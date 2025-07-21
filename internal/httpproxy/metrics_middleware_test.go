@@ -11,6 +11,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"k8sgateway/internal/metrics/testutil"
 )
 
 func TestSetConnectionCategory(t *testing.T) {
@@ -61,6 +63,7 @@ func TestProxyConnWithMetrics(t *testing.T) {
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
 
+	labelsByMetric := testutil.ExtractLabelsFromMetrics(metricFamilies)
 	expectedLabels := map[string]map[string]string{
 		"twingate_gateway_active_tcp_connections": {},
 		"twingate_gateway_tcp_connections_total": {
@@ -69,16 +72,6 @@ func TestProxyConnWithMetrics(t *testing.T) {
 		"twingate_gateway_tcp_connection_duration_seconds": {
 			"conn_category": "proxy",
 		},
-	}
-
-	labelsByMetric := make(map[string]map[string]string, len(metricFamilies))
-	for _, family := range metricFamilies {
-		labels := make(map[string]string)
-		for _, label := range family.GetMetric()[0].GetLabel() {
-			labels[label.GetName()] = label.GetValue()
-		}
-
-		labelsByMetric[family.GetName()] = labels
 	}
 
 	assert.Equal(t, expectedLabels, labelsByMetric)
