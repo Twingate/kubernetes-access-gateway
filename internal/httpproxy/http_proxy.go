@@ -72,6 +72,8 @@ type Config struct {
 type ProxyConn struct {
 	net.Conn
 
+	tcpConn *connWithMetrics
+
 	TLSConfig        *tls.Config
 	ConnectValidator connect.Validator
 	logger           *zap.Logger
@@ -124,9 +126,6 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
-	// Store reference to original metrics wrapper before TLS upgrade
-	originalMetricsConn, hasMetrics := p.Conn.(*connWithMetrics)
-
 	// Replace the underlying connection with the downstream proxy TLS connection
 	p.Conn = tlsConnectConn
 
@@ -149,10 +148,6 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
-	if hasMetrics {
-		originalMetricsConn.setConnectionCategory(req)
-	}
-
 	// Health check request
 	if isHealthCheckRequest(req) {
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
@@ -163,6 +158,8 @@ func (p *ProxyConn) authenticate() error {
 
 			return writeErr
 		}
+
+		p.tcpConn.connCategory = connCategoryHealth
 
 		return io.EOF
 	}
@@ -224,6 +221,7 @@ func (p *ProxyConn) authenticate() error {
 	p.Conn = tlsConn
 	p.setConnectInfo(connectInfo)
 	p.isAuthenticated = true
+	p.tcpConn.connCategory = connCategoryProxy
 
 	return nil
 }
@@ -256,8 +254,11 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
+	tcpConn := newConnWithMetrics(conn)
+
 	return &ProxyConn{
-		Conn:             newConnWithMetrics(conn),
+		Conn:             tcpConn,
+		tcpConn:          tcpConn, // Keep the underlying TCP conn reference
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
@@ -389,7 +390,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
-	registerConnectionMetrics(cfg.Registry)
+	registerConnMetrics(cfg.Registry)
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,
 		Next: auditMiddleware(config{

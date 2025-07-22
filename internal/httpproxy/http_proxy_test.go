@@ -154,7 +154,7 @@ func startMockListener(t *testing.T) (net.Listener, string) {
 
 func TestProxyConn_Read_BadRequest(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	registerConnectionMetrics(testRegistry)
+	registerConnMetrics(testRegistry)
 
 	listener, addr := startMockListener(t)
 	defer listener.Close()
@@ -665,7 +665,7 @@ func TestIsHealthCheckRequest(t *testing.T) {
 		},
 		{
 			name:           "Proxy request",
-			request:        httptest.NewRequest(http.MethodGet, "/api/v1/namespaces/default/pods", nil),
+			request:        httptest.NewRequest(http.MethodConnect, "", nil),
 			expectedResult: false,
 		},
 	}
