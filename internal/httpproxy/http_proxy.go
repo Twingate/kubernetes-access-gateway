@@ -16,6 +16,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -84,6 +85,7 @@ type ProxyConn struct {
 	claims *token.GATClaims
 	timer  *time.Timer
 	mu     sync.Mutex
+	start  time.Time
 }
 
 func (p *ProxyConn) Read(b []byte) (int, error) {
@@ -176,19 +178,20 @@ func (p *ProxyConn) authenticate() error {
 
 	// Parse and validate HTTP request, expecting CONNECT with
 	// valid token and signature
-	response := httpResponseString(http.StatusOK)
+	httpCode := http.StatusOK
 
-	connectInfo, err := connect.InstrumentHTTPConnect(p.ConnectValidator)(req, ekm)
+	connectInfo, err := p.ConnectValidator.ParseConnect(req, ekm)
 	if err != nil {
 		var httpErr *connect.HTTPError
 		if errors.As(err, &httpErr) {
-			response = httpResponseString(httpErr.Code)
+			httpCode = httpErr.Code
 		} else {
 			p.logger.Error("failed to parse CONNECT:", zap.Error(err))
 
-			response = httpResponseString(http.StatusBadRequest)
+			httpCode = http.StatusBadRequest
 		}
 	}
+	response := httpResponseString(httpCode)
 
 	if connectInfo.Claims != nil {
 		p.logger = p.logger.With(
@@ -212,6 +215,10 @@ func (p *ProxyConn) authenticate() error {
 
 		return err
 	}
+
+	codeStr := strconv.Itoa(httpCode)
+	connect.RecordHTTPConnectDuration(p.start, codeStr)
+	connect.RecordTotalHTTPConnect(codeStr)
 
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
 	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
@@ -263,6 +270,7 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
+		start:            time.Now(),
 	}, nil
 }
 
@@ -391,7 +399,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
-	registerConnectionMetrics(cfg.Registry)
+	registerConnMetrics(cfg.Registry)
 	connect.RegisterHTTPConnectMetrics(cfg.Registry)
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,

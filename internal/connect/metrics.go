@@ -4,9 +4,6 @@
 package connect
 
 import (
-	"errors"
-	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -35,26 +32,10 @@ func RegisterHTTPConnectMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(authenticationsTotal, authenticationDuration)
 }
 
-func InstrumentHTTPConnect(validator Validator) func(req *http.Request, ekm []byte) (Info, error) {
-	return func(req *http.Request, ekm []byte) (Info, error) {
-		start := time.Now()
+func RecordHTTPConnectDuration(start time.Time, code string) {
+	authenticationDuration.WithLabelValues(code).Observe(time.Since(start).Seconds())
+}
 
-		connectInfo, err := validator.ParseConnect(req, ekm)
-		code := http.StatusOK
-
-		if err != nil {
-			var httpErr *HTTPError
-			if errors.As(err, &httpErr) {
-				code = httpErr.Code
-			} else {
-				code = http.StatusBadRequest
-			}
-		}
-
-		codeStr := strconv.Itoa(code)
-		authenticationDuration.WithLabelValues(codeStr).Observe(time.Since(start).Seconds())
-		authenticationsTotal.WithLabelValues(codeStr).Inc()
-
-		return connectInfo, err
-	}
+func RecordTotalHTTPConnect(code string) {
+	authenticationsTotal.WithLabelValues(code).Inc()
 }
