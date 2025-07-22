@@ -614,7 +614,7 @@
       },
       "id": 9,
       "panels": [],
-      "title": "HTTP Requests",
+      "title": "Gateway HTTP Requests",
       "type": "row"
     },
     {
@@ -2823,5 +2823,5 @@
   "timezone": "browser",
   "title": "Twingate Kubernetes Access Gateway",
   "uid": "103a7509-c657-446f-aa73-27c8009856d3",
-  "version": 19
+  "version": 1
 }
