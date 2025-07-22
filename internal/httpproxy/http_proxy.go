@@ -150,6 +150,8 @@ func (p *ProxyConn) authenticate() error {
 
 	// Health check request
 	if isHealthCheckRequest(req) {
+		p.tcpConn.connCategory = connCategoryHealth
+
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 
 		_, writeErr := tlsConnectConn.Write([]byte(responseStr))
@@ -159,10 +161,10 @@ func (p *ProxyConn) authenticate() error {
 			return writeErr
 		}
 
-		p.tcpConn.connCategory = connCategoryHealth
-
 		return io.EOF
 	}
+
+	p.tcpConn.connCategory = connCategoryProxy
 
 	// get the keying material for the TLS session
 	ekm, err := ExportKeyingMaterial(tlsConnectConn)
@@ -221,7 +223,6 @@ func (p *ProxyConn) authenticate() error {
 	p.Conn = tlsConn
 	p.setConnectInfo(connectInfo)
 	p.isAuthenticated = true
-	p.tcpConn.connCategory = connCategoryProxy
 
 	return nil
 }
