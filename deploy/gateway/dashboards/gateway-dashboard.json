@@ -19,7 +19,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
   "links": [],
   "panels": [
     {
@@ -38,7 +37,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Build version of the Gateway.",
       "fieldConfig": {
@@ -107,7 +106,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Go Version of the Gateway.",
       "fieldConfig": {
@@ -176,7 +175,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Go OS of the Gateway.",
       "fieldConfig": {
@@ -245,7 +244,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Architecture of the Gateway.",
       "fieldConfig": {
@@ -327,7 +326,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Total number of scrapes by HTTP status code.",
       "fieldConfig": {
@@ -413,7 +412,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -434,7 +433,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Total number of internal errors encountered by the promhttp metric handler.",
       "fieldConfig": {
@@ -534,7 +533,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Current number of scrapes being served",
       "fieldConfig": {
@@ -620,7 +619,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Total number of HTTP requests handled by the Gateway, grouped by request type, status code and request method.",
       "fieldConfig": {
@@ -721,7 +720,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Number of currently active (in-progress) HTTP requests between Client and Gateway.",
       "fieldConfig": {
@@ -789,7 +788,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Percentile latency of HTTP requests between Client and Gateway, grouped by request type.",
       "fieldConfig": {
@@ -868,7 +867,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -896,7 +895,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -917,7 +916,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Average request durations between Client and Gateway, grouped by request type, status code and request method.",
       "fieldConfig": {
@@ -1014,7 +1013,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Percentile size of HTTP requests by Client, grouped by request type.",
       "fieldConfig": {
@@ -1093,7 +1092,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -1117,7 +1116,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.5, sum by (le, type) (rate(twingate_gateway_http_request_size_bytes_bucket[5m])))",
@@ -1134,7 +1133,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Average size of HTTP requests by Client, grouped by request type, status code and request method.",
       "fieldConfig": {
@@ -1228,7 +1227,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Percentile size of HTTP responses handled by Gateway, grouped by request type.",
       "fieldConfig": {
@@ -1307,7 +1306,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -1332,7 +1331,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -1353,7 +1352,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Average size of HTTP response handled by Gateway, grouped by request type, status code and request method.",
       "fieldConfig": {
@@ -1460,7 +1459,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Total number of HTTP requests handled by the Kubernetes API Server, grouped by request type, method and status code.",
       "fieldConfig": {
@@ -1561,7 +1560,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Number of currently active (in-progress) HTTP requests to Kubernetes API server.",
       "fieldConfig": {
@@ -1629,7 +1628,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Percentile latency of HTTP requests to Kubernetes API Server, grouped by request type.",
       "fieldConfig": {
@@ -1708,7 +1707,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -1733,7 +1732,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.5, sum by (le, type) (rate(twingate_gateway_api_server_request_duration_seconds_bucket[5m])))",
@@ -1750,7 +1749,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Average request durations between Client and Gateway, grouped by request type, status code and request method.",
       "fieldConfig": {
@@ -1860,7 +1859,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Percentile latency of the recorded session.",
       "fieldConfig": {
@@ -1939,7 +1938,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -1964,7 +1963,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.5, sum by(le) (rate(twingate_gateway_recorded_session_duration_seconds_bucket[5m])))",
@@ -1981,7 +1980,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Average durations of the recorded session.",
       "fieldConfig": {
@@ -2091,7 +2090,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Total number of Client TCP connections to Gateway, grouped by connection category.",
       "fieldConfig": {
@@ -2192,7 +2191,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Number of currently active (in-progress) Client TCP connections to Gateway.",
       "fieldConfig": {
@@ -2260,7 +2259,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Percentile latency of Client TCP connections to Gateway, grouped by connection category.",
       "fieldConfig": {
@@ -2339,7 +2338,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2364,7 +2363,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.5, sum by (le, connection_category) (rate(twingate_gateway_tcp_connection_duration_seconds_bucket[5m])))",
@@ -2381,7 +2380,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Average durations of Client TCP connections to Gateway, grouped by connection category.",
       "fieldConfig": {
@@ -2491,7 +2490,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Total number of Client TCP connections authenticated via HTTP Connect, grouped by status code.",
       "fieldConfig": {
@@ -2592,7 +2591,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Percentile latency of Client TCP connections authenticated via HTTP Connect.",
       "fieldConfig": {
@@ -2671,7 +2670,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2696,7 +2695,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "$datasource"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.5, sum by (le) (rate(twingate_gateway_tcp_connection_authentication_duration_seconds_bucket[5m])))",
@@ -2713,7 +2712,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "$datasource"
       },
       "description": "Average durations of Client TCP connections authenticated via HTTP Connect, grouped by status code.",
       "fieldConfig": {
@@ -2813,7 +2812,20 @@
   "schemaVersion": 41,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "text": "Prometheus",
+          "value": "prometheus"
+        },
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      }
+    ]
   },
   "time": {
     "from": "now-6h",
