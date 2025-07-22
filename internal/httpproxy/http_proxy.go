@@ -179,7 +179,7 @@ func (p *ProxyConn) authenticate() error {
 	// valid token and signature
 	response := httpResponseString(http.StatusOK)
 
-	connectInfo, err := p.ConnectValidator.ParseConnect(req, ekm)
+	connectInfo, err := connect.InstrumentHTTPConnect(p.ConnectValidator)(req, ekm)
 	if err != nil {
 		var httpErr *connect.HTTPError
 		if errors.As(err, &httpErr) {
