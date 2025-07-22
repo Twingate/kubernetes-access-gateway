@@ -191,6 +191,7 @@ func (p *ProxyConn) authenticate() error {
 			httpCode = http.StatusBadRequest
 		}
 	}
+
 	response := httpResponseString(httpCode)
 
 	if connectInfo.Claims != nil {
@@ -217,8 +218,8 @@ func (p *ProxyConn) authenticate() error {
 	}
 
 	codeStr := strconv.Itoa(httpCode)
-	connect.RecordHTTPConnectDuration(p.start, codeStr)
-	connect.RecordTotalHTTPConnect(codeStr)
+	connect.RecordConnectDuration(p.start, codeStr)
+	connect.RecordConnectTotal(codeStr)
 
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
 	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
@@ -400,7 +401,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		config:              cfg,
 	}
 	registerConnMetrics(cfg.Registry)
-	connect.RegisterHTTPConnectMetrics(cfg.Registry)
+	connect.RegisterConnectMetrics(cfg.Registry)
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,
 		Next: auditMiddleware(config{

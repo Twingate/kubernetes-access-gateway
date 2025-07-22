@@ -14,11 +14,11 @@ import (
 	"k8sgateway/internal/metrics/testutil"
 )
 
-func TestRecordHTTPConnectDuration(t *testing.T) {
+func TestRecordConnectDuration(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	RegisterHTTPConnectMetrics(testRegistry)
+	RegisterConnectMetrics(testRegistry)
 
-	RecordHTTPConnectDuration(time.Now(), "200")
+	RecordConnectDuration(time.Now(), "200")
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
@@ -33,11 +33,11 @@ func TestRecordHTTPConnectDuration(t *testing.T) {
 	assert.Equal(t, expectedLabels, labelsByMetric)
 }
 
-func TestRecordTotalHTTPConnect(t *testing.T) {
+func TestRecordConnectTotal(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	RegisterHTTPConnectMetrics(testRegistry)
+	RegisterConnectMetrics(testRegistry)
 
-	RecordTotalHTTPConnect("200")
+	RecordConnectTotal("200")
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)

@@ -12,30 +12,30 @@ import (
 )
 
 var (
-	authenticationsTotal   *prometheus.CounterVec
-	authenticationDuration *prometheus.HistogramVec
+	connectTotal    *prometheus.CounterVec
+	connectDuration *prometheus.HistogramVec
 )
 
-func RegisterHTTPConnectMetrics(registry *prometheus.Registry) {
-	authenticationsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+func RegisterConnectMetrics(registry *prometheus.Registry) {
+	connectTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metrics.Namespace,
 		Name:      "tcp_connection_authentication_total",
 		Help:      "Total number of client TCP connections authenticated via HTTP Connect",
 	}, []string{"code"})
-	authenticationDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	connectDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metrics.Namespace,
 		Name:      "tcp_connection_authentication_duration_seconds",
 		Help:      "Duration of client TCP connections authenticated via HTTP Connect in seconds",
 		Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600},
 	}, []string{"code"})
 
-	registry.MustRegister(authenticationsTotal, authenticationDuration)
+	registry.MustRegister(connectTotal, connectDuration)
 }
 
-func RecordHTTPConnectDuration(start time.Time, code string) {
-	authenticationDuration.WithLabelValues(code).Observe(time.Since(start).Seconds())
+func RecordConnectDuration(start time.Time, code string) {
+	connectDuration.WithLabelValues(code).Observe(time.Since(start).Seconds())
 }
 
-func RecordTotalHTTPConnect(code string) {
-	authenticationsTotal.WithLabelValues(code).Inc()
+func RecordConnectTotal(code string) {
+	connectTotal.WithLabelValues(code).Inc()
 }
