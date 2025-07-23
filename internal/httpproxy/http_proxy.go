@@ -73,8 +73,6 @@ type Config struct {
 type ProxyConn struct {
 	net.Conn
 
-	tcpConn *connWithMetrics
-
 	TLSConfig        *tls.Config
 	ConnectValidator connect.Validator
 	logger           *zap.Logger
@@ -85,6 +83,8 @@ type ProxyConn struct {
 	claims *token.GATClaims
 	timer  *time.Timer
 	mu     sync.Mutex
+
+	connCategory string
 	start  time.Time
 }
 
@@ -152,7 +152,7 @@ func (p *ProxyConn) authenticate() error {
 
 	// Health check request
 	if isHealthCheckRequest(req) {
-		p.tcpConn.connCategory = connCategoryHealth
+		p.connCategory = connCategoryHealth
 
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 
@@ -166,7 +166,7 @@ func (p *ProxyConn) authenticate() error {
 		return io.EOF
 	}
 
-	p.tcpConn.connCategory = connCategoryProxy
+	p.connCategory = connCategoryProxy
 
 	// get the keying material for the TLS session
 	ekm, err := ExportKeyingMaterial(tlsConnectConn)
@@ -263,16 +263,16 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
-	tcpConn := newConnWithMetrics(conn)
-
-	return &ProxyConn{
-		Conn:             tcpConn,
-		tcpConn:          tcpConn, // Keep the underlying TCP conn reference
+	proxyConn := &ProxyConn{
+		Conn:             conn,
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
-		start:            time.Now(),
-	}, nil
+        start:            time.Now(),
+		connCategory:     connCategoryUnknown,
+	}
+
+	return newConnWithMetrics(proxyConn), nil
 }
 
 type ProxyService interface {
@@ -386,11 +386,12 @@ func NewProxy(cfg Config) (*Proxy, error) {
 
 		Handler: mux,
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-			// add the net.Conn to the context so we can track this connection, this context
+			// add the ProxyConn to the context so we can track this connection, this context
 			// will be merged with and retrievable in the http.Request that is passed in to the Handler func and
-			// since our custom listener provided a wrapped net.Conn (ProxyConn), its fields will be
+			// since our custom listener provided a wrapped net.Conn (connWithMetrics), its fields will be
 			// available, specifically the identity information parsed from CONNECT
-			return context.WithValue(ctx, ConnContextKey, c)
+
+			return context.WithValue(ctx, ConnContextKey, c.(*connWithMetrics).Conn)
 		},
 	}
 
