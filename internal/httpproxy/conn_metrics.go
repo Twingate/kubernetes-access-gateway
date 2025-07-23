@@ -47,7 +47,7 @@ func registerConnMetrics(registry *prometheus.Registry) {
 		Namespace: metrics.Namespace,
 		Name:      "tcp_connection_duration_seconds",
 		Help:      "Duration of client TCP connections in seconds",
-		Buckets:   prometheus.DefBuckets,
+		Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600},
 	}, []string{"connection_category"})
 
 	registry.MustRegister(activeConn, connTotal, connDuration)
