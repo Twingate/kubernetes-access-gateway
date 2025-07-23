@@ -147,7 +147,12 @@ func getDockerImageTag(t *testing.T) string {
 	output, err := testutil.RunCommand(cmd)
 	require.NoError(t, err, "failed to get docker image tag")
 
-	return strings.TrimSpace(string(output))
+	// Parse output to handle multiple tags
+	tags := strings.Fields(strings.TrimSpace(string(output)))
+	require.NotEmpty(t, tags, "no docker image tags found for reference: %s", imageReference)
+
+	// Return the first tag (most recently built) as `docker images` returns tags in reverse chronological order
+	return tags[0]
 }
 
 func loadDockerImageToKinD(t *testing.T, clusterName, image string) {
