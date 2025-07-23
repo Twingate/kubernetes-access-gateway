@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
+
 	"k8sgateway/internal/metrics/testutil"
 )
 
@@ -40,4 +42,11 @@ func TestProxyConnWithMetrics(t *testing.T) {
 	}
 
 	assert.Equal(t, expectedLabels, labelsByMetric)
+
+	// Ensure metrics are only tracked once
+	err = conn.Close()
+	require.NoError(t, err)
+
+	count := promtestutil.ToFloat64(connTotal)
+	assert.Equal(t, 1, int(count))
 }
