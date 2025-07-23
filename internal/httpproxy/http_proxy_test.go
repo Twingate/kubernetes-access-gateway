@@ -146,6 +146,7 @@ func startMockListener(t *testing.T) (net.Listener, string) {
 
 	testRegistry := prometheus.NewRegistry()
 	registerConnMetrics(testRegistry)
+	connect.RegisterMetrics(testRegistry)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -302,9 +303,6 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 }
 
 func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
-	testRegistry := prometheus.NewRegistry()
-	connect.RegisterMetrics(testRegistry)
-
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 
