@@ -14,30 +14,11 @@ import (
 	"k8sgateway/internal/metrics/testutil"
 )
 
-func TestRecordConnectDuration(t *testing.T) {
+func TestRecordMetrics(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	RegisterConnectMetrics(testRegistry)
+	RegisterMetrics(testRegistry)
 
-	RecordConnectDuration(time.Now(), "200")
-
-	metricFamilies, err := testRegistry.Gather()
-	require.NoError(t, err)
-
-	labelsByMetric := testutil.ExtractLabelsFromMetrics(metricFamilies)
-	expectedLabels := map[string]map[string]string{
-		"twingate_gateway_tcp_connection_authentication_duration_seconds": {
-			"code": "200",
-		},
-	}
-
-	assert.Equal(t, expectedLabels, labelsByMetric)
-}
-
-func TestRecordConnectTotal(t *testing.T) {
-	testRegistry := prometheus.NewRegistry()
-	RegisterConnectMetrics(testRegistry)
-
-	RecordConnectTotal("200")
+	RecordMetrics(time.Now(), 200)
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
@@ -45,6 +26,9 @@ func TestRecordConnectTotal(t *testing.T) {
 	labelsByMetric := testutil.ExtractLabelsFromMetrics(metricFamilies)
 	expectedLabels := map[string]map[string]string{
 		"twingate_gateway_tcp_connection_authentication_total": {
+			"code": "200",
+		},
+		"twingate_gateway_tcp_connection_authentication_duration_seconds": {
 			"code": "200",
 		},
 	}

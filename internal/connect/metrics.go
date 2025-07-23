@@ -4,6 +4,7 @@
 package connect
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,7 +17,7 @@ var (
 	connectDuration *prometheus.HistogramVec
 )
 
-func RegisterConnectMetrics(registry *prometheus.Registry) {
+func RegisterMetrics(registry *prometheus.Registry) {
 	connectTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metrics.Namespace,
 		Name:      "tcp_connection_authentication_total",
@@ -32,10 +33,8 @@ func RegisterConnectMetrics(registry *prometheus.Registry) {
 	registry.MustRegister(connectTotal, connectDuration)
 }
 
-func RecordConnectDuration(start time.Time, code string) {
-	connectDuration.WithLabelValues(code).Observe(time.Since(start).Seconds())
-}
-
-func RecordConnectTotal(code string) {
-	connectTotal.WithLabelValues(code).Inc()
+func RecordMetrics(start time.Time, code int) {
+	codeStr := strconv.Itoa(code)
+	connectDuration.WithLabelValues(codeStr).Observe(time.Since(start).Seconds())
+	connectTotal.WithLabelValues(codeStr).Inc()
 }

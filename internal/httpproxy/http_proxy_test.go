@@ -303,7 +303,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 
 func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	connect.RegisterConnectMetrics(testRegistry)
+	connect.RegisterMetrics(testRegistry)
 
 	listener, addr := startMockListener(t)
 	defer listener.Close()

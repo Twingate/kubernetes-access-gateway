@@ -16,7 +16,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -85,7 +84,6 @@ type ProxyConn struct {
 	mu     sync.Mutex
 
 	connCategory string
-	start  time.Time
 }
 
 func (p *ProxyConn) Read(b []byte) (int, error) {
@@ -121,6 +119,8 @@ func (p *ProxyConn) Close() error {
 
 // authenticate sets up TLS and processes the CONNECT message for authentication.
 func (p *ProxyConn) authenticate() error {
+	start := time.Now()
+
 	// Establish TLS connection with the downstream proxy
 	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
 
@@ -192,8 +192,6 @@ func (p *ProxyConn) authenticate() error {
 		}
 	}
 
-	response := httpResponseString(httpCode)
-
 	if connectInfo.Claims != nil {
 		p.logger = p.logger.With(
 			zap.Object("user", connectInfo.Claims.User),
@@ -203,6 +201,8 @@ func (p *ProxyConn) authenticate() error {
 	p.logger = p.logger.With(
 		zap.String("conn_id", connectInfo.ConnID),
 	)
+
+	response := httpResponseString(httpCode)
 
 	_, writeErr := tlsConnectConn.Write([]byte(response))
 	if writeErr != nil {
@@ -217,9 +217,7 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
-	codeStr := strconv.Itoa(httpCode)
-	connect.RecordConnectDuration(p.start, codeStr)
-	connect.RecordConnectTotal(codeStr)
+	connect.RecordMetrics(start, httpCode)
 
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
 	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
@@ -268,7 +266,6 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
-        start:            time.Now(),
 		connCategory:     connCategoryUnknown,
 	}
 
@@ -402,7 +399,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		config:              cfg,
 	}
 	registerConnMetrics(cfg.Registry)
-	connect.RegisterConnectMetrics(cfg.Registry)
+	connect.RegisterMetrics(cfg.Registry)
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,
 		Next: auditMiddleware(config{
