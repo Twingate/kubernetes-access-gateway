@@ -17,8 +17,10 @@ func TestProxyConnWithMetrics(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
 	registerConnMetrics(testRegistry)
 
-	conn := newConnWithMetrics(&mockConn{})
-	conn.connCategory = connCategoryProxy
+	conn := newConnWithMetrics(&ProxyConn{
+		Conn:         &mockConn{},
+		connCategory: connCategoryProxy,
+	})
 
 	err := conn.Close()
 	require.NoError(t, err)

@@ -22,9 +22,8 @@ const (
 type connWithMetrics struct {
 	net.Conn
 
-	start        time.Time
-	connCategory string
-	once         sync.Once
+	start time.Time
+	once  sync.Once
 }
 
 var (
@@ -58,20 +57,23 @@ func newConnWithMetrics(conn net.Conn) *connWithMetrics {
 	activeConn.Inc()
 
 	return &connWithMetrics{
-		Conn:         conn,
-		start:        time.Now(),
-		connCategory: connCategoryUnknown,
+		Conn:  conn,
+		start: time.Now(),
 	}
 }
 
 func (p *connWithMetrics) Close() error {
 	err := p.Conn.Close()
 
-	p.once.Do(func() {
-		activeConn.Dec()
-		connTotal.WithLabelValues(p.connCategory).Inc()
-		connDuration.WithLabelValues(p.connCategory).Observe(time.Since(p.start).Seconds())
-	})
+	defer func() {
+		p.once.Do(func() {
+			connCategory := p.Conn.(*ProxyConn).connCategory
+
+			activeConn.Dec()
+			connTotal.WithLabelValues(connCategory).Inc()
+			connDuration.WithLabelValues(connCategory).Observe(time.Since(p.start).Seconds())
+		})
+	}()
 
 	return err
 }

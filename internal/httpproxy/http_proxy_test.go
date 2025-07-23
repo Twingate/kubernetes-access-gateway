@@ -144,6 +144,9 @@ func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (connectInfo c
 func startMockListener(t *testing.T) (net.Listener, string) {
 	t.Helper()
 
+	testRegistry := prometheus.NewRegistry()
+	registerConnMetrics(testRegistry)
+
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
@@ -153,9 +156,6 @@ func startMockListener(t *testing.T) (net.Listener, string) {
 }
 
 func TestProxyConn_Read_BadRequest(t *testing.T) {
-	testRegistry := prometheus.NewRegistry()
-	registerConnMetrics(testRegistry)
-
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 
@@ -382,8 +382,8 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 
 	<-done
 
-	assert.IsType(t, &ProxyConn{}, conn)
-	proxyConn := conn.(*ProxyConn)
+	assert.IsType(t, &connWithMetrics{}, conn)
+	proxyConn := conn.(*connWithMetrics).Conn.(*ProxyConn)
 	assert.Equal(t, "user@acme.com", proxyConn.claims.User.Username)
 	assert.ElementsMatch(t, []string{"Everyone", "Engineering"}, proxyConn.claims.User.Groups)
 	assert.Equal(t, "gat_token", mockValidator.ProxyAuth)
