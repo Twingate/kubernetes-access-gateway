@@ -389,7 +389,6 @@ func NewProxy(cfg Config) (*Proxy, error) {
 			// will be merged with and retrievable in the http.Request that is passed in to the Handler func and
 			// since our custom listener provided a wrapped net.Conn (ProxyConn), its fields will be
 			// available, specifically the identity information parsed from CONNECT
-
 			return context.WithValue(ctx, ConnContextKey, c)
 		},
 	}
