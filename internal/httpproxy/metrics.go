@@ -80,7 +80,7 @@ func newProxyConnMetrics(connCategory string, proxyConnMetrics *proxyConnMetrics
 	}
 }
 
-func (p *proxyConnMetricsTracker) startMeasure() {
+func (p *proxyConnMetricsTracker) startRecord() {
 	p.start = time.Now()
 	p.metrics.activeConn.Inc()
 }
@@ -95,7 +95,7 @@ func (p *proxyConnMetricsTracker) recordConnMetrics() {
 	p.metrics.connDuration.WithLabelValues(p.connCategory).Observe(time.Since(p.start).Seconds())
 }
 
-func (p *proxyConnMetricsTracker) recordConnectAuthenticationMetrics(code int) {
+func (p *proxyConnMetricsTracker) recordConnectMetrics(code int) {
 	if p.start.IsZero() {
 		return
 	}

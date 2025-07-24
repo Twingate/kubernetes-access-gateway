@@ -15,7 +15,7 @@ import (
 	"k8sgateway/internal/metrics/testutil"
 )
 
-func TestProxyConnMetrics(t *testing.T) {
+func TestProxyConnMetricsTracker(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
 	metrics := registerProxyConnMetrics(testRegistry)
 
@@ -24,10 +24,10 @@ func TestProxyConnMetrics(t *testing.T) {
 		metrics:      metrics,
 	}
 
-	proxyConnMetrics.startMeasure()
+	proxyConnMetrics.startRecord()
 
 	proxyConnMetrics.recordConnMetrics()
-	proxyConnMetrics.recordConnectAuthenticationMetrics(200)
+	proxyConnMetrics.recordConnectMetrics(200)
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestProxyConnMetrics(t *testing.T) {
 	assert.Positive(t, histogram.GetSampleSum())
 }
 
-func TestProxyConnMetrics_WithoutStartMeasure(t *testing.T) {
+func TestProxyConnMetricsTracker_SkipRecordWhenNotStarted(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
 	metrics := registerProxyConnMetrics(testRegistry)
 
@@ -78,7 +78,7 @@ func TestProxyConnMetrics_WithoutStartMeasure(t *testing.T) {
 	}
 
 	proxyConnMetrics.recordConnMetrics()
-	proxyConnMetrics.recordConnectAuthenticationMetrics(200)
+	proxyConnMetrics.recordConnectMetrics(200)
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)

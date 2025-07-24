@@ -122,7 +122,7 @@ func (p *ProxyConn) Close() error {
 
 // authenticate sets up TLS and processes the CONNECT message for authentication.
 func (p *ProxyConn) authenticate() error {
-	p.metrics.startMeasure()
+	p.metrics.startRecord()
 
 	// Establish TLS connection with the downstream proxy
 	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
@@ -220,7 +220,7 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
-	p.metrics.recordConnectAuthenticationMetrics(httpCode)
+	p.metrics.recordConnectMetrics(httpCode)
 
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
 	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
