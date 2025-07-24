@@ -64,6 +64,7 @@ func TestProxyConnMetrics(t *testing.T) {
 
 	histogram = testutil.GetHistogram("twingate_gateway_tcp_connection_authentication_duration_seconds", metricFamilies)
 	require.NotNil(t, histogram)
+	assert.Equal(t, uint64(1), histogram.GetSampleCount())
 	assert.Positive(t, histogram.GetSampleSum())
 }
 
