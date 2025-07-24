@@ -3,7 +3,9 @@
 
 package testutil
 
-import dto "github.com/prometheus/client_model/go"
+import (
+	dto "github.com/prometheus/client_model/go"
+)
 
 func ExtractLabelsFromMetrics(metricFamilies []*dto.MetricFamily) map[string]map[string]string {
 	labelsByMetric := make(map[string]map[string]string, len(metricFamilies))
@@ -18,4 +20,14 @@ func ExtractLabelsFromMetrics(metricFamilies []*dto.MetricFamily) map[string]map
 	}
 
 	return labelsByMetric
+}
+
+func GetHistogram(name string, metricFamilies []*dto.MetricFamily) *dto.Histogram {
+	for _, mf := range metricFamilies {
+		if mf.GetName() == name {
+			return mf.GetMetric()[0].GetHistogram()
+		}
+	}
+
+	return nil
 }

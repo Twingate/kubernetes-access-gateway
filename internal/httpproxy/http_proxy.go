@@ -83,7 +83,8 @@ type ProxyConn struct {
 	timer  *time.Timer
 	mu     sync.Mutex
 
-	connCategory string
+	metrics *proxyConnMetrics
+	once    sync.Once
 }
 
 func (p *ProxyConn) Read(b []byte) (int, error) {
@@ -110,6 +111,12 @@ func (p *ProxyConn) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	defer func() {
+		p.once.Do(func() {
+			p.metrics.stopMeasureConn()
+		})
+	}()
+
 	if p.timer != nil {
 		p.timer.Stop()
 	}
@@ -119,6 +126,8 @@ func (p *ProxyConn) Close() error {
 
 // authenticate sets up TLS and processes the CONNECT message for authentication.
 func (p *ProxyConn) authenticate() error {
+	p.metrics.startMeasure()
+
 	// Establish TLS connection with the downstream proxy
 	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
 
@@ -150,7 +159,7 @@ func (p *ProxyConn) authenticate() error {
 
 	// Health check request
 	if isHealthCheckRequest(req) {
-		p.connCategory = connCategoryHealth
+		p.metrics.connCategory = connCategoryHealth
 
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 
@@ -164,7 +173,7 @@ func (p *ProxyConn) authenticate() error {
 		return io.EOF
 	}
 
-	p.connCategory = connCategoryProxy
+	p.metrics.connCategory = connCategoryProxy
 
 	// get the keying material for the TLS session
 	ekm, err := ExportKeyingMaterial(tlsConnectConn)
@@ -176,17 +185,17 @@ func (p *ProxyConn) authenticate() error {
 
 	// Parse and validate HTTP request, expecting CONNECT with
 	// valid token and signature
-	response := httpResponseString(http.StatusOK)
+	httpCode := http.StatusOK
 
 	connectInfo, err := p.ConnectValidator.ParseConnect(req, ekm)
 	if err != nil {
 		var httpErr *connect.HTTPError
 		if errors.As(err, &httpErr) {
-			response = httpResponseString(httpErr.Code)
+			httpCode = httpErr.Code
 		} else {
 			p.logger.Error("failed to parse CONNECT:", zap.Error(err))
 
-			response = httpResponseString(http.StatusBadRequest)
+			httpCode = http.StatusBadRequest
 		}
 	}
 
@@ -200,6 +209,8 @@ func (p *ProxyConn) authenticate() error {
 		zap.String("conn_id", connectInfo.ConnID),
 	)
 
+	response := httpResponseString(httpCode)
+
 	_, writeErr := tlsConnectConn.Write([]byte(response))
 	if writeErr != nil {
 		p.logger.Error("failed to write response", zap.Error(writeErr))
@@ -212,6 +223,8 @@ func (p *ProxyConn) authenticate() error {
 
 		return err
 	}
+
+	p.metrics.stopMeasureConnect(httpCode)
 
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
 	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
@@ -255,15 +268,15 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
-	proxyConn := &ProxyConn{
+	return &ProxyConn{
 		Conn:             conn,
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
-		connCategory:     connCategoryUnknown,
-	}
-
-	return newConnWithMetrics(proxyConn), nil
+		metrics: &proxyConnMetrics{
+			connCategory: connCategoryUnknown,
+		},
+	}, nil
 }
 
 type ProxyService interface {
@@ -382,7 +395,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 			// since our custom listener provided a wrapped net.Conn (connWithMetrics), its fields will be
 			// available, specifically the identity information parsed from CONNECT
 
-			return context.WithValue(ctx, ConnContextKey, c.(*connWithMetrics).Conn)
+			return context.WithValue(ctx, ConnContextKey, c)
 		},
 	}
 
@@ -392,7 +405,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
-	registerConnMetrics(cfg.Registry)
+	registerProxyConnMetrics(cfg.Registry)
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,
 		Next: auditMiddleware(config{

@@ -53,7 +53,7 @@ func TestProxyConn_setConnectInfo(t *testing.T) {
 	}
 	connID := "conn-id-1"
 
-	proxyConn := &ProxyConn{Conn: conn}
+	proxyConn := &ProxyConn{Conn: conn, metrics: &proxyConnMetrics{}}
 
 	func() {
 		// `setConnectInfo` should only be called after acquiring the lock. This is needed
@@ -86,8 +86,9 @@ func TestProxyConn_Close(t *testing.T) {
 	conn := &mockConn{}
 	timer := time.NewTimer(0 * time.Millisecond)
 	proxyConn := &ProxyConn{
-		Conn:  conn,
-		timer: timer,
+		Conn:    conn,
+		timer:   timer,
+		metrics: &proxyConnMetrics{},
 	}
 
 	_ = proxyConn.Close()
@@ -100,6 +101,16 @@ func TestProxyConn_Close(t *testing.T) {
 		assert.Fail(t, "Timer should have been stopped")
 	default:
 	}
+
+	// Ensure metrics are only measured once
+	_ = proxyConn.Close()
+	called := false
+
+	proxyConn.once.Do(func() {
+		called = true
+	})
+
+	assert.False(t, called)
 }
 
 var errValidation = &connect.HTTPError{
@@ -145,7 +156,7 @@ func startMockListener(t *testing.T) (net.Listener, string) {
 	t.Helper()
 
 	testRegistry := prometheus.NewRegistry()
-	registerConnMetrics(testRegistry)
+	registerProxyConnMetrics(testRegistry)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -382,8 +393,8 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 
 	<-done
 
-	assert.IsType(t, &connWithMetrics{}, conn)
-	proxyConn := conn.(*connWithMetrics).Conn.(*ProxyConn)
+	assert.IsType(t, &ProxyConn{}, conn)
+	proxyConn := conn.(*ProxyConn)
 	assert.Equal(t, "user@acme.com", proxyConn.claims.User.Username)
 	assert.ElementsMatch(t, []string{"Everyone", "Engineering"}, proxyConn.claims.User.Groups)
 	assert.Equal(t, "gat_token", mockValidator.ProxyAuth)
