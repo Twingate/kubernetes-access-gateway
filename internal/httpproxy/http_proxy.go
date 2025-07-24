@@ -83,7 +83,7 @@ type ProxyConn struct {
 	timer  *time.Timer
 	mu     sync.Mutex
 
-	metrics *proxyConnMetrics
+	metrics *proxyConnMetricsTracker
 	once    sync.Once
 }
 
@@ -111,11 +111,7 @@ func (p *ProxyConn) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	defer func() {
-		p.once.Do(func() {
-			p.metrics.stopMeasureConn()
-		})
-	}()
+	defer p.once.Do(p.metrics.recordConnMetrics)
 
 	if p.timer != nil {
 		p.timer.Stop()
@@ -224,7 +220,7 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
-	p.metrics.stopMeasureConnect(httpCode)
+	p.metrics.recordConnectAuthenticationMetrics(httpCode)
 
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
 	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
@@ -260,6 +256,7 @@ type proxyListener struct {
 	TLSConfig        *tls.Config
 	ConnectValidator connect.Validator
 	logger           *zap.Logger
+	metrics          *proxyConnMetrics
 }
 
 func (l *proxyListener) Accept() (net.Conn, error) {
@@ -273,10 +270,7 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
-		metrics: &proxyConnMetrics{
-			connCategory: connCategoryUnknown,
-		},
-		once: sync.Once{},
+		metrics:          newProxyConnMetrics(connCategoryUnknown, l.metrics),
 	}, nil
 }
 
@@ -391,9 +385,9 @@ func NewProxy(cfg Config) (*Proxy, error) {
 
 		Handler: mux,
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-			// add the ProxyConn to the context so we can track this connection, this context
+			// add the net.Conn to the context so we can track this connection, this context
 			// will be merged with and retrievable in the http.Request that is passed in to the Handler func and
-			// since our custom listener provided a wrapped net.Conn (connWithMetrics), its fields will be
+			// since our custom listener provided a wrapped net.Conn (ProxyConn), its fields will be
 			// available, specifically the identity information parsed from CONNECT
 
 			return context.WithValue(ctx, ConnContextKey, c)
@@ -406,7 +400,6 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		downstreamTLSConfig: downstreamTLSConfig,
 		config:              cfg,
 	}
-	registerProxyConnMetrics(cfg.Registry)
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.Registry,
 		Next: auditMiddleware(config{
@@ -436,6 +429,7 @@ func (p *Proxy) Start(ready chan struct{}) {
 		TLSConfig:        p.downstreamTLSConfig,
 		ConnectValidator: p.config.ConnectValidator,
 		logger:           logger,
+		metrics:          registerProxyConnMetrics(p.config.Registry),
 	}
 
 	err = p.httpServer.Serve(listener)

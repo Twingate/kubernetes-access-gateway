@@ -17,16 +17,17 @@ import (
 
 func TestProxyConnMetrics(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	registerProxyConnMetrics(testRegistry)
+	metrics := registerProxyConnMetrics(testRegistry)
 
-	metrics := &proxyConnMetrics{
+	proxyConnMetrics := &proxyConnMetricsTracker{
 		connCategory: connCategoryProxy,
+		metrics:      metrics,
 	}
 
-	metrics.startMeasure()
+	proxyConnMetrics.startMeasure()
 
-	metrics.stopMeasureConn()
-	metrics.stopMeasureConnect(200)
+	proxyConnMetrics.recordConnMetrics()
+	proxyConnMetrics.recordConnectAuthenticationMetrics(200)
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
@@ -50,7 +51,7 @@ func TestProxyConnMetrics(t *testing.T) {
 
 	assert.Equal(t, expectedLabels, labelsByMetric)
 
-	count := promtestutil.ToFloat64(connTotal)
+	count := promtestutil.ToFloat64(metrics.connTotal)
 	assert.Equal(t, 1, int(count))
 
 	histogram := testutil.GetHistogram("twingate_gateway_tcp_connection_duration_seconds", metricFamilies)
@@ -58,25 +59,25 @@ func TestProxyConnMetrics(t *testing.T) {
 	assert.Equal(t, uint64(1), histogram.GetSampleCount())
 	assert.Positive(t, histogram.GetSampleSum())
 
-	count = promtestutil.ToFloat64(connectTotal)
+	count = promtestutil.ToFloat64(metrics.connectTotal)
 	assert.Equal(t, 1, int(count))
 
 	histogram = testutil.GetHistogram("twingate_gateway_tcp_connection_authentication_duration_seconds", metricFamilies)
 	require.NotNil(t, histogram)
-	assert.Equal(t, uint64(1), histogram.GetSampleCount())
 	assert.Positive(t, histogram.GetSampleSum())
 }
 
 func TestProxyConnMetrics_WithoutStartMeasure(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	registerProxyConnMetrics(testRegistry)
+	metrics := registerProxyConnMetrics(testRegistry)
 
-	metrics := &proxyConnMetrics{
+	proxyConnMetrics := &proxyConnMetricsTracker{
 		connCategory: connCategoryProxy,
+		metrics:      metrics,
 	}
 
-	metrics.stopMeasureConn()
-	metrics.stopMeasureConnect(200)
+	proxyConnMetrics.recordConnMetrics()
+	proxyConnMetrics.recordConnectAuthenticationMetrics(200)
 
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)

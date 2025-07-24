@@ -54,7 +54,7 @@ func TestProxyConn_setConnectInfo(t *testing.T) {
 	}
 	connID := "conn-id-1"
 
-	proxyConn := &ProxyConn{Conn: conn, metrics: &proxyConnMetrics{}}
+	proxyConn := &ProxyConn{Conn: conn, metrics: &proxyConnMetricsTracker{}}
 
 	func() {
 		// `setConnectInfo` should only be called after acquiring the lock. This is needed
@@ -89,7 +89,7 @@ func TestProxyConn_Close(t *testing.T) {
 	proxyConn := &ProxyConn{
 		Conn:    conn,
 		timer:   timer,
-		metrics: &proxyConnMetrics{},
+		metrics: &proxyConnMetricsTracker{},
 		once:    sync.Once{},
 	}
 
@@ -157,9 +157,6 @@ func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (connectInfo c
 func startMockListener(t *testing.T) (net.Listener, string) {
 	t.Helper()
 
-	testRegistry := prometheus.NewRegistry()
-	registerProxyConnMetrics(testRegistry)
-
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
@@ -190,6 +187,7 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 		TLSConfig:        proxyTLSConfig,
 		ConnectValidator: mockValidator,
 		logger:           zap.NewNop(),
+		metrics:          registerProxyConnMetrics(prometheus.NewRegistry()),
 	}
 
 	// make client TLS
@@ -256,6 +254,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	listener = &proxyListener{
 		Listener:  listener,
 		TLSConfig: proxyTLSConfig,
+		metrics:   registerProxyConnMetrics(prometheus.NewRegistry()),
 	}
 
 	// make client TLS
@@ -335,6 +334,7 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 		TLSConfig:        proxyTLSConfig,
 		ConnectValidator: mockValidator,
 		logger:           zap.NewNop(),
+		metrics:          registerProxyConnMetrics(prometheus.NewRegistry()),
 	}
 
 	// make client TLS
@@ -426,6 +426,7 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 		TLSConfig:        proxyTLSConfig,
 		ConnectValidator: mockValidator,
 		logger:           zap.NewNop(),
+		metrics:          registerProxyConnMetrics(prometheus.NewRegistry()),
 	}
 
 	// make client TLS
