@@ -276,6 +276,7 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 		metrics: &proxyConnMetrics{
 			connCategory: connCategoryUnknown,
 		},
+		once: sync.Once{},
 	}, nil
 }
 
