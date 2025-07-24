@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -89,6 +90,7 @@ func TestProxyConn_Close(t *testing.T) {
 		Conn:    conn,
 		timer:   timer,
 		metrics: &proxyConnMetrics{},
+		once:    sync.Once{},
 	}
 
 	_ = proxyConn.Close()
