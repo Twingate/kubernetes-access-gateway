@@ -48,7 +48,7 @@ func createProxyConnMetrics(registry *prometheus.Registry) *proxyConnMetrics {
 	connectTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metrics.Namespace,
 		Name:      "client_authentication_total",
-		Help:      "Total number of client authenticated via HTTP Connect",
+		Help:      "Total number of clients authenticated via HTTP Connect",
 	}, []string{"code"})
 	connectDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metrics.Namespace,
