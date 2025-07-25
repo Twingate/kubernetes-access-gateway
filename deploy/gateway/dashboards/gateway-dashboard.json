@@ -2492,7 +2492,7 @@
         "type": "prometheus",
         "uid": "$datasource"
       },
-      "description": "Total number of Client authenticated via HTTP Connect, grouped by status code.",
+      "description": "Total number of Clients authenticated via HTTP Connect, grouped by status code.",
       "fieldConfig": {
         "defaults": {
           "color": {
