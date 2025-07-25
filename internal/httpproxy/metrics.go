@@ -27,7 +27,7 @@ type proxyConnMetrics struct {
 	connectDuration *prometheus.HistogramVec
 }
 
-func registerProxyConnMetrics(registry *prometheus.Registry) *proxyConnMetrics {
+func createProxyConnMetrics(registry *prometheus.Registry) *proxyConnMetrics {
 	activeConn := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metrics.Namespace,
 		Name:      "active_tcp_connections",
@@ -44,15 +44,16 @@ func registerProxyConnMetrics(registry *prometheus.Registry) *proxyConnMetrics {
 		Help:      "Duration of client TCP connections in seconds",
 		Buckets:   []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600},
 	}, []string{"connection_category"})
+
 	connectTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metrics.Namespace,
-		Name:      "tcp_connection_authentication_total",
-		Help:      "Total number of client TCP connections authenticated via HTTP Connect",
+		Name:      "client_authentication_total",
+		Help:      "Total number of client authenticated via HTTP Connect",
 	}, []string{"code"})
 	connectDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metrics.Namespace,
-		Name:      "tcp_connection_authentication_duration_seconds",
-		Help:      "Duration of client TCP connections authenticated via HTTP Connect in seconds",
+		Name:      "client_connection_duration_seconds",
+		Help:      "Duration of client authenticated via HTTP Connect in seconds",
 		Buckets:   prometheus.DefBuckets,
 	}, []string{"code"})
 
@@ -73,34 +74,26 @@ type proxyConnMetricsTracker struct {
 	connCategory string
 }
 
-func newProxyConnMetrics(connCategory string, proxyConnMetrics *proxyConnMetrics) *proxyConnMetricsTracker {
+func newProxyConnMetricsTracker(connCategory string, proxyConnMetrics *proxyConnMetrics) *proxyConnMetricsTracker {
 	return &proxyConnMetricsTracker{
-		connCategory: connCategory,
 		metrics:      proxyConnMetrics,
+		start:        time.Now(),
+		connCategory: connCategory,
 	}
 }
 
-func (p *proxyConnMetricsTracker) startRecord() {
-	p.start = time.Now()
-	p.metrics.activeConn.Inc()
+func (t *proxyConnMetricsTracker) startRecord() {
+	t.metrics.activeConn.Inc()
 }
 
-func (p *proxyConnMetricsTracker) recordConnMetrics() {
-	if p.start.IsZero() {
-		return
-	}
-
-	p.metrics.activeConn.Dec()
-	p.metrics.connTotal.WithLabelValues(p.connCategory).Inc()
-	p.metrics.connDuration.WithLabelValues(p.connCategory).Observe(time.Since(p.start).Seconds())
+func (t *proxyConnMetricsTracker) recordConnMetrics() {
+	t.metrics.activeConn.Dec()
+	t.metrics.connTotal.WithLabelValues(t.connCategory).Inc()
+	t.metrics.connDuration.WithLabelValues(t.connCategory).Observe(time.Since(t.start).Seconds())
 }
 
-func (p *proxyConnMetricsTracker) recordConnectMetrics(code int) {
-	if p.start.IsZero() {
-		return
-	}
-
+func (t *proxyConnMetricsTracker) recordConnectMetrics(code int) {
 	codeStr := strconv.Itoa(code)
-	p.metrics.connectDuration.WithLabelValues(codeStr).Observe(time.Since(p.start).Seconds())
-	p.metrics.connectTotal.WithLabelValues(codeStr).Inc()
+	t.metrics.connectDuration.WithLabelValues(codeStr).Observe(time.Since(t.start).Seconds())
+	t.metrics.connectTotal.WithLabelValues(codeStr).Inc()
 }

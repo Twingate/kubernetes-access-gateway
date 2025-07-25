@@ -17,12 +17,9 @@ import (
 
 func TestProxyConnMetricsTracker(t *testing.T) {
 	testRegistry := prometheus.NewRegistry()
-	metrics := registerProxyConnMetrics(testRegistry)
+	metrics := createProxyConnMetrics(testRegistry)
 
-	proxyConnMetrics := &proxyConnMetricsTracker{
-		connCategory: connCategoryProxy,
-		metrics:      metrics,
-	}
+	proxyConnMetrics := newProxyConnMetricsTracker(connCategoryProxy, metrics)
 
 	proxyConnMetrics.startRecord()
 
@@ -41,10 +38,10 @@ func TestProxyConnMetricsTracker(t *testing.T) {
 		"twingate_gateway_tcp_connection_duration_seconds": {
 			"connection_category": "proxy",
 		},
-		"twingate_gateway_tcp_connection_authentication_total": {
+		"twingate_gateway_client_authentication_total": {
 			"code": "200",
 		},
-		"twingate_gateway_tcp_connection_authentication_duration_seconds": {
+		"twingate_gateway_client_connection_duration_seconds": {
 			"code": "200",
 		},
 	}
@@ -62,31 +59,8 @@ func TestProxyConnMetricsTracker(t *testing.T) {
 	count = promtestutil.ToFloat64(metrics.connectTotal)
 	assert.Equal(t, 1, int(count))
 
-	histogram = testutil.GetHistogram("twingate_gateway_tcp_connection_authentication_duration_seconds", metricFamilies)
+	histogram = testutil.GetHistogram("twingate_gateway_client_connection_duration_seconds", metricFamilies)
 	require.NotNil(t, histogram)
 	assert.Equal(t, uint64(1), histogram.GetSampleCount())
 	assert.Positive(t, histogram.GetSampleSum())
-}
-
-func TestProxyConnMetricsTracker_SkipRecordWhenNotStarted(t *testing.T) {
-	testRegistry := prometheus.NewRegistry()
-	metrics := registerProxyConnMetrics(testRegistry)
-
-	proxyConnMetrics := &proxyConnMetricsTracker{
-		connCategory: connCategoryProxy,
-		metrics:      metrics,
-	}
-
-	proxyConnMetrics.recordConnMetrics()
-	proxyConnMetrics.recordConnectMetrics(200)
-
-	metricFamilies, err := testRegistry.Gather()
-	require.NoError(t, err)
-
-	labelsByMetric := testutil.ExtractLabelsFromMetrics(metricFamilies)
-	expectedLabels := map[string]map[string]string{
-		"twingate_gateway_active_tcp_connections": {},
-	}
-
-	assert.Equal(t, expectedLabels, labelsByMetric)
 }

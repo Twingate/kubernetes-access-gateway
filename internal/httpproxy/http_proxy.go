@@ -83,7 +83,7 @@ type ProxyConn struct {
 	timer  *time.Timer
 	mu     sync.Mutex
 
-	metrics *proxyConnMetricsTracker
+	tracker *proxyConnMetricsTracker
 	once    sync.Once
 }
 
@@ -111,7 +111,7 @@ func (p *ProxyConn) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	defer p.once.Do(p.metrics.recordConnMetrics)
+	defer p.once.Do(p.tracker.recordConnMetrics)
 
 	if p.timer != nil {
 		p.timer.Stop()
@@ -122,7 +122,7 @@ func (p *ProxyConn) Close() error {
 
 // authenticate sets up TLS and processes the CONNECT message for authentication.
 func (p *ProxyConn) authenticate() error {
-	p.metrics.startRecord()
+	p.tracker.startRecord()
 
 	// Establish TLS connection with the downstream proxy
 	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
@@ -155,7 +155,7 @@ func (p *ProxyConn) authenticate() error {
 
 	// Health check request
 	if isHealthCheckRequest(req) {
-		p.metrics.connCategory = connCategoryHealth
+		p.tracker.connCategory = connCategoryHealth
 
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 
@@ -169,7 +169,7 @@ func (p *ProxyConn) authenticate() error {
 		return io.EOF
 	}
 
-	p.metrics.connCategory = connCategoryProxy
+	p.tracker.connCategory = connCategoryProxy
 
 	// get the keying material for the TLS session
 	ekm, err := ExportKeyingMaterial(tlsConnectConn)
@@ -220,7 +220,7 @@ func (p *ProxyConn) authenticate() error {
 		return err
 	}
 
-	p.metrics.recordConnectMetrics(httpCode)
+	p.tracker.recordConnectMetrics(httpCode)
 
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
 	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
@@ -270,7 +270,7 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
-		metrics:          newProxyConnMetrics(connCategoryUnknown, l.metrics),
+		tracker:          newProxyConnMetricsTracker(connCategoryUnknown, l.metrics),
 	}, nil
 }
 
@@ -428,7 +428,7 @@ func (p *Proxy) Start(ready chan struct{}) {
 		TLSConfig:        p.downstreamTLSConfig,
 		ConnectValidator: p.config.ConnectValidator,
 		logger:           logger,
-		metrics:          registerProxyConnMetrics(p.config.Registry),
+		metrics:          createProxyConnMetrics(p.config.Registry),
 	}
 
 	err = p.httpServer.Serve(listener)
