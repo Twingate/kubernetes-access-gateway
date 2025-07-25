@@ -12,6 +12,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"k8sgateway/internal/metrics/testutil"
 )
 
 func TestRoundTripper(t *testing.T) {
@@ -34,7 +36,7 @@ func TestRoundTripper(t *testing.T) {
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
 
-	labelsByMetric := extractLabelsFromMetrics(metricFamilies)
+	labelsByMetric := testutil.ExtractLabelsFromMetrics(metricFamilies)
 	expectedLabels := map[string]map[string]string{
 		"twingate_gateway_api_server_requests_total": {
 			"type":   "http",

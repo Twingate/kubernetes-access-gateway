@@ -82,6 +82,9 @@ type ProxyConn struct {
 	claims *token.GATClaims
 	timer  *time.Timer
 	mu     sync.Mutex
+
+	tracker *proxyConnMetricsTracker
+	once    sync.Once
 }
 
 func (p *ProxyConn) Read(b []byte) (int, error) {
@@ -108,6 +111,8 @@ func (p *ProxyConn) Close() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	defer p.once.Do(p.tracker.recordConnMetrics)
+
 	if p.timer != nil {
 		p.timer.Stop()
 	}
@@ -117,6 +122,8 @@ func (p *ProxyConn) Close() error {
 
 // authenticate sets up TLS and processes the CONNECT message for authentication.
 func (p *ProxyConn) authenticate() error {
+	p.tracker.startRecord()
+
 	// Establish TLS connection with the downstream proxy
 	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
 
@@ -147,7 +154,9 @@ func (p *ProxyConn) authenticate() error {
 	}
 
 	// Health check request
-	if req.Method == http.MethodGet && req.URL.Path == healthCheckPath {
+	if isHealthCheckRequest(req) {
+		p.tracker.connCategory = connCategoryHealth
+
 		responseStr := "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 
 		_, writeErr := tlsConnectConn.Write([]byte(responseStr))
@@ -160,6 +169,8 @@ func (p *ProxyConn) authenticate() error {
 		return io.EOF
 	}
 
+	p.tracker.connCategory = connCategoryProxy
+
 	// get the keying material for the TLS session
 	ekm, err := ExportKeyingMaterial(tlsConnectConn)
 	if err != nil {
@@ -170,17 +181,17 @@ func (p *ProxyConn) authenticate() error {
 
 	// Parse and validate HTTP request, expecting CONNECT with
 	// valid token and signature
-	response := httpResponseString(http.StatusOK)
+	httpCode := http.StatusOK
 
 	connectInfo, err := p.ConnectValidator.ParseConnect(req, ekm)
 	if err != nil {
 		var httpErr *connect.HTTPError
 		if errors.As(err, &httpErr) {
-			response = httpResponseString(httpErr.Code)
+			httpCode = httpErr.Code
 		} else {
 			p.logger.Error("failed to parse CONNECT:", zap.Error(err))
 
-			response = httpResponseString(http.StatusBadRequest)
+			httpCode = http.StatusBadRequest
 		}
 	}
 
@@ -194,6 +205,8 @@ func (p *ProxyConn) authenticate() error {
 		zap.String("conn_id", connectInfo.ConnID),
 	)
 
+	response := httpResponseString(httpCode)
+
 	_, writeErr := tlsConnectConn.Write([]byte(response))
 	if writeErr != nil {
 		p.logger.Error("failed to write response", zap.Error(writeErr))
@@ -206,6 +219,8 @@ func (p *ProxyConn) authenticate() error {
 
 		return err
 	}
+
+	p.tracker.recordConnectMetrics(httpCode)
 
 	// CONNECT from downstream proxy is finished, now perform handshake with the downstream client
 	tlsConn := tls.Server(tlsConnectConn, p.TLSConfig)
@@ -241,6 +256,7 @@ type proxyListener struct {
 	TLSConfig        *tls.Config
 	ConnectValidator connect.Validator
 	logger           *zap.Logger
+	metrics          *proxyConnMetrics
 }
 
 func (l *proxyListener) Accept() (net.Conn, error) {
@@ -254,6 +270,7 @@ func (l *proxyListener) Accept() (net.Conn, error) {
 		TLSConfig:        l.TLSConfig,
 		ConnectValidator: l.ConnectValidator,
 		logger:           l.logger,
+		tracker:          newProxyConnMetricsTracker(connCategoryUnknown, l.metrics),
 	}, nil
 }
 
@@ -411,6 +428,7 @@ func (p *Proxy) Start(ready chan struct{}) {
 		TLSConfig:        p.downstreamTLSConfig,
 		ConnectValidator: p.config.ConnectValidator,
 		logger:           logger,
+		metrics:          createProxyConnMetrics(p.config.Registry),
 	}
 
 	err = p.httpServer.Serve(listener)
@@ -444,4 +462,8 @@ func shouldSkipWebSocketRequest(r *http.Request) bool {
 		r.Header.Get("Kubectl-Command") == "kubectl cp" ||
 		// Skip executing `tar` command
 		r.URL.Query().Get("command") == "tar"
+}
+
+func isHealthCheckRequest(r *http.Request) bool {
+	return r.Method == http.MethodGet && r.URL.Path == healthCheckPath
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	dto "github.com/prometheus/client_model/go"
+	"k8sgateway/internal/metrics/testutil"
 )
 
 func TestIsSpdyRequest(t *testing.T) {
@@ -130,7 +130,7 @@ func TestHTTPMiddleware(t *testing.T) {
 	metricFamilies, err := testRegistry.Gather()
 	require.NoError(t, err)
 
-	labelsByMetric := extractLabelsFromMetrics(metricFamilies)
+	labelsByMetric := testutil.ExtractLabelsFromMetrics(metricFamilies)
 	expectedLabels := map[string]map[string]string{
 		"twingate_gateway_http_requests_total": {
 			"type":   "http",
@@ -157,19 +157,4 @@ func TestHTTPMiddleware(t *testing.T) {
 		},
 	}
 	assert.Equal(t, expectedLabels, labelsByMetric)
-}
-
-func extractLabelsFromMetrics(metricFamilies []*dto.MetricFamily) map[string]map[string]string {
-	labelsByMetric := make(map[string]map[string]string, len(metricFamilies))
-
-	for _, family := range metricFamilies {
-		labels := make(map[string]string)
-		for _, label := range family.GetMetric()[0].GetLabel() {
-			labels[label.GetName()] = label.GetValue()
-		}
-
-		labelsByMetric[family.GetName()] = labels
-	}
-
-	return labelsByMetric
 }
