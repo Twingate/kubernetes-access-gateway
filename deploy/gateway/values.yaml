@@ -145,3 +145,10 @@ metrics:
     metricRelabelings: []
     honorLabels: false
     additionalLabels: {}
+
+  # Grafana Dashboard Configmap
+  grafanaDashboard:
+    enabled: false
+    labels:
+      grafana_dashboard: "1"
+
