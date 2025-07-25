@@ -2492,7 +2492,7 @@
         "type": "prometheus",
         "uid": "$datasource"
       },
-      "description": "Total number of Client TCP connections authenticated via HTTP Connect, grouped by status code.",
+      "description": "Total number of Client authenticated via HTTP Connect, grouped by status code.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2593,7 +2593,7 @@
         "type": "prometheus",
         "uid": "$datasource"
       },
-      "description": "Percentile latency of Client TCP connections authenticated via HTTP Connect.",
+      "description": "Percentile latency of Client authenticated via HTTP Connect.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2675,7 +2675,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "histogram_quantile(0.99, sum by(le) (rate(twingate_gateway_tcp_connection_authentication_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(twingate_gateway_client_connection_duration_seconds_bucket[5m])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -2687,7 +2687,7 @@
         },
         {
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(twingate_gateway_tcp_connection_authentication_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(twingate_gateway_client_connection_duration_seconds_bucket[5m])))",
           "legendFormat": "quantile=95",
           "range": true,
           "refId": "P95"
@@ -2698,7 +2698,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(twingate_gateway_tcp_connection_authentication_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(twingate_gateway_client_connection_duration_seconds_bucket[5m])))",
           "hide": false,
           "instant": false,
           "legendFormat": "quantile=50",
@@ -2714,7 +2714,7 @@
         "type": "prometheus",
         "uid": "$datasource"
       },
-      "description": "Average durations of Client TCP connections authenticated via HTTP Connect, grouped by status code.",
+      "description": "Average durations of Client authenticated via HTTP Connect, grouped by status code.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2794,7 +2794,7 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum by(code) (rate(twingate_gateway_tcp_connection_authentication_duration_seconds_sum[5m])) / sum by(code) (rate(twingate_gateway_tcp_connection_authentication_duration_seconds_count[5m]))",
+          "expr": "sum by(code) (rate(twingate_gateway_client_connection_duration_seconds_sum[5m])) / sum by(code) (rate(twingate_gateway_client_connection_duration_seconds_count[5m]))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "{{code}}",
