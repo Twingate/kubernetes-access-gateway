@@ -21,8 +21,6 @@ func TestProxyConnMetricsTracker(t *testing.T) {
 
 	proxyConnMetrics := newProxyConnMetricsTracker(connCategoryProxy, metrics)
 
-	proxyConnMetrics.startRecord()
-
 	proxyConnMetrics.recordConnMetrics()
 	proxyConnMetrics.recordConnectMetrics(200)
 

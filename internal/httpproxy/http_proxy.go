@@ -122,8 +122,6 @@ func (p *ProxyConn) Close() error {
 
 // authenticate sets up TLS and processes the CONNECT message for authentication.
 func (p *ProxyConn) authenticate() error {
-	p.tracker.startRecord()
-
 	// Establish TLS connection with the downstream proxy
 	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
 

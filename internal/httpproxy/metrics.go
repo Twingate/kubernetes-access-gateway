@@ -48,12 +48,12 @@ func createProxyConnMetrics(registry *prometheus.Registry) *proxyConnMetrics {
 	connectTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metrics.Namespace,
 		Name:      "client_authentication_total",
-		Help:      "Total number of clients authenticated via HTTP Connect",
+		Help:      "Total number of HTTP CONNECT authentication attempts",
 	}, []string{"code"})
 	connectDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: metrics.Namespace,
 		Name:      "client_connection_duration_seconds",
-		Help:      "Duration of client authenticated via HTTP Connect in seconds",
+		Help:      "Duration of HTTP CONNECT authentication attempt in seconds",
 		Buckets:   prometheus.DefBuckets,
 	}, []string{"code"})
 
@@ -75,15 +75,13 @@ type proxyConnMetricsTracker struct {
 }
 
 func newProxyConnMetricsTracker(connCategory string, proxyConnMetrics *proxyConnMetrics) *proxyConnMetricsTracker {
+	proxyConnMetrics.activeConn.Inc()
+
 	return &proxyConnMetricsTracker{
 		metrics:      proxyConnMetrics,
 		start:        time.Now(),
 		connCategory: connCategory,
 	}
-}
-
-func (t *proxyConnMetricsTracker) startRecord() {
-	t.metrics.activeConn.Inc()
 }
 
 func (t *proxyConnMetricsTracker) recordConnMetrics() {
