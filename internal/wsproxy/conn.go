@@ -33,12 +33,12 @@ func NewConn(c net.Conn, recorder Recorder, asciicastHeader asciicastHeader, ses
 	}
 }
 
-// creating an asciinema recording of a kubernetes ssh session.
+// creating an asciicast recording of a kubernetes ssh session.
 type conn struct {
 	net.Conn
 
-	recorder        Recorder        // asciinema recording
-	asciicastHeader asciicastHeader // header for the asciinema recording
+	recorder        Recorder        // asciicast recording
+	asciicastHeader asciicastHeader // header for the asciicast recording
 
 	// true if the kubernetes exec is a terminal session, such as 'kubectl exec /bin/bash'
 	// false if not a terminal session, such as 'kubectl exec ls'
@@ -48,12 +48,12 @@ type conn struct {
 	readMutex   sync.Mutex // non-parallel read
 	readMessage *wsMessage // current websocket message that is being parsed
 	readBuffer  bytes.Buffer
-	// For asciinema recording we need to have the starting terminal size so
+	// For asciicast recording we need to have the starting terminal size so
 	// that we can create the asciicast header, which is the metadata at the start of the recording.
 	// see: https://docs.asciinema.org/manual/asciicast/v2/
 	// The kubernetes subprotocol will send a StreamResize event at the start of the
 	// session and we will use this first event as the terminal size for the cast header.
-	// Further StreamResize events will be treated as normal resize events for the asciinema recording.
+	// Further StreamResize events will be treated as normal resize events for the asciicast recording.
 	// Once we have the first StreamResize event from downstream we can then:
 	// 1. write the cast header which begins the recording
 	// 2. allow upstream data to be written downstream
