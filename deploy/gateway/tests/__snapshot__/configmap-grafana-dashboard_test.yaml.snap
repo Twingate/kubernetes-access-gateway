@@ -2497,7 +2497,7 @@ should create Grafana Dashboard:
                 "type": "prometheus",
                 "uid": "$datasource"
               },
-              "description": "Total number of Clients authenticated via HTTP Connect, grouped by status code.",
+              "description": "Total number of HTTP Connect authentication attempts, grouped by status code.",
               "fieldConfig": {
                 "defaults": {
                   "color": {
@@ -2581,7 +2581,7 @@ should create Grafana Dashboard:
                 {
                   "disableTextWrap": false,
                   "editorMode": "builder",
-                  "expr": "sum by(code) (rate(twingate_gateway_tcp_connection_authentication_total[5m]))",
+                  "expr": "sum by(code) (rate(twingate_gateway_client_authentication_total[5m]))",
                   "fullMetaSearch": false,
                   "includeNullMetadata": true,
                   "legendFormat": "{{code}}",
@@ -2598,7 +2598,7 @@ should create Grafana Dashboard:
                 "type": "prometheus",
                 "uid": "$datasource"
               },
-              "description": "Percentile latency of Client authenticated via HTTP Connect.",
+              "description": "Percentile latency of HTTP Connect authentication attempts.",
               "fieldConfig": {
                 "defaults": {
                   "color": {
@@ -2719,7 +2719,7 @@ should create Grafana Dashboard:
                 "type": "prometheus",
                 "uid": "$datasource"
               },
-              "description": "Average durations of Client authenticated via HTTP Connect, grouped by status code.",
+              "description": "Average durations of HTTP Connect authentication attempts, grouped by status code.",
               "fieldConfig": {
                 "defaults": {
                   "color": {
