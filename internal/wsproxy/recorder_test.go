@@ -80,7 +80,6 @@ func TestRecorder_WriteHeader(t *testing.T) {
 		Height:    24,
 		Timestamp: time.Now().Unix(),
 		Command:   "/bin/bash",
-		Env:       map[string]string{"TERM": "xterm-256color"},
 		User:      "testuser",
 		K8sMetadata: &k8sMetadata{
 			PodName:   "test-pod",
