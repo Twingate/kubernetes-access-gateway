@@ -172,7 +172,7 @@ metrics:
     #   labels:
     #     severity: warning
     #   annotations:
-    #     description: Twingate Gateway metrics endpoint is experiencing errors at {{ $value }} errors/sec.
+    #     description: Twingate Gateway metrics endpoint is experiencing errors at {{ $value }} errors/sec over the last 2 minutes.
 
     # # High error rate alerts
     # - alert: TwingateGatewayHighHTTPErrorRate
@@ -184,7 +184,7 @@ metrics:
     #   labels:
     #     severity: warning
     #   annotations:
-    #     description: Twingate Gateway HTTP {{ $labels.code }} error rate is above 0.8 requests/sec the last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
+    #     description: Twingate Gateway HTTP {{ $labels.code }} error rate is above 0.8 requests/sec over last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
 
     # - alert: TwingateGatewayHighAPIServerErrorRate
     #   expr: |
@@ -195,7 +195,7 @@ metrics:
     #   labels:
     #     severity: warning
     #   annotations:
-    #     description: Twingate Gateway API Server {{ $labels.code }} error rate is above 0.8 requests/sec the last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
+    #     description: Twingate Gateway API Server {{ $labels.code }} error rate is above 0.8 requests/sec over the last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
 
     # # Authentication failures
     # - alert: TwingateGatewayHighAuthenticationFailures
@@ -208,5 +208,4 @@ metrics:
     #   labels:
     #     severity: warning
     #   annotations:
-    #     description: Twingate Gateway authentication failure rate is {{ $value | humanizePercentage }} over the last 5 minutes.
-
+    #     description: Twingate Gateway authentication failure rate is {{ $value | humanizePercentage }} over the last 2 minutes.
