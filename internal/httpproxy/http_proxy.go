@@ -390,6 +390,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	})
 	mux.Handle("/", handler)
 	mux.Handle("GET /api/v1/namespaces/{namespace}/pods/{pod}/exec", handler)
+	mux.Handle("GET /api/v1/namespaces/{namespace}/pods/{pod}/attach", handler)
 
 	return p, nil
 }
