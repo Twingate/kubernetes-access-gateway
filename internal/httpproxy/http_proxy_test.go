@@ -20,10 +20,11 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/prometheus/client_golang/prometheus"
-	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 
 	"k8sgateway/internal/connect"
 	"k8sgateway/internal/token"
