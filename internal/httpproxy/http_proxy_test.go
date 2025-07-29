@@ -20,6 +20,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/prometheus/client_golang/prometheus"
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -85,10 +86,11 @@ func TestProxyConn_setConnectInfo(t *testing.T) {
 func TestProxyConn_Close(t *testing.T) {
 	conn := &mockConn{}
 	timer := time.NewTimer(0 * time.Millisecond)
+	metrics := createProxyConnMetrics(prometheus.NewRegistry())
 	proxyConn := &ProxyConn{
 		Conn:    conn,
 		timer:   timer,
-		tracker: newProxyConnMetricsTracker(connCategoryUnknown, createProxyConnMetrics(prometheus.NewRegistry())),
+		tracker: newProxyConnMetricsTracker(connCategoryUnknown, metrics),
 	}
 
 	_ = proxyConn.Close()
@@ -104,13 +106,9 @@ func TestProxyConn_Close(t *testing.T) {
 
 	// Ensure metrics are only measured once
 	_ = proxyConn.Close()
-	called := false
 
-	proxyConn.once.Do(func() {
-		called = true
-	})
-
-	assert.False(t, called)
+	count := promtestutil.ToFloat64(metrics.connTotal)
+	assert.Equal(t, 1, int(count))
 }
 
 var errValidation = &connect.HTTPError{
