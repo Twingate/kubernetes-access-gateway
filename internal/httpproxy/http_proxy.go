@@ -122,6 +122,9 @@ func (p *ProxyConn) Close() error {
 
 // authenticate sets up TLS and processes the CONNECT message for authentication.
 func (p *ProxyConn) authenticate() error {
+	p.Conn.SetDeadline(time.Now().Add(10 * time.Second))
+	defer p.Conn.SetDeadline(time.Time{})
+
 	// Establish TLS connection with the downstream proxy
 	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
 
