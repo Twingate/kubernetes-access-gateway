@@ -29,6 +29,7 @@ COVPROFILE_INTEGRATION := covprofile-integration
 COVERED_PACKAGES := ./cmd/...,./internal/...
 UNIT_TEST_PACKAGES := ./cmd/... ./internal/...
 INTEGRATION_TEST_PACKAGES := ./test/integration/...
+E2E_TEST_PACKAGES := ./test/e2e/...
 
 .PHONY: help
 help: ##@other Shows this help.
@@ -77,6 +78,11 @@ test-integration: ##@test Run integration tests
 test-integration-with-coverage: ##@test Run integration tests with coverage
 	@echo "Running integration tests with coverage..."
 	go test -race -covermode atomic -coverpkg="$(COVERED_PACKAGES)" -coverprofile=$(COVPROFILE_INTEGRATION) $(INTEGRATION_TEST_PACKAGES)
+
+.PHONY: test-e2e
+test-e2e: ##@test Run e2e tests
+	@echo "Running e2e tests..."
+	go test -race -v $(E2E_TEST_PACKAGES)
 
 .PHONY: coverall
 coverall: ##@test Send code coverage to Coveralls

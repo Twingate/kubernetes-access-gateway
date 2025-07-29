@@ -48,14 +48,13 @@ type k8sMetadata struct {
 }
 
 type asciinemaHeader struct {
-	Version     int               `json:"version"`
-	Width       int               `json:"width"`
-	Height      int               `json:"height"`
-	Timestamp   int64             `json:"timestamp"`
-	Command     string            `json:"command,omitempty"`
-	Env         map[string]string `json:"env"`
-	User        string            `json:"user"`
-	K8sMetadata *k8sMetadata      `json:"kubernetes,omitempty"`
+	Version     int          `json:"version"`
+	Width       int          `json:"width"`
+	Height      int          `json:"height"`
+	Timestamp   int64        `json:"timestamp"`
+	Command     string       `json:"command,omitempty"`
+	User        string       `json:"user"`
+	K8sMetadata *k8sMetadata `json:"kubernetes,omitempty"`
 }
 
 type Recorder interface {

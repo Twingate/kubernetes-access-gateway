@@ -24,6 +24,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
+
 	"k8sgateway/internal/connect"
 	"k8sgateway/internal/token"
 )
@@ -53,7 +55,7 @@ func TestProxyConn_setConnectInfo(t *testing.T) {
 	}
 	connID := "conn-id-1"
 
-	proxyConn := &ProxyConn{Conn: conn}
+	proxyConn := &ProxyConn{Conn: conn, tracker: newProxyConnMetricsTracker(connCategoryUnknown, createProxyConnMetrics(prometheus.NewRegistry()))}
 
 	func() {
 		// `setConnectInfo` should only be called after acquiring the lock. This is needed
@@ -85,9 +87,11 @@ func TestProxyConn_setConnectInfo(t *testing.T) {
 func TestProxyConn_Close(t *testing.T) {
 	conn := &mockConn{}
 	timer := time.NewTimer(0 * time.Millisecond)
+	metrics := createProxyConnMetrics(prometheus.NewRegistry())
 	proxyConn := &ProxyConn{
-		Conn:  conn,
-		timer: timer,
+		Conn:    conn,
+		timer:   timer,
+		tracker: newProxyConnMetricsTracker(connCategoryUnknown, metrics),
 	}
 
 	_ = proxyConn.Close()
@@ -100,6 +104,12 @@ func TestProxyConn_Close(t *testing.T) {
 		assert.Fail(t, "Timer should have been stopped")
 	default:
 	}
+
+	// Ensure metrics are only measured once
+	_ = proxyConn.Close()
+
+	count := promtestutil.ToFloat64(metrics.connTotal)
+	assert.Equal(t, 1, int(count))
 }
 
 var errValidation = &connect.HTTPError{
@@ -174,6 +184,7 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 		TLSConfig:        proxyTLSConfig,
 		ConnectValidator: mockValidator,
 		logger:           zap.NewNop(),
+		metrics:          createProxyConnMetrics(prometheus.NewRegistry()),
 	}
 
 	// make client TLS
@@ -240,6 +251,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	listener = &proxyListener{
 		Listener:  listener,
 		TLSConfig: proxyTLSConfig,
+		metrics:   createProxyConnMetrics(prometheus.NewRegistry()),
 	}
 
 	// make client TLS
@@ -319,6 +331,7 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 		TLSConfig:        proxyTLSConfig,
 		ConnectValidator: mockValidator,
 		logger:           zap.NewNop(),
+		metrics:          createProxyConnMetrics(prometheus.NewRegistry()),
 	}
 
 	// make client TLS
@@ -410,6 +423,7 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 		TLSConfig:        proxyTLSConfig,
 		ConnectValidator: mockValidator,
 		logger:           zap.NewNop(),
+		metrics:          createProxyConnMetrics(prometheus.NewRegistry()),
 	}
 
 	// make client TLS
@@ -640,6 +654,36 @@ func TestShouldSkipWebSocketRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := shouldSkipWebSocketRequest(tt.newRequestFn())
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestIsHealthCheckRequest(t *testing.T) {
+	testCases := []struct {
+		name           string
+		request        *http.Request
+		expectedResult bool
+	}{
+		{
+			name:           "Healthcheck request",
+			request:        httptest.NewRequest(http.MethodGet, healthCheckPath, nil),
+			expectedResult: true,
+		},
+		{
+			name:           "POST request to healthcheck path",
+			request:        httptest.NewRequest(http.MethodPost, healthCheckPath, nil),
+			expectedResult: false,
+		},
+		{
+			name:           "Proxy request",
+			request:        httptest.NewRequest(http.MethodConnect, "", nil),
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedResult, isHealthCheckRequest(tc.request))
 		})
 	}
 }
