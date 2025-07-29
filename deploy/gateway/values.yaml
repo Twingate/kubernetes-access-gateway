@@ -203,7 +203,7 @@ metrics:
     #     (
     #       sum(rate(twingate_gateway_client_authentication_total{code!="200"}[5m])) /
     #       sum(rate(twingate_gateway_client_authentication_total[5m]))
-    #     ) > 10
+    #     ) > 0.1
     #   for: 2m
     #   labels:
     #     severity: warning
