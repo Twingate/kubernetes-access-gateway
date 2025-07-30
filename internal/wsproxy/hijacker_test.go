@@ -71,11 +71,11 @@ func (m *mockHijackerConn) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
-func mockNewConn(conn net.Conn, _ Recorder, _ asciinemaHeader, _ bool) net.Conn {
+func mockNewConn(conn net.Conn, _ Recorder, _ asciicastHeader, _ bool) net.Conn {
 	return conn
 }
 
-func mockNewRecorder() *AsciinemaRecorder {
+func mockNewRecorder() *AsciicastRecorder {
 	return NewRecorder(zap.NewNop())
 }
 
@@ -159,12 +159,12 @@ func TestHijacker_StartRecorder(t *testing.T) {
 	assert.Equal(t, mockConn, conn)
 }
 
-func TestHijacker_AsciinemaHeaderCreation(t *testing.T) {
-	var capturedHeader asciinemaHeader
+func TestHijacker_AsciicastHeaderCreation(t *testing.T) {
+	var capturedHeader asciicastHeader
 
 	var capturedTty bool
 
-	newConn := func(conn net.Conn, _ Recorder, header asciinemaHeader, isTty bool) net.Conn {
+	newConn := func(conn net.Conn, _ Recorder, header asciicastHeader, isTty bool) net.Conn {
 		capturedHeader = header
 		capturedTty = isTty
 

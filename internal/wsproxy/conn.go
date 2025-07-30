@@ -23,22 +23,22 @@ var (
 	errFailedToWriteRecording = errors.New("failed to write recording")
 )
 
-func NewConn(c net.Conn, recorder Recorder, asciinemaHeader asciinemaHeader, sessionHasTerminal bool) net.Conn {
+func NewConn(c net.Conn, recorder Recorder, asciicastHeader asciicastHeader, sessionHasTerminal bool) net.Conn {
 	return &conn{
 		Conn:               c,
 		readFirstResize:    make(chan struct{}, 1),
 		recorder:           recorder,
-		asciinemaHeader:    asciinemaHeader,
+		asciicastHeader:    asciicastHeader,
 		sessionHasTerminal: sessionHasTerminal,
 	}
 }
 
-// creating an asciinema recording of a kubernetes ssh session.
+// creating an asciicast recording of a kubernetes ssh session.
 type conn struct {
 	net.Conn
 
-	recorder        Recorder        // asciinema recording
-	asciinemaHeader asciinemaHeader // header for the asciinema recording
+	recorder        Recorder        // asciicast recording
+	asciicastHeader asciicastHeader // header for the asciicast recording
 
 	// true if the kubernetes exec is a terminal session, such as 'kubectl exec /bin/bash'
 	// false if not a terminal session, such as 'kubectl exec ls'
@@ -48,12 +48,12 @@ type conn struct {
 	readMutex   sync.Mutex // non-parallel read
 	readMessage *wsMessage // current websocket message that is being parsed
 	readBuffer  bytes.Buffer
-	// For asciinema recording we need to have the starting terminal size so
-	// that we can create the asciinema cast header, which is the metadata at the start of the recording.
+	// For asciicast recording we need to have the starting terminal size so
+	// that we can create the asciicast header, which is the metadata at the start of the recording.
 	// see: https://docs.asciinema.org/manual/asciicast/v2/
 	// The kubernetes subprotocol will send a StreamResize event at the start of the
 	// session and we will use this first event as the terminal size for the cast header.
-	// Further StreamResize events will be treated as normal resize events for the asciinema recording.
+	// Further StreamResize events will be treated as normal resize events for the asciicast recording.
 	// Once we have the first StreamResize event from downstream we can then:
 	// 1. write the cast header which begins the recording
 	// 2. allow upstream data to be written downstream
@@ -149,7 +149,7 @@ func (c *conn) Read(data []byte) (int, error) {
 			return bytesRead, fmt.Errorf("%w: %w", errFailedToParseResizeMsg, err)
 		}
 
-		// if it's the first resize, we save it for the asciinema cast header
+		// if it's the first resize, we save it for the asciicast header
 		// otherwise we record it as a terminal resize event
 		var firstResize bool
 
@@ -159,8 +159,8 @@ func (c *conn) Read(data []byte) (int, error) {
 
 		if firstResize {
 			// set the header terminal size and close the channel
-			c.asciinemaHeader.Width = resizeMessage.Width
-			c.asciinemaHeader.Height = resizeMessage.Height
+			c.asciicastHeader.Width = resizeMessage.Width
+			c.asciicastHeader.Height = resizeMessage.Height
 			close(c.readFirstResize)
 		} else if err := c.recorder.WriteResizeEvent(resizeMessage.Width, resizeMessage.Height); err != nil {
 			return bytesRead, fmt.Errorf("%w: %w", errFailedToWriteResizeMsg, err)
@@ -243,7 +243,7 @@ func (c *conn) Write(data []byte) (int, error) {
 		}
 
 		// on first Write() we want to block and wait for the first resize event (if terminal) so that
-		// we can record the asciinema header first and then continue the flow and recording
+		// we can record the asciicast header first and then continue the flow and recording
 		var waitForFirstResize bool
 
 		c.writeStartRecordingOnce.Do(func() {
@@ -255,9 +255,9 @@ func (c *conn) Write(data []byte) (int, error) {
 			<-c.readFirstResize // blocks waiting for Read() to unblock channel
 		}
 
-		// record the asciinema header first to start the recording
+		// record the asciicast header first to start the recording
 		if !c.recorder.IsHeaderWritten() {
-			if err := c.recorder.WriteHeader(c.asciinemaHeader); err != nil {
+			if err := c.recorder.WriteHeader(c.asciicastHeader); err != nil {
 				return 0, fmt.Errorf("%w: %w", errFailedToWriteHeader, err)
 			}
 		}
