@@ -238,15 +238,6 @@ func (p *ProxyConn) authenticate() error {
 	p.Conn = tlsConn
 	p.setConnectInfo(connectInfo)
 	p.isAuthenticated = true
-
-	// Clear the timeouts for long-lived session
-	err = p.SetDeadline(time.Time{})
-	if err != nil {
-		p.logger.Error("failed to reset deadline", zap.Error(err))
-
-		return err
-	}
-
 	return nil
 }
 
