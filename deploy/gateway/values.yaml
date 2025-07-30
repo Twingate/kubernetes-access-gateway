@@ -158,13 +158,13 @@ metrics:
     enabled: false
     additionalLabels: {}  
     rules: []
-    # - alert: TwingateGatewayDown
+    # - alert: TwingateGatewayMetricsUnreachable
     #   expr: up{container="kubernetes-access-gateway"} == 0
     #   for: 1m
     #   labels:
     #     severity: critical
     #   annotations:
-    #     description: Twingate Gateway instance {{ $labels.instance }} has been down for more than 1 minute.
+    #     description: Twingate Gateway metrics instance {{ $labels.instance }} has been down for more than 1 minute.
 
     # - alert: TwingateGatewayMetricsEndpointErrors
     #   expr: sum(rate(promhttp_metric_handler_errors_total{container="kubernetes-access-gateway"}[5m])) > 0
