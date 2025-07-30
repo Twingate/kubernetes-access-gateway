@@ -74,7 +74,7 @@ func TestRecorder_WriteResizeEvent(t *testing.T) {
 func TestRecorder_WriteHeader(t *testing.T) {
 	r := NewRecorder(zap.NewNop())
 
-	header := asciinemaHeader{
+	header := asciicastHeader{
 		Version:   2,
 		Width:     80,
 		Height:    24,
@@ -91,7 +91,7 @@ func TestRecorder_WriteHeader(t *testing.T) {
 	err := r.WriteHeader(header)
 	require.NoError(t, err, "WriteHeader should not return an error")
 
-	var recordedHeader asciinemaHeader
+	var recordedHeader asciicastHeader
 
 	err = json.Unmarshal([]byte(r.header), &recordedHeader)
 	require.NoError(t, err, "Header should be valid JSON")
@@ -101,7 +101,7 @@ func TestRecorder_WriteHeader(t *testing.T) {
 func TestRecorder_MultipleEvents(t *testing.T) {
 	r := NewRecorder(zap.NewNop())
 
-	header := asciinemaHeader{
+	header := asciicastHeader{
 		Version: 2,
 		Width:   80,
 		Height:  24,
@@ -116,7 +116,7 @@ func TestRecorder_MultipleEvents(t *testing.T) {
 	assert.Len(t, r.recordedLines, 3, "Recorder should have 3 events")
 
 	// Validate header
-	var recordedHeader asciinemaHeader
+	var recordedHeader asciicastHeader
 
 	err := json.Unmarshal([]byte(r.header), &recordedHeader)
 	require.NoError(t, err)
@@ -233,7 +233,7 @@ func TestRecorderFlow(t *testing.T) {
 	assert.WithinDuration(t, time.Now(), r.start, 1*time.Second, "Recorder start time should be recent")
 
 	// Write header
-	header := asciinemaHeader{
+	header := asciicastHeader{
 		Version: 2,
 		Width:   80,
 		Height:  24,

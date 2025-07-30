@@ -47,7 +47,7 @@ type k8sMetadata struct {
 	Container string `json:"container"`
 }
 
-type asciinemaHeader struct {
+type asciicastHeader struct {
 	Version     int          `json:"version"`
 	Width       int          `json:"width"`
 	Height      int          `json:"height"`
@@ -58,7 +58,7 @@ type asciinemaHeader struct {
 }
 
 type Recorder interface {
-	WriteHeader(h asciinemaHeader) error
+	WriteHeader(h asciicastHeader) error
 	WriteOutputEvent(data []byte) error
 	WriteResizeEvent(width int, height int) error
 	IsHeaderWritten() bool
@@ -81,7 +81,7 @@ type config struct {
 	flushInterval time.Duration
 }
 
-type AsciinemaRecorder struct {
+type AsciicastRecorder struct {
 	config config
 
 	start         time.Time
@@ -102,8 +102,8 @@ type AsciinemaRecorder struct {
 	mu sync.Mutex
 }
 
-func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder {
-	r := &AsciinemaRecorder{
+func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciicastRecorder {
+	r := &AsciicastRecorder{
 		start:         time.Now(),
 		recordedLines: []string{},
 		config: config{
@@ -129,27 +129,27 @@ func NewRecorder(logger *zap.Logger, opts ...RecorderOption) *AsciinemaRecorder 
 	return r
 }
 
-type RecorderOption func(*AsciinemaRecorder)
+type RecorderOption func(*AsciicastRecorder)
 
 func WithFlushSizeThreshold(limit int) RecorderOption {
-	return func(r *AsciinemaRecorder) {
+	return func(r *AsciicastRecorder) {
 		r.config.flushSizeThreshold = limit
 	}
 }
 
 func WithFlushInterval(interval time.Duration) RecorderOption {
-	return func(r *AsciinemaRecorder) {
+	return func(r *AsciicastRecorder) {
 		r.config.flushInterval = interval
 	}
 }
 
 func WithClock(clock clockwork.Clock) RecorderOption {
-	return func(r *AsciinemaRecorder) {
+	return func(r *AsciicastRecorder) {
 		r.config.clock = clock
 	}
 }
 
-func (r *AsciinemaRecorder) WriteHeader(h asciinemaHeader) error {
+func (r *AsciicastRecorder) WriteHeader(h asciicastHeader) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -163,28 +163,28 @@ func (r *AsciinemaRecorder) WriteHeader(h asciinemaHeader) error {
 	return nil
 }
 
-func (r *AsciinemaRecorder) WriteOutputEvent(data []byte) error {
+func (r *AsciicastRecorder) WriteOutputEvent(data []byte) error {
 	return r.writeJSON([]any{
 		time.Since(r.start).Seconds(),
 		"o",
 		string(data)})
 }
 
-func (r *AsciinemaRecorder) WriteResizeEvent(width int, height int) (err error) {
+func (r *AsciicastRecorder) WriteResizeEvent(width int, height int) (err error) {
 	return r.writeJSON([]any{
 		time.Since(r.start).Seconds(),
 		"r",
 		fmt.Sprintf("%dx%d", width, height)})
 }
 
-func (r *AsciinemaRecorder) IsHeaderWritten() bool {
+func (r *AsciicastRecorder) IsHeaderWritten() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	return r.header != ""
 }
 
-func (r *AsciinemaRecorder) Stop() {
+func (r *AsciicastRecorder) Stop() {
 	r.mu.Lock()
 
 	if r.stopped {
@@ -207,7 +207,7 @@ func (r *AsciinemaRecorder) Stop() {
 	r.flush(true)
 }
 
-func (r *AsciinemaRecorder) writeJSON(data any) error {
+func (r *AsciicastRecorder) writeJSON(data any) error {
 	jsonEvent, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("%w: %w", errFailedToConvertJSON, err)
@@ -220,7 +220,7 @@ func (r *AsciinemaRecorder) writeJSON(data any) error {
 	return nil
 }
 
-func (r *AsciinemaRecorder) storeEvent(event string) error {
+func (r *AsciicastRecorder) storeEvent(event string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -246,7 +246,7 @@ func (r *AsciinemaRecorder) storeEvent(event string) error {
 	return nil
 }
 
-func (r *AsciinemaRecorder) flushLoop() {
+func (r *AsciicastRecorder) flushLoop() {
 	defer r.flushWg.Done()
 
 	if r.flushTicker != nil {
@@ -272,7 +272,7 @@ func (r *AsciinemaRecorder) flushLoop() {
 	}
 }
 
-func (r *AsciinemaRecorder) flush(isFinal bool) {
+func (r *AsciicastRecorder) flush(isFinal bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
