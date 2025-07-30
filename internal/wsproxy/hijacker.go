@@ -63,7 +63,7 @@ func (h *WsHijacker) startRecording(conn net.Conn) net.Conn {
 	command := strings.Join(query["command"], "")
 	container := strings.Join(query["container"], "")
 
-	asciinemaHeader := asciicastHeader{
+	asciicastHeader := asciicastHeader{
 		Version:   2,
 		Timestamp: time.Now().Unix(),
 		Command:   command,
@@ -78,7 +78,7 @@ func (h *WsHijacker) startRecording(conn net.Conn) net.Conn {
 	recorder := h.newRecorder()
 
 	// return new wrapped connection that will record the session
-	recordedConn := h.newConn(conn, recorder, asciinemaHeader, tty == "true")
+	recordedConn := h.newConn(conn, recorder, asciicastHeader, tty == "true")
 
 	return recordedConn
 }
