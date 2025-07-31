@@ -157,39 +157,39 @@ metrics:
   prometheusRule:
     enabled: false
     additionalLabels: {}  
-    rules: []
-    # # High error rate alerts
-    # - alert: TwingateGatewayHighHTTPErrorRate
-    #   expr: |
-    #     max_over_time(
-    #       (sum by (code, method, type) (rate(twingate_gateway_http_requests_total{code=~"5.."}[5m])) > bool 0.8)[2m:30s]
-    #     )
-    #   for: 2m
-    #   labels:
-    #     severity: critical
-    #   annotations:
-    #     description: Twingate Gateway HTTP {{ $labels.code }} error rate is above 0.8 requests/sec over last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
+    rules:
+      # # High error rate alerts
+      # - alert: TwingateGatewayHighHTTPErrorRate
+      #   expr: |
+      #     max_over_time(
+      #       (sum by (code, method, type) (rate(twingate_gateway_http_requests_total{code=~"5[0-9][0-9]"}[5m])) > bool 0.8)[2m:30s]
+      #     )
+      #   for: 2m
+      #   labels:
+      #     severity: critical
+      #   annotations:
+      #     description: Twingate Gateway HTTP {{ $labels.code }} error rate is above 0.8 requests/sec over last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
 
-    # - alert: TwingateGatewayHighAPIServerErrorRate
-    #   expr: |
-    #     max_over_time(
-    #       (sum by (code, method, type) (rate(twingate_gateway_api_server_requests_total{code=~"5.."}[5m])) > bool 0.8)[2m:30s]
-    #     )
-    #   for: 2m
-    #   labels:
-    #     severity: critical
-    #   annotations:
-    #     description: Twingate Gateway API Server {{ $labels.code }} error rate is above 0.8 requests/sec over the last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
+      # - alert: TwingateGatewayHighAPIServerErrorRate
+      #   expr: |
+      #     max_over_time(
+      #       (sum by (code, method, type) (rate(twingate_gateway_api_server_requests_total{code=~"5[0-9][0-9]"}[5m])) > bool 0.8)[2m:30s]
+      #     )
+      #   for: 2m
+      #   labels:
+      #     severity: critical
+      #   annotations:
+      #     description: Twingate Gateway API Server {{ $labels.code }} error rate is above 0.8 requests/sec over the last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
 
-    # # Authentication failures
-    # - alert: TwingateGatewayHighAuthenticationFailures
-    #   expr: |
-    #     (
-    #       sum(rate(twingate_gateway_client_authentication_total{code!="200"}[5m])) /
-    #       sum(rate(twingate_gateway_client_authentication_total[5m]))
-    #     ) > 0.1
-    #   for: 2m
-    #   labels:
-    #     severity: warning
-    #   annotations:
-    #     description: Twingate Gateway authentication failure rate is {{ $value | humanizePercentage }} over the last 2 minutes.
+      # # Authentication failures
+      # - alert: TwingateGatewayHighAuthenticationFailures
+      #   expr: |
+      #     (
+      #       sum(rate(twingate_gateway_client_authentication_total{code!="200"}[5m])) /
+      #       sum(rate(twingate_gateway_client_authentication_total[5m]))
+      #     ) > 0.1
+      #   for: 2m
+      #   labels:
+      #     severity: warning
+      #   annotations:
+      #     description: Twingate Gateway authentication failure rate is {{ $value | humanizePercentage }} over the last 2 minutes.
