@@ -97,7 +97,6 @@ jobs:
           go install github.com/mattn/goveralls@latest
           make coverall
 
-
   build:
     runs-on: ubuntu-latest
     needs: [lint-docker, lint-go, test, test-helm]
@@ -148,7 +147,6 @@ jobs:
         name: docker-images
         path: kubernetes-access-gateway-images.tar
 
-
   test-e2e:
     runs-on: ubuntu-latest
     needs: [build]
@@ -178,6 +176,6 @@ jobs:
 
     - name: Run Caddy
       run: sudo caddy start
-      
+
     - name: Run E2E Tests
       run: make test-e2e
