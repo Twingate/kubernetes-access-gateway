@@ -158,14 +158,6 @@ metrics:
     enabled: false
     additionalLabels: {}  
     rules: []
-    # - alert: TwingateGatewayMetricsEndpointErrors
-    #   expr: sum(rate(promhttp_metric_handler_errors_total{container="kubernetes-access-gateway"}[5m])) > 0
-    #   for: 2m
-    #   labels:
-    #     severity: warning
-    #   annotations:
-    #     description: Twingate Gateway metrics endpoint is experiencing errors at {{ $value }} errors/sec over the last 2 minutes.
-
     # # High error rate alerts
     # - alert: TwingateGatewayHighHTTPErrorRate
     #   expr: |
@@ -174,7 +166,7 @@ metrics:
     #     )
     #   for: 2m
     #   labels:
-    #     severity: warning
+    #     severity: critical
     #   annotations:
     #     description: Twingate Gateway HTTP {{ $labels.code }} error rate is above 0.8 requests/sec over last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
 
@@ -185,7 +177,7 @@ metrics:
     #     )
     #   for: 2m
     #   labels:
-    #     severity: warning
+    #     severity: critical
     #   annotations:
     #     description: Twingate Gateway API Server {{ $labels.code }} error rate is above 0.8 requests/sec over the last 2 minutes for method={{ $labels.method }}, type={{ $labels.type }}.
 
