@@ -60,6 +60,8 @@ jobs:
           version: v3.17.3
       - name: Install helm-unittest plugin
         run: helm plugin install https://github.com/helm-unittest/helm-unittest
+      - name: Build helm dependencies
+        run: helm dependency build ./deploy/gateway
       - name: Run tests
         run: helm unittest deploy/gateway
 
