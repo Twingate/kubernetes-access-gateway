@@ -18,7 +18,7 @@ var (
 )
 
 type RecorderFactory func() Recorder
-type ConnFactory func(net.Conn, Recorder, asciicastHeader, bool) net.Conn
+type ConnFactory func(net.Conn, Recorder, AsciicastHeader, bool) net.Conn
 
 type WsHijacker struct {
 	http.ResponseWriter
@@ -63,12 +63,12 @@ func (h *WsHijacker) startRecording(conn net.Conn) net.Conn {
 	command := strings.Join(query["command"], "")
 	container := strings.Join(query["container"], "")
 
-	asciicastHeader := asciicastHeader{
+	asciicastHeader := AsciicastHeader{
 		Version:   2,
 		Timestamp: time.Now().Unix(),
 		Command:   command,
 		User:      h.user,
-		K8sMetadata: &k8sMetadata{
+		K8sMetadata: &K8sMetadata{
 			PodName:   h.request.PathValue("pod"),
 			Namespace: h.request.PathValue("namespace"),
 			Container: container,

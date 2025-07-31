@@ -71,7 +71,7 @@ func (m *mockHijackerConn) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
-func mockNewConn(conn net.Conn, _ Recorder, _ asciicastHeader, _ bool) net.Conn {
+func mockNewConn(conn net.Conn, _ Recorder, _ AsciicastHeader, _ bool) net.Conn {
 	return conn
 }
 
@@ -160,11 +160,11 @@ func TestHijacker_StartRecorder(t *testing.T) {
 }
 
 func TestHijacker_AsciicastHeaderCreation(t *testing.T) {
-	var capturedHeader asciicastHeader
+	var capturedHeader AsciicastHeader
 
 	var capturedTty bool
 
-	newConn := func(conn net.Conn, _ Recorder, header asciicastHeader, isTty bool) net.Conn {
+	newConn := func(conn net.Conn, _ Recorder, header AsciicastHeader, isTty bool) net.Conn {
 		capturedHeader = header
 		capturedTty = isTty
 

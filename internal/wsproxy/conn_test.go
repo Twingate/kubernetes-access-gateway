@@ -53,13 +53,13 @@ func (m *mockConn) SetWriteDeadline(_ time.Time) error { return nil }
 
 type mockRecorder struct {
 	headerWritten bool
-	header        asciicastHeader
+	header        AsciicastHeader
 	events        [][]byte
 	resizeEvents  []resizeMsg
 	stopped       bool
 }
 
-func (m *mockRecorder) WriteHeader(h asciicastHeader) error {
+func (m *mockRecorder) WriteHeader(h AsciicastHeader) error {
 	m.header = h
 	m.headerWritten = true
 
@@ -295,7 +295,7 @@ func TestConn_Read(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mc := &mockConn{}
 			mr := &mockRecorder{}
-			c := NewConn(mc, mr, asciicastHeader{}, true).(*conn)
+			c := NewConn(mc, mr, AsciicastHeader{}, true).(*conn)
 
 			expectedBytes := make([]byte, 0)
 
@@ -404,7 +404,7 @@ func TestConn_Write(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		header          asciicastHeader
+		header          AsciicastHeader
 		writeInputs     [][]byte
 		expectedRecords [][]byte
 		expectResize    bool
@@ -413,7 +413,7 @@ func TestConn_Write(t *testing.T) {
 		// TEST DATA MESSAGES
 		{
 			name:            "single data message, stdout",
-			header:          asciicastHeader{Version: 2, Width: 10, Height: 10},
+			header:          AsciicastHeader{Version: 2, Width: 10, Height: 10},
 			writeInputs:     [][]byte{dataMessageNoFragmentStdOut.Bytes},
 			expectedRecords: [][]byte{dataMessageNoFragmentStdOut.Payload},
 			expectResize:    true,
@@ -421,7 +421,7 @@ func TestConn_Write(t *testing.T) {
 		},
 		{
 			name:            "single data message, stderr",
-			header:          asciicastHeader{Version: 2, Width: 10, Height: 10},
+			header:          AsciicastHeader{Version: 2, Width: 10, Height: 10},
 			writeInputs:     [][]byte{dataMessageNoFragmentStdErr.Bytes},
 			expectedRecords: [][]byte{dataMessageNoFragmentStdErr.Payload},
 			expectResize:    true,
@@ -429,7 +429,7 @@ func TestConn_Write(t *testing.T) {
 		},
 		{
 			name:            "single data message, 3 writes",
-			header:          asciicastHeader{Version: 2, Width: 20, Height: 30},
+			header:          AsciicastHeader{Version: 2, Width: 20, Height: 30},
 			writeInputs:     splitIntoN(dataMessageNoFragmentStdOut.Bytes, 3),
 			expectedRecords: [][]byte{dataMessageNoFragmentStdOut.Payload},
 			expectResize:    true,
@@ -437,7 +437,7 @@ func TestConn_Write(t *testing.T) {
 		},
 		{
 			name:   "single data message, 2 fragments, 1 write",
-			header: asciicastHeader{Version: 2, Width: 20, Height: 30},
+			header: AsciicastHeader{Version: 2, Width: 20, Height: 30},
 			writeInputs: [][]byte{
 				append(dataMessageStdOutFragment1.Bytes, dataMessageStdOutFragment2.Bytes...),
 			},
@@ -449,7 +449,7 @@ func TestConn_Write(t *testing.T) {
 		},
 		{
 			name:        "single data message, 2 fragments, 3 writes",
-			header:      asciicastHeader{Version: 2, Width: 20, Height: 30},
+			header:      AsciicastHeader{Version: 2, Width: 20, Height: 30},
 			writeInputs: splitIntoN(append(dataMessageStdOutFragment1.Bytes, dataMessageStdOutFragment2.Bytes...), 3),
 			expectedRecords: [][]byte{
 				append(dataMessageStdOutFragment1.Payload, dataMessageStdOutFragment2.Payload...),
@@ -459,7 +459,7 @@ func TestConn_Write(t *testing.T) {
 		},
 		{
 			name:        "single data message, 2 fragments, 3 writes, no terminal",
-			header:      asciicastHeader{Version: 2, Width: 20, Height: 30},
+			header:      AsciicastHeader{Version: 2, Width: 20, Height: 30},
 			writeInputs: splitIntoN(append(dataMessageStdOutFragment1.Bytes, dataMessageStdOutFragment2.Bytes...), 3),
 			expectedRecords: [][]byte{
 				append(dataMessageStdOutFragment1.Payload, dataMessageStdOutFragment2.Payload...),
@@ -485,7 +485,7 @@ func TestConn_Write(t *testing.T) {
 		// TEST MULTIPLE MESSAGES
 		{
 			name:   "2 data messages, 1 write",
-			header: asciicastHeader{Version: 2, Width: 20, Height: 30},
+			header: AsciicastHeader{Version: 2, Width: 20, Height: 30},
 			writeInputs: [][]byte{
 				append(dataMessageNoFragmentStdOut.Bytes, dataMessageNoFragmentStdOut.Bytes...),
 			},
@@ -498,7 +498,7 @@ func TestConn_Write(t *testing.T) {
 		},
 		{
 			name:        "2 data messages, 3 writes",
-			header:      asciicastHeader{Version: 2, Width: 5, Height: 40},
+			header:      AsciicastHeader{Version: 2, Width: 5, Height: 40},
 			writeInputs: splitIntoN(append(dataMessageNoFragmentStdOut.Bytes, dataMessageNoFragmentStdOut.Bytes...), 3),
 			expectedRecords: [][]byte{
 				dataMessageNoFragmentStdOut.Payload,
@@ -510,7 +510,7 @@ func TestConn_Write(t *testing.T) {
 		// TEST MIXED MESSAGE TYPES: DATA AND CONTROL
 		{
 			name:   "data message + control message(PING), 1 write",
-			header: asciicastHeader{Version: 2, Width: 20, Height: 30},
+			header: AsciicastHeader{Version: 2, Width: 20, Height: 30},
 			writeInputs: [][]byte{
 				append(dataMessageNoFragmentStdOut.Bytes, controlPingMessage.Bytes...),
 			},
@@ -522,7 +522,7 @@ func TestConn_Write(t *testing.T) {
 		},
 		{
 			name:   "control message(PING) + data message, 1 write",
-			header: asciicastHeader{Version: 2, Width: 25, Height: 80},
+			header: AsciicastHeader{Version: 2, Width: 25, Height: 80},
 			writeInputs: [][]byte{
 				append(controlPingMessage.Bytes, dataMessageNoFragmentStdErr.Bytes...),
 			},
@@ -535,7 +535,7 @@ func TestConn_Write(t *testing.T) {
 		// TEST INTERLEAVED MESSAGES
 		{
 			name:   "data message + control message(PING) + data message, 1 write",
-			header: asciicastHeader{Version: 2, Width: 20, Height: 30},
+			header: AsciicastHeader{Version: 2, Width: 20, Height: 30},
 			writeInputs: [][]byte{
 				append(append(dataMessageNoFragmentStdOut.Bytes, controlPingMessage.Bytes...), dataMessageNoFragmentStdErr.Bytes...),
 			},
@@ -548,7 +548,7 @@ func TestConn_Write(t *testing.T) {
 		},
 		{
 			name:   "data message fragment 1 + control message(PING) + data message fragment 2, 3 writes",
-			header: asciicastHeader{Version: 2, Width: 50, Height: 50},
+			header: AsciicastHeader{Version: 2, Width: 50, Height: 50},
 			writeInputs: splitIntoN(append(append(dataMessageStdOutFragment1.Bytes, controlPingMessage.Bytes...),
 				dataMessageStdOutFragment2.Bytes...), 3),
 			expectedRecords: [][]byte{
@@ -559,7 +559,7 @@ func TestConn_Write(t *testing.T) {
 		},
 		{
 			name:   "data message fragment 1 + control message(PING) + data message fragment 2, 5 writes",
-			header: asciicastHeader{Version: 2, Width: 50, Height: 50},
+			header: AsciicastHeader{Version: 2, Width: 50, Height: 50},
 			writeInputs: splitIntoN(append(append(dataMessageStdOutFragment1.Bytes,
 				controlPingMessage.Bytes...), dataMessageStdOutFragment2.Bytes...), 5),
 			expectedRecords: [][]byte{
@@ -611,7 +611,7 @@ func TestConn_Write(t *testing.T) {
 func TestConnRead_ErrorHandling(t *testing.T) {
 	mc := &mockConn{}
 	mr := &mockRecorder{}
-	c := NewConn(mc, mr, asciicastHeader{}, true).(*conn)
+	c := NewConn(mc, mr, AsciicastHeader{}, true).(*conn)
 
 	malformedData := []byte{0x82, 0x0, 0x4, 0x7b, 0x22, 0x77, 0x69, 0x64, 0x74, 0x68, 0x22, 0x3a, 0x34, 0x30, 0x2c, 0x22, 0x68, 0x65, 0x69, 0x67, 0x68, 0x74, 0x22, 0x3a, 0x38, 0x30, 0x7d}
 	mc.readData = append(mc.readData, malformedData...)
@@ -625,7 +625,7 @@ func TestConnRead_ErrorHandling(t *testing.T) {
 func TestConn_Close(t *testing.T) {
 	mc := &mockConn{}
 	mr := &mockRecorder{}
-	c := NewConn(mc, mr, asciicastHeader{}, true).(*conn)
+	c := NewConn(mc, mr, AsciicastHeader{}, true).(*conn)
 
 	err := c.Close()
 	require.NoError(t, err)

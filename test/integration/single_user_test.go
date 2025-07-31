@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,6 +17,7 @@ import (
 
 	"k8sgateway/cmd"
 	"k8sgateway/internal/token"
+	"k8sgateway/internal/wsproxy"
 	"k8sgateway/test/fake"
 	"k8sgateway/test/integration/testutil"
 )
@@ -118,5 +120,20 @@ func TestSingleUser(t *testing.T) {
 	require.NoError(t, err, "failed to execute kubectl exec")
 
 	assert.Equal(t, "test-pod\n", string(output))
-	testutil.AssertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", "test-pod", expectedUser)
+
+	expectedHeader := wsproxy.AsciicastHeader{
+		Version:   2,
+		Width:     0,
+		Height:    0,
+		Timestamp: time.Now().Unix(),
+		Command:   "cat/etc/hostname",
+		User:      expectedUser["username"].(string),
+		K8sMetadata: &wsproxy.K8sMetadata{
+			PodName:   "test-pod",
+			Namespace: "default",
+			Container: "test-pod",
+		},
+	}
+	expectedEvents := []string{"", "test-pod\n"}
+	testutil.AssertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", expectedUser, expectedHeader, expectedEvents)
 }

@@ -16,13 +16,9 @@ import (
 
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
-)
 
-type asciicastHeader struct {
-	Version int `json:"version"`
-	Width   int `json:"width"`
-	Height  int `json:"height"`
-}
+	"k8sgateway/internal/wsproxy"
+)
 
 func AssertWhoAmI(t *testing.T, output []byte, expectedUsername string, expectedGroups []string) {
 	t.Helper()
@@ -63,7 +59,7 @@ func AssertLogsForREST(t *testing.T, logs *observer.ObservedLogs, expectedURL st
 	assert.Subset(t, firstLog.ContextMap()["response"], map[string]any{"status_code": expectedStatusCode})
 }
 
-func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL, expectedOutput string, expectedUser map[string]any) {
+func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL string, expectedUser map[string]any, expectedAsciicastHeader wsproxy.AsciicastHeader, expectedAsciicastEvents []string) {
 	t.Helper()
 
 	expectedLogs := logs.FilterField(zap.String("url", expectedURL)).All()
@@ -72,12 +68,11 @@ func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL, e
 	firstLog := expectedLogs[0]
 	assert.Equal(t, "session finished", firstLog.Message)
 	assert.Equal(t, expectedUser, firstLog.ContextMap()["user"])
-	assert.Contains(t, firstLog.ContextMap()["asciicast"], expectedOutput)
 
 	// Validate asciicast header and event
 	asciicast, ok := firstLog.ContextMap()["asciicast"].(string)
 	require.True(t, ok, "asciicast should be a string")
-	AssertValidAsciicast(t, asciicast, expectedOutput)
+	assertValidAsciicast(t, asciicast, expectedAsciicastHeader, expectedAsciicastEvents)
 
 	secondLog := expectedLogs[1]
 	assert.Equal(t, "API request completed", secondLog.Message)
@@ -88,36 +83,38 @@ func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL, e
 	assert.Equal(t, firstLog.ContextMap()["request_id"], secondLog.ContextMap()["request_id"])
 }
 
-func AssertValidAsciicast(t *testing.T, asciicast string, expectedOutput string) {
+func assertValidAsciicast(t *testing.T, asciicast string, expectedHeader wsproxy.AsciicastHeader, expectedEvents []string) {
 	t.Helper()
 
 	lines := strings.Split(strings.TrimSpace(asciicast), "\n")
-	require.Len(t, lines, 3, "asciicast should have 3 lines")
+	expectedLines := 1 + len(expectedEvents) // Include header line and events
+	require.Len(t, lines, expectedLines, "asciicast should have %d lines", expectedLines)
 
-	headerLine := lines[0]
-	assertAsciicastHeader(t, headerLine, 0, 0)
+	assertAsciicastHeader(t, lines[0], expectedHeader)
 
-	firstEventLine := lines[1]
-	assertAsciicastEvent(t, firstEventLine, "o", "")
-
-	secondEventLine := lines[2]
-	assertAsciicastEvent(t, secondEventLine, "o", expectedOutput)
+	for i, event := range expectedEvents {
+		assertAsciicastEvent(t, lines[i+1], event)
+	}
 }
 
-func assertAsciicastHeader(t *testing.T, headerLine string, expectedWidth int, expectedHeight int) {
+func assertAsciicastHeader(t *testing.T, headerLine string, expectedHeader wsproxy.AsciicastHeader) {
 	t.Helper()
 
-	var header asciicastHeader
+	var header wsproxy.AsciicastHeader
 
 	err := json.Unmarshal([]byte(headerLine), &header)
 	require.NoError(t, err)
 
-	assert.Equal(t, 2, header.Version)
-	assert.Equal(t, expectedWidth, header.Width)
-	assert.Equal(t, expectedHeight, header.Height)
+	assert.Equal(t, expectedHeader.Version, header.Version)
+	assert.Equal(t, expectedHeader.Width, header.Width)
+	assert.Equal(t, expectedHeader.Height, header.Height)
+	assert.GreaterOrEqual(t, header.Timestamp, expectedHeader.Timestamp)
+	assert.Equal(t, expectedHeader.Command, header.Command)
+	assert.Equal(t, expectedHeader.User, header.User)
+	assert.Equal(t, expectedHeader.K8sMetadata, header.K8sMetadata)
 }
 
-func assertAsciicastEvent(t *testing.T, eventLine string, expectedEventType string, expectedData string) {
+func assertAsciicastEvent(t *testing.T, eventLine string, expectedData string) {
 	t.Helper()
 
 	var event []any
@@ -131,10 +128,8 @@ func assertAsciicastEvent(t *testing.T, eventLine string, expectedEventType stri
 	assert.True(t, ok, "first element should be a float (time)")
 
 	// Second element is event type
-	assert.Equal(t, expectedEventType, event[1], "second element should be %s", expectedEventType)
+	assert.Equal(t, "o", event[1], "second element should be 'o'")
 
 	// Third element is the data
-	eventData, ok := event[2].(string)
-	assert.True(t, ok, "third element should be a string")
-	assert.Equal(t, expectedData, strings.TrimSpace(eventData), "third element should be %s", expectedData)
+	assert.Equal(t, expectedData, event[2], "third element should be %s", expectedData)
 }

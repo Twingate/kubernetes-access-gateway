@@ -41,24 +41,24 @@ type resizeMsg struct {
 	Height int `json:"height"`
 }
 
-type k8sMetadata struct {
+type K8sMetadata struct {
 	PodName   string `json:"podname"`
 	Namespace string `json:"namespace"`
 	Container string `json:"container"`
 }
 
-type asciicastHeader struct {
+type AsciicastHeader struct {
 	Version     int          `json:"version"`
 	Width       int          `json:"width"`
 	Height      int          `json:"height"`
 	Timestamp   int64        `json:"timestamp"`
 	Command     string       `json:"command,omitempty"`
 	User        string       `json:"user"`
-	K8sMetadata *k8sMetadata `json:"kubernetes,omitempty"`
+	K8sMetadata *K8sMetadata `json:"kubernetes,omitempty"`
 }
 
 type Recorder interface {
-	WriteHeader(h asciicastHeader) error
+	WriteHeader(h AsciicastHeader) error
 	WriteOutputEvent(data []byte) error
 	WriteResizeEvent(width int, height int) error
 	IsHeaderWritten() bool
@@ -149,7 +149,7 @@ func WithClock(clock clockwork.Clock) RecorderOption {
 	}
 }
 
-func (r *AsciicastRecorder) WriteHeader(h asciicastHeader) error {
+func (r *AsciicastRecorder) WriteHeader(h AsciicastHeader) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

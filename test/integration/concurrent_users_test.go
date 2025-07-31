@@ -20,6 +20,7 @@ import (
 
 	"k8sgateway/cmd"
 	"k8sgateway/internal/token"
+	"k8sgateway/internal/wsproxy"
 	"k8sgateway/test/fake"
 	"k8sgateway/test/integration/testutil"
 )
@@ -163,12 +164,28 @@ func TestConcurrentUsers(t *testing.T) {
 					},
 					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
 						t.Helper()
+
+						expectedHeader := wsproxy.AsciicastHeader{
+							Version:   2,
+							Width:     0,
+							Height:    0,
+							Timestamp: time.Now().Unix(),
+							Command:   "sleep2",
+							User:      user.Username,
+							K8sMetadata: &wsproxy.K8sMetadata{
+								PodName:   testutil.TestPodName,
+								Namespace: "default",
+								Container: testutil.TestPodName,
+							},
+						}
+						expectedEvents := []string{""}
 						testutil.AssertLogsForExec(
 							t,
 							logs,
 							fmt.Sprintf("/api/v1/namespaces/default/pods/%s/exec?command=sleep&command=2&container=%s&stderr=true&stdout=true", testutil.TestPodName, testutil.TestPodName),
-							"",
 							expectedUser,
+							expectedHeader,
+							expectedEvents,
 						)
 					},
 				},
@@ -183,12 +200,27 @@ func TestConcurrentUsers(t *testing.T) {
 					},
 					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
 						t.Helper()
+						expectedHeader := wsproxy.AsciicastHeader{
+							Version:   2,
+							Width:     0,
+							Height:    0,
+							Timestamp: time.Now().Unix(),
+							Command:   "cat/etc/hostname",
+							User:      user.Username,
+							K8sMetadata: &wsproxy.K8sMetadata{
+								PodName:   testutil.TestPodName,
+								Namespace: "default",
+								Container: testutil.TestPodName,
+							},
+						}
+						expectedEvents := []string{"", testutil.TestPodName + "\n"}
 						testutil.AssertLogsForExec(
 							t,
 							logs,
 							fmt.Sprintf("/api/v1/namespaces/default/pods/%s/exec?command=cat&command=%%2Fetc%%2Fhostname&container=%s&stderr=true&stdout=true", testutil.TestPodName, testutil.TestPodName),
-							testutil.TestPodName,
 							expectedUser,
+							expectedHeader,
+							expectedEvents,
 						)
 					},
 				},
