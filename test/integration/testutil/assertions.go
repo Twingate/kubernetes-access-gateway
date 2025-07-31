@@ -108,7 +108,7 @@ func assertAsciicastHeader(t *testing.T, headerLine string, expectedHeader wspro
 	assert.Equal(t, expectedHeader.Version, header.Version)
 	assert.Equal(t, expectedHeader.Width, header.Width)
 	assert.Equal(t, expectedHeader.Height, header.Height)
-	assert.GreaterOrEqual(t, header.Timestamp, expectedHeader.Timestamp)
+	assert.GreaterOrEqual(t, expectedHeader.Timestamp, header.Timestamp)
 	assert.Equal(t, expectedHeader.Command, header.Command)
 	assert.Equal(t, expectedHeader.User, header.User)
 	assert.Equal(t, expectedHeader.K8sMetadata, header.K8sMetadata)
