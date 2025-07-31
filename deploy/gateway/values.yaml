@@ -157,7 +157,7 @@ metrics:
   prometheusRule:
     enabled: false
     additionalLabels: {}  
-    rules:
+    rules: []
       # # High error rate alerts
       # - alert: TwingateGatewayHighHTTPErrorRate
       #   expr: |
