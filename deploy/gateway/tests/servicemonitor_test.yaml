@@ -1,0 +1,76 @@
+suite: Service Monitor
+templates:
+  - servicemonitor.yaml
+tests:
+  - it: should enable Prometheus Service Monitor
+    set:
+      metrics:
+        serviceMonitor:
+          enabled: true
+    asserts:
+      - matchSnapshot: {}
+  - it: should set `interval`
+    set:
+      metrics:
+        serviceMonitor:
+          enabled: true
+          interval: 60s
+    asserts:
+      - equal:
+          path: spec.endpoints[0].interval
+          value: 60s
+  - it: should set `scrapeTimeout`
+    set:
+      metrics:
+        serviceMonitor:
+          enabled: true
+          scrapeTimeout: 60s
+    asserts:
+      - equal:
+          path: spec.endpoints[0].scrapeTimeout
+          value: 60s
+  - it: should set `relabelings`
+    set:
+      metrics:
+        serviceMonitor:
+          enabled: true
+          relabelings:
+            - foo: bar
+    asserts:
+      - contains:
+          path: spec.endpoints[0].relabelings
+          content:
+            foo: bar
+  - it: should set `metricRelabelings`
+    set:
+      metrics:
+        serviceMonitor:
+          enabled: true
+          metricRelabelings:
+            - foo: bar
+    asserts:
+      - contains:
+          path: spec.endpoints[0].metricRelabelings
+          content:
+            foo: bar
+  - it: should set `honorLabels`
+    set:
+      metrics:
+        serviceMonitor:
+          enabled: true
+          honorLabels: true
+    asserts:
+      - equal:
+          path: spec.endpoints[0].honorLabels
+          value: true
+  - it: should set `additionalLabels`
+    set:
+      metrics:
+        serviceMonitor:
+          enabled: true
+          additionalLabels:
+            foo: bar
+    asserts:
+      - equal:
+          path: metadata.labels.foo
+          value: bar
