@@ -170,6 +170,9 @@ jobs:
       run: |
         docker load -i kubernetes-access-gateway-images.tar
 
+    - name: Build helm dependencies
+      run: helm dependency build ./deploy/gateway
+
     - name: Install Caddy
       run: |
         curl -fsSL https://github.com/caddyserver/caddy/releases/download/v${{ env.CADDY_VERSION }}/caddy_${{ env.CADDY_VERSION }}_linux_amd64.tar.gz | tar -xzv
