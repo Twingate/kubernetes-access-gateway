@@ -97,7 +97,6 @@ jobs:
           go install github.com/mattn/goveralls@latest
           make coverall
 
-
   build:
     runs-on: ubuntu-latest
     needs: [lint-docker, lint-go, test, test-helm]
@@ -138,13 +137,45 @@ jobs:
         VERSION_PRERELEASE: dev
       run: make build
 
-    # Run e2e tests
+    - name: Save docker images
+      run: |
+        docker save -o kubernetes-access-gateway-images.tar $(docker images --filter=reference='twingate/kubernetes-access-gateway:*' --format '{{.Repository}}:{{.Tag}}')
+
+    - name: Upload docker images
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-images
+        path: kubernetes-access-gateway-images.tar
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GOLANG_VERSION }}
+
+    - name: Setup Docker
+      uses: docker/setup-docker-action@v4
+
+    - name: Download docker images
+      uses: actions/download-artifact@v4
+      with:
+        name: docker-images
+
+    - name: Load docker images
+      run: |
+        docker load -i kubernetes-access-gateway-images.tar
+
     - name: Install Caddy
       run: |
         curl -fsSL https://github.com/caddyserver/caddy/releases/download/v${{ env.CADDY_VERSION }}/caddy_${{ env.CADDY_VERSION }}_linux_amd64.tar.gz | tar -xzv
         sudo mv caddy /usr/local/bin/
         caddy version
+
     - name: Run Caddy
       run: sudo caddy start
+
     - name: Run E2E Tests
       run: make test-e2e
