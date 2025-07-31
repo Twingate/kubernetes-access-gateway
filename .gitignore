@@ -1,4 +1,5 @@
 /deploy/gateway/values.local.yaml
+/deploy/gateway/charts
 
 # macOS filesystem metadata
 *.DS_Store

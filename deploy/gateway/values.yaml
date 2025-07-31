@@ -193,3 +193,18 @@ metrics:
       #     severity: warning
       #   annotations:
       #     description: Twingate Gateway authentication failure rate is {{ $value | humanizePercentage }} over the last 2 minutes.
+
+# Kube Prometheus Stack (formerly Prometheus Operator) subchart configuration
+# For more information checkout: https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack
+kube-prometheus-stack:
+  enabled: false
+  
+  # Prometheus configuration
+  prometheus:
+    prometheusSpec:
+      # Allow Prometheus to discover all PodMonitors, ServiceMonitors, and PrometheusRules within its namespace
+      # For more information checkout: https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack#prometheusioscrape
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+    

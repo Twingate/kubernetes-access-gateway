@@ -5,3 +5,9 @@ type: application
 version: 0.1.0
 appVersion: "0.1.0"
 home: https://twingate.com
+
+dependencies:
+  - name: kube-prometheus-stack
+    version: "75.15.1"
+    repository: oci://ghcr.io/prometheus-community/charts
+    condition: kube-prometheus-stack.enabled

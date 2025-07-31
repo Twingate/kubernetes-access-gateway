@@ -1,0 +1,15 @@
+suite: Kube Prometheus Stack
+templates:
+  - charts/kube-prometheus-stack/templates/prometheus/prometheus.yaml
+tests:
+  - it: should enable Kube Prometheus Stack
+    # Hardcode the chart version and app version to ensure that the snapshot is stable
+    # when upgrading Kube Prometheus Stack subchart
+    chart:
+      version: 1.0.0
+      appVersion: 1.0.0
+    set:
+      kube-prometheus-stack:
+        enabled: true
+    asserts:
+      - matchSnapshot: {}
