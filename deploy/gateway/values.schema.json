@@ -115,7 +115,7 @@
             },
             "relabelings": {
               "type": "array",
-              "description": "Metrics RelabelConfigs to apply to apply to samples before scraping.",
+              "description": "Metrics RelabelConfigs to apply to samples before scraping.",
               "default": [],
               "items": {}
             },
