@@ -1,0 +1,14 @@
+suite: Prometheus Rule
+templates:
+  - prometheusrule.yaml
+tests:
+  - it: should enable Prometheus Rule
+    set:
+      metrics:
+        prometheusRule:
+          enabled: true
+          rules:
+            - alert: TestAlert
+              expr: vector(1)
+    asserts:
+      - matchSnapshot: {}

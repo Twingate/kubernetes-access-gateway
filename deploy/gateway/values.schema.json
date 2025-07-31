@@ -153,6 +153,27 @@
               }
             }
           }
+        },
+        "prometheusRule": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create a custom prometheusRule Resource for scraping metrics using PrometheusOperator",
+              "default": false
+            },
+            "rules": {
+              "type": "array",
+              "description": "Custom Prometheus rules",
+              "default": [],
+              "items": {}
+            },
+            "additionalLabels": {
+              "type": "object",
+              "description": "Additional labels for the prometheusRule",
+              "default": {}
+            }
+          }
         }
       },
       "additionalProperties": false
