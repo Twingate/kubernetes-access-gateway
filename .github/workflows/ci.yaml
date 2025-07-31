@@ -140,14 +140,13 @@ jobs:
 
     - name: Save docker images
       run: |
-        docker images --filter=reference='twingate/kubernetes-access-gateway:*' --format '{{.Repository}}:{{.Tag}}' | \
-          xargs -I {} sh -c 'docker save {} -o ./dist/$(echo {} | tr "/:" "-").tar'
+        docker save -o kubernetes-access-gateway-images.tar $(docker images --filter=reference='twingate/kubernetes-access-gateway:*' --format '{{.Repository}}:{{.Tag}}')
 
     - name: Upload docker images
       uses: actions/upload-artifact@v4
       with:
         name: docker-images
-        path: dist/*.tar
+        path: kubernetes-access-gateway-images.tar
 
 
   test-e2e:
@@ -169,7 +168,7 @@ jobs:
 
     - name: Load docker images
       run: |
-        ls *.tar | xargs -I {} docker load -i {}
+        docker load -i kubernetes-access-gateway-images.tar
 
     - name: Install Caddy
       run: |
