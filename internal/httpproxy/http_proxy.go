@@ -42,6 +42,8 @@ const (
 	keyingMaterialLength = 32
 )
 
+const defaultTimeout = 10 * time.Second
+
 func httpResponseString(httpCode int) string {
 	return fmt.Sprintf("HTTP/1.1 %d %s\r\n\r\n", httpCode, http.StatusText(httpCode))
 }
@@ -122,6 +124,12 @@ func (p *ProxyConn) Close() error {
 
 // authenticate sets up TLS and processes the CONNECT message for authentication.
 func (p *ProxyConn) authenticate() error {
+	_ = p.SetDeadline(time.Now().Add(defaultTimeout))
+
+	defer func() {
+		_ = p.SetDeadline(time.Time{})
+	}()
+
 	// Establish TLS connection with the downstream proxy
 	tlsConnectConn := tls.Server(p.Conn, p.TLSConfig)
 
@@ -230,7 +238,6 @@ func (p *ProxyConn) authenticate() error {
 	p.Conn = tlsConn
 	p.setConnectInfo(connectInfo)
 	p.isAuthenticated = true
-
 	return nil
 }
 
