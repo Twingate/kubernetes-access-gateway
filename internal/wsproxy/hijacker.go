@@ -60,7 +60,7 @@ func (h *WsHijacker) startRecording(conn net.Conn) net.Conn {
 	query := h.request.URL.Query()
 
 	tty := strings.Join(query["tty"], "")
-	command := strings.Join(query["command"], "")
+	command := strings.Join(query["command"], " ")
 	container := strings.Join(query["container"], "")
 
 	asciicastHeader := AsciicastHeader{
