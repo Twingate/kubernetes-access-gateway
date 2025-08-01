@@ -115,7 +115,7 @@
             },
             "relabelings": {
               "type": "array",
-              "description": " to apply to samples before scraping.",
+              "description": "Metrics RelabelConfigs to apply to samples before scraping.",
               "default": [],
               "items": {}
             },
@@ -133,6 +133,48 @@
             "additionalLabels": {
               "type": "object",
               "description": "Additional labels that can be used so PodMonitor resource(s) can be discovered by Prometheus",
+              "default": {}
+            }
+          }
+        },
+        "serviceMonitor": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create ServiceMonitor resource(s) for scraping metrics using PrometheusOperator.",
+              "default": false
+            },
+            "interval": {
+              "type": "string",
+              "description": "The interval at which metrics should be scraped.",
+              "default": "30s"
+            },
+            "scrapeTimeout": {
+              "type": "string",
+              "description": "The timeout after which the scrape is ended.",
+              "default": ""
+            },
+            "relabelings": {
+              "type": "array",
+              "description": "Metrics RelabelConfigs to apply to samples before scraping.",
+              "default": [],
+              "items": {}
+            },
+            "metricRelabelings": {
+              "type": "array",
+              "description": "Metrics RelabelConfigs to apply to samples before ingestion.",
+              "default": [],
+              "items": {}
+            },
+            "honorLabels": {
+              "type": "boolean",
+              "description": "Specify honorLabels parameter to add the scrape endpoint.",
+              "default": false
+            },
+            "additionalLabels": {
+              "type": "object",
+              "description": "Additional labels that can be used so ServiceMonitor resource(s) can be discovered by Prometheus",
               "default": {}
             }
           }
