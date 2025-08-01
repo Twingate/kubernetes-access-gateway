@@ -238,6 +238,7 @@ func (p *ProxyConn) authenticate() error {
 	p.Conn = tlsConn
 	p.setConnectInfo(connectInfo)
 	p.isAuthenticated = true
+
 	return nil
 }
 

@@ -23,7 +23,7 @@ var (
 	errFailedToWriteRecording = errors.New("failed to write recording")
 )
 
-func NewConn(c net.Conn, recorder Recorder, asciicastHeader asciicastHeader, sessionHasTerminal bool) net.Conn {
+func NewConn(c net.Conn, recorder Recorder, asciicastHeader AsciicastHeader, sessionHasTerminal bool) net.Conn {
 	return &conn{
 		Conn:               c,
 		readFirstResize:    make(chan struct{}, 1),
@@ -38,7 +38,7 @@ type conn struct {
 	net.Conn
 
 	recorder        Recorder        // asciicast recording
-	asciicastHeader asciicastHeader // header for the asciicast recording
+	asciicastHeader AsciicastHeader // header for the asciicast recording
 
 	// true if the kubernetes exec is a terminal session, such as 'kubectl exec /bin/bash'
 	// false if not a terminal session, such as 'kubectl exec ls'
