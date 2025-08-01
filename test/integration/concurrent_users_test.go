@@ -170,7 +170,7 @@ func TestConcurrentUsers(t *testing.T) {
 							Width:     0,
 							Height:    0,
 							Timestamp: 0,
-							Command:   "sleep2",
+							Command:   "sleep 2",
 							User:      user.Username,
 							K8sMetadata: &wsproxy.K8sMetadata{
 								PodName:   testutil.TestPodName,
@@ -205,7 +205,7 @@ func TestConcurrentUsers(t *testing.T) {
 							Width:     0,
 							Height:    0,
 							Timestamp: 0,
-							Command:   "cat/etc/hostname",
+							Command:   "cat /etc/hostname",
 							User:      user.Username,
 							K8sMetadata: &wsproxy.K8sMetadata{
 								PodName:   testutil.TestPodName,

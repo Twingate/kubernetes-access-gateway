@@ -173,7 +173,7 @@ func TestHijacker_AsciicastHeaderCreation(t *testing.T) {
 
 	mockConn := &mockHijackerConn{}
 
-	u, _ := url.Parse("/namespaces/default/pods/test-pod/exec?container=test-container&command=bash&tty=true")
+	u, _ := url.Parse("/namespaces/default/pods/test-pod/exec?container=test-container&command=cat&command=%2Fetc%2Fhostname&tty=true")
 	req := &http.Request{
 		URL: u,
 	}
@@ -195,7 +195,7 @@ func TestHijacker_AsciicastHeaderCreation(t *testing.T) {
 
 	assert.Equal(t, 2, capturedHeader.Version)
 	assert.Equal(t, "testuser", capturedHeader.User)
-	assert.Equal(t, "bash", capturedHeader.Command)
+	assert.Equal(t, "cat /etc/hostname", capturedHeader.Command)
 	assert.NotEmpty(t, capturedHeader.K8sMetadata)
 	assert.Equal(t, "test-pod", capturedHeader.K8sMetadata.PodName)
 	assert.Equal(t, "default", capturedHeader.K8sMetadata.Namespace)

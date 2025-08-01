@@ -125,7 +125,7 @@ func TestSingleUser(t *testing.T) {
 		Width:     0,
 		Height:    0,
 		Timestamp: 0,
-		Command:   "cat/etc/hostname",
+		Command:   "cat /etc/hostname",
 		User:      expectedUser["username"].(string),
 		K8sMetadata: &wsproxy.K8sMetadata{
 			PodName:   "test-pod",
