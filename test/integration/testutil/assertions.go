@@ -72,7 +72,7 @@ func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL st
 	// Validate asciicast header and event
 	asciicast, ok := firstLog.ContextMap()["asciicast"].(string)
 	require.True(t, ok, "asciicast should be a string")
-	assertValidAsciicast(t, asciicast, expectedAsciicastHeader, expectedAsciicastEvents)
+	assertAsciicast(t, asciicast, expectedAsciicastHeader, expectedAsciicastEvents)
 
 	secondLog := expectedLogs[1]
 	assert.Equal(t, "API request completed", secondLog.Message)
@@ -83,7 +83,7 @@ func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL st
 	assert.Equal(t, firstLog.ContextMap()["request_id"], secondLog.ContextMap()["request_id"])
 }
 
-func assertValidAsciicast(t *testing.T, asciicast string, expectedHeader wsproxy.AsciicastHeader, expectedEvents []string) {
+func assertAsciicast(t *testing.T, asciicast string, expectedHeader wsproxy.AsciicastHeader, expectedEvents []string) {
 	t.Helper()
 
 	lines := strings.Split(strings.TrimSpace(asciicast), "\n")
@@ -105,13 +105,9 @@ func assertAsciicastHeader(t *testing.T, headerLine string, expectedHeader wspro
 	err := json.Unmarshal([]byte(headerLine), &header)
 	require.NoError(t, err)
 
-	assert.Equal(t, expectedHeader.Version, header.Version)
-	assert.Equal(t, expectedHeader.Width, header.Width)
-	assert.Equal(t, expectedHeader.Height, header.Height)
-	assert.Positive(t, header.Timestamp)
-	assert.Equal(t, expectedHeader.Command, header.Command)
-	assert.Equal(t, expectedHeader.User, header.User)
-	assert.Equal(t, expectedHeader.K8sMetadata, header.K8sMetadata)
+	// Ignore timestamp as we cannot pinpoint the exact time in which the asciicast starts recording
+	header.Timestamp = 0
+	assert.Equal(t, expectedHeader, header)
 }
 
 func assertAsciicastEvent(t *testing.T, eventLine string, expectedData string) {

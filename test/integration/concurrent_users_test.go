@@ -169,7 +169,7 @@ func TestConcurrentUsers(t *testing.T) {
 							Version:   2,
 							Width:     0,
 							Height:    0,
-							Timestamp: time.Now().Unix(),
+							Timestamp: 0,
 							Command:   "sleep2",
 							User:      user.Username,
 							K8sMetadata: &wsproxy.K8sMetadata{
@@ -204,7 +204,7 @@ func TestConcurrentUsers(t *testing.T) {
 							Version:   2,
 							Width:     0,
 							Height:    0,
-							Timestamp: time.Now().Unix(),
+							Timestamp: 0,
 							Command:   "cat/etc/hostname",
 							User:      user.Username,
 							K8sMetadata: &wsproxy.K8sMetadata{

@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -125,7 +124,7 @@ func TestSingleUser(t *testing.T) {
 		Version:   2,
 		Width:     0,
 		Height:    0,
-		Timestamp: time.Now().Unix(),
+		Timestamp: 0,
 		Command:   "cat/etc/hostname",
 		User:      expectedUser["username"].(string),
 		K8sMetadata: &wsproxy.K8sMetadata{
