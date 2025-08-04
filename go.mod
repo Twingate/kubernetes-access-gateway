@@ -4,7 +4,7 @@ go 1.24.5
 
 require (
 	github.com/MicahParks/jwkset v0.9.6
-	github.com/MicahParks/keyfunc/v3 v3.4.0
+	github.com/MicahParks/keyfunc/v3 v3.5.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/jonboulle/clockwork v0.5.0
