@@ -24,21 +24,22 @@ type Kubectl struct {
 
 // Command is a general func to run kubectl commands.
 func (k *Kubectl) Command(cmdOptions ...string) ([]byte, error) {
-	return k.executeKubectl(nil, context.Background(), cmdOptions...)
+	return k.executeKubectl(context.Background(), nil, cmdOptions...)
 }
 
 // CommandWithInput is a general func to run kubectl commands with stdin input.
 func (k *Kubectl) CommandWithInput(stdinInput string, cmdOptions ...string) ([]byte, error) {
-	return k.executeKubectl(strings.NewReader(stdinInput), context.Background(), cmdOptions...)
+	return k.executeKubectl(context.Background(), strings.NewReader(stdinInput), cmdOptions...)
 }
 
 func (k *Kubectl) CommandWithTimeout(timeout time.Duration, cmdOptions ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return k.executeKubectl(nil, ctx, cmdOptions...)
+
+	return k.executeKubectl(ctx, nil, cmdOptions...)
 }
 
-func (k *Kubectl) executeKubectl(stdIn io.Reader, ctx context.Context, cmdOptions ...string) ([]byte, error) {
+func (k *Kubectl) executeKubectl(ctx context.Context, stdIn io.Reader, cmdOptions ...string) ([]byte, error) {
 	var options []string
 	if k.Options.Context != "" {
 		options = []string{"--context", k.Options.Context}

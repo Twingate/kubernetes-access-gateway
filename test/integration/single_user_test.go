@@ -152,6 +152,7 @@ func TestSingleUser(t *testing.T) {
 		},
 	}
 	expectedEvents = []string{"", "hello\n"}
+
 	var exitError *exec.ExitError
 
 	output, err = user.Kubectl.CommandWithTimeout(2*time.Second, "attach", "test-pod")
