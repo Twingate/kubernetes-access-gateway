@@ -4,9 +4,11 @@
 package testutil
 
 import (
+	"context"
 	"io"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type KubectlOptions struct {
@@ -22,15 +24,21 @@ type Kubectl struct {
 
 // Command is a general func to run kubectl commands.
 func (k *Kubectl) Command(cmdOptions ...string) ([]byte, error) {
-	return k.executeKubectl(nil, cmdOptions...)
+	return k.executeKubectl(nil, context.Background(), cmdOptions...)
 }
 
 // CommandWithInput is a general func to run kubectl commands with stdin input.
 func (k *Kubectl) CommandWithInput(stdinInput string, cmdOptions ...string) ([]byte, error) {
-	return k.executeKubectl(strings.NewReader(stdinInput), cmdOptions...)
+	return k.executeKubectl(strings.NewReader(stdinInput), context.Background(), cmdOptions...)
 }
 
-func (k *Kubectl) executeKubectl(stdIn io.Reader, cmdOptions ...string) ([]byte, error) {
+func (k *Kubectl) CommandWithTimeout(timeout time.Duration, cmdOptions ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return k.executeKubectl(nil, ctx, cmdOptions...)
+}
+
+func (k *Kubectl) executeKubectl(stdIn io.Reader, ctx context.Context, cmdOptions ...string) ([]byte, error) {
 	var options []string
 	if k.Options.Context != "" {
 		options = []string{"--context", k.Options.Context}
@@ -42,7 +50,7 @@ func (k *Kubectl) executeKubectl(stdIn io.Reader, cmdOptions ...string) ([]byte,
 		}
 	}
 
-	cmd := exec.Command("kubectl", append(options, cmdOptions...)...) // #nosec G204 -- kubectl is safe to use
+	cmd := exec.CommandContext(ctx, "kubectl", append(options, cmdOptions...)...) // #nosec G204 -- kubectl is safe to use
 	cmd.Stdin = stdIn
 
 	return RunCommand(cmd)

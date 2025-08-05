@@ -59,7 +59,7 @@ func AssertLogsForREST(t *testing.T, logs *observer.ObservedLogs, expectedURL st
 	assert.Subset(t, firstLog.ContextMap()["response"], map[string]any{"status_code": expectedStatusCode})
 }
 
-func AssertLogsForExec(t *testing.T, logs *observer.ObservedLogs, expectedURL string, expectedUser map[string]any, expectedAsciicastHeader wsproxy.AsciicastHeader, expectedAsciicastEvents []string) {
+func AssertLogsForExecOrAttach(t *testing.T, logs *observer.ObservedLogs, expectedURL string, expectedUser map[string]any, expectedAsciicastHeader wsproxy.AsciicastHeader, expectedAsciicastEvents []string) {
 	t.Helper()
 
 	expectedLogs := logs.FilterField(zap.String("url", expectedURL)).All()

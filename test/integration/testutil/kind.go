@@ -85,7 +85,8 @@ spec:
   containers:
   - name: %s
     image: busybox
-    command: ["sleep", "3600"]
+    command: ["/bin/sh"]
+    args: ["-c", "while true; do echo hello; sleep 2; done"]
 ---
 `
 

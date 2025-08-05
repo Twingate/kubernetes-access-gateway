@@ -6,8 +6,10 @@ package integration
 import (
 	"net/http"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -134,5 +136,29 @@ func TestSingleUser(t *testing.T) {
 		},
 	}
 	expectedEvents := []string{"", "test-pod\n"}
-	testutil.AssertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", expectedUser, expectedHeader, expectedEvents)
+	testutil.AssertLogsForExecOrAttach(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", expectedUser, expectedHeader, expectedEvents)
+
+	// Test `kubectl attach`
+	expectedHeader = wsproxy.AsciicastHeader{
+		Version:   2,
+		Width:     0,
+		Height:    0,
+		Timestamp: 0,
+		User:      expectedUser["username"].(string),
+		K8sMetadata: &wsproxy.K8sMetadata{
+			PodName:   "test-pod",
+			Namespace: "default",
+			Container: "test-pod",
+		},
+	}
+	expectedEvents = []string{"", "hello\n"}
+	var exitError *exec.ExitError
+
+	output, err = user.Kubectl.CommandWithTimeout(2*time.Second, "attach", "test-pod")
+	require.ErrorAs(t, err, &exitError)
+	require.Empty(t, exitError.Stderr, "failed to execute kubectl attach")
+
+	assert.Contains(t, string(output), "hello\n")
+
+	testutil.AssertLogsForExecOrAttach(t, logs, "/api/v1/namespaces/default/pods/test-pod/attach?container=test-pod&stderr=true&stdout=true", expectedUser, expectedHeader, expectedEvents)
 }
