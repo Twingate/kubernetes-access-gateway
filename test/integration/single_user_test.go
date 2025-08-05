@@ -155,7 +155,8 @@ func TestSingleUser(t *testing.T) {
 
 	var exitError *exec.ExitError
 
-	output, err = user.Kubectl.CommandWithTimeout(2*time.Second, "attach", "test-pod")
+	output, err = user.Kubectl.CommandWithTimeout(3*time.Second, "attach", "test-pod")
+	// ExitError is expected here because the command gets killed because of the timeout
 	require.ErrorAs(t, err, &exitError)
 	require.Empty(t, exitError.Stderr, "failed to execute kubectl attach")
 
