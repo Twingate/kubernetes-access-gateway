@@ -124,7 +124,7 @@ func SetupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 	t.Log("Waiting for default service account to be created...")
 
 	err = wait.PollUntilContextTimeout(t.Context(), time.Second, 30*time.Second, true, func(_ctx context.Context) (bool, error) {
-		_, err = k.Command("get", "serviceaccount", "default")
+		_, err = k.Command("get", "serviceaccount", "default") //nolint:contextcheck
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}
