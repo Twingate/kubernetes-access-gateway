@@ -155,12 +155,15 @@ func TestSingleUser(t *testing.T) {
 
 	var exitError *exec.ExitError
 
-	output, err = user.Kubectl.CommandWithTimeout(3*time.Second, "attach", "test-pod")
+	output, err = user.Kubectl.CommandWithTimeout(time.Second, "attach", "test-pod")
 	// ExitError is expected here because the command gets killed because of the timeout
 	require.ErrorAs(t, err, &exitError)
 	require.Empty(t, exitError.Stderr, "failed to execute kubectl attach")
 
 	assert.Contains(t, string(output), "hello\n")
+
+	// Wait for the logs to be flushed
+	time.Sleep(100 * time.Millisecond)
 
 	testutil.AssertLogsForExecOrAttach(t, logs, "/api/v1/namespaces/default/pods/test-pod/attach?container=test-pod&stderr=true&stdout=true", expectedUser, expectedHeader, expectedEvents)
 }

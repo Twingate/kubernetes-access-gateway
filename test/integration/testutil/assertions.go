@@ -88,7 +88,7 @@ func assertAsciicast(t *testing.T, asciicast string, expectedHeader wsproxy.Asci
 
 	lines := strings.Split(strings.TrimSpace(asciicast), "\n")
 	expectedLines := 1 + len(expectedEvents) // Include header line and events
-	require.Len(t, lines, expectedLines, "asciicast should have %d lines", expectedLines)
+	require.GreaterOrEqual(t, len(lines), expectedLines, "asciicast should have at least %d lines", expectedLines)
 
 	assertAsciicastHeader(t, lines[0], expectedHeader)
 

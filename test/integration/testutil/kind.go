@@ -86,7 +86,7 @@ spec:
   - name: %s
     image: busybox
     command: ["/bin/sh"]
-    args: ["-c", "while true; do echo hello; sleep 2; done"]
+    args: ["-c", "while true; do echo hello; sleep 0.5; done"]
 ---
 `
 
