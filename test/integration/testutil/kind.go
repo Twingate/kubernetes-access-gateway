@@ -85,7 +85,8 @@ spec:
   containers:
   - name: %s
     image: busybox
-    command: ["sleep", "3600"]
+    command: ["/bin/sh"]
+    args: ["-c", "while true; do cat /etc/hostname; sleep 0.5; done"]
 ---
 `
 
@@ -122,8 +123,8 @@ func SetupKinD(t *testing.T) (*Kubectl, *rest.Config, string) {
 	// It takes a while for KinD to create the `default` service account...
 	t.Log("Waiting for default service account to be created...")
 
-	err = wait.PollUntilContextTimeout(t.Context(), time.Second, 30*time.Second, true, func(_ctx context.Context) (bool, error) {
-		_, err = k.Command("get", "serviceaccount", "default")
+	err = wait.PollUntilContextTimeout(t.Context(), time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+		_, err = k.CommandContext(ctx, "get", "serviceaccount", "default")
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}

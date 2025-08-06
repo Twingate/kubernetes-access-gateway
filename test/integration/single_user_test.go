@@ -4,10 +4,13 @@
 package integration
 
 import (
+	"context"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -134,5 +137,37 @@ func TestSingleUser(t *testing.T) {
 		},
 	}
 	expectedEvents := []string{"", "test-pod\n"}
-	testutil.AssertLogsForExec(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", expectedUser, expectedHeader, expectedEvents)
+	testutil.AssertLogsForExecOrAttach(t, logs, "/api/v1/namespaces/default/pods/test-pod/exec?command=cat&command=%2Fetc%2Fhostname&container=test-pod&stderr=true&stdout=true", expectedUser, expectedHeader, expectedEvents)
+
+	// Test `kubectl attach`
+	expectedHeader = wsproxy.AsciicastHeader{
+		Version:   2,
+		Width:     0,
+		Height:    0,
+		Timestamp: 0,
+		User:      expectedUser["username"].(string),
+		K8sMetadata: &wsproxy.K8sMetadata{
+			PodName:   "test-pod",
+			Namespace: "default",
+			Container: "test-pod",
+		},
+	}
+	expectedEvents = []string{"", "test-pod\n"}
+
+	var exitError *exec.ExitError
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	output, err = user.Kubectl.CommandContext(ctx, "attach", "test-pod")
+	// ExitError is expected here because the command gets killed because of the timeout
+	require.ErrorAs(t, err, &exitError)
+	require.Empty(t, exitError.Stderr, "failed to execute kubectl attach")
+
+	assert.Contains(t, string(output), "test-pod\n")
+
+	// Wait for the logs to be flushed
+	time.Sleep(100 * time.Millisecond)
+
+	testutil.AssertLogsForExecOrAttach(t, logs, "/api/v1/namespaces/default/pods/test-pod/attach?container=test-pod&stderr=true&stdout=true", expectedUser, expectedHeader, expectedEvents)
 }

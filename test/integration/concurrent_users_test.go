@@ -179,7 +179,7 @@ func TestConcurrentUsers(t *testing.T) {
 							},
 						}
 						expectedEvents := []string{""}
-						testutil.AssertLogsForExec(
+						testutil.AssertLogsForExecOrAttach(
 							t,
 							logs,
 							fmt.Sprintf("/api/v1/namespaces/default/pods/%s/exec?command=sleep&command=2&container=%s&stderr=true&stdout=true", testutil.TestPodName, testutil.TestPodName),
@@ -214,7 +214,7 @@ func TestConcurrentUsers(t *testing.T) {
 							},
 						}
 						expectedEvents := []string{"", testutil.TestPodName + "\n"}
-						testutil.AssertLogsForExec(
+						testutil.AssertLogsForExecOrAttach(
 							t,
 							logs,
 							fmt.Sprintf("/api/v1/namespaces/default/pods/%s/exec?command=cat&command=%%2Fetc%%2Fhostname&container=%s&stderr=true&stdout=true", testutil.TestPodName, testutil.TestPodName),
