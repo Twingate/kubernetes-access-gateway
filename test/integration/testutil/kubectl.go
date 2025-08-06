@@ -8,7 +8,6 @@ import (
 	"io"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 type KubectlOptions struct {
@@ -32,10 +31,7 @@ func (k *Kubectl) CommandWithInput(stdinInput string, cmdOptions ...string) ([]b
 	return k.executeKubectl(context.Background(), strings.NewReader(stdinInput), cmdOptions...)
 }
 
-func (k *Kubectl) CommandWithTimeout(timeout time.Duration, cmdOptions ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
+func (k *Kubectl) CommandContext(ctx context.Context, cmdOptions ...string) ([]byte, error) {
 	return k.executeKubectl(ctx, nil, cmdOptions...)
 }
 

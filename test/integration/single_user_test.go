@@ -4,6 +4,7 @@
 package integration
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -151,16 +152,19 @@ func TestSingleUser(t *testing.T) {
 			Container: "test-pod",
 		},
 	}
-	expectedEvents = []string{"", "hello\n"}
+	expectedEvents = []string{"", "test-pod\n"}
 
 	var exitError *exec.ExitError
 
-	output, err = user.Kubectl.CommandWithTimeout(time.Second, "attach", "test-pod")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	output, err = user.Kubectl.CommandContext(ctx, "attach", "test-pod")
 	// ExitError is expected here because the command gets killed because of the timeout
 	require.ErrorAs(t, err, &exitError)
 	require.Empty(t, exitError.Stderr, "failed to execute kubectl attach")
 
-	assert.Contains(t, string(output), "hello\n")
+	assert.Contains(t, string(output), "test-pod\n")
 
 	// Wait for the logs to be flushed
 	time.Sleep(100 * time.Millisecond)
