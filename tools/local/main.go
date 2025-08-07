@@ -292,7 +292,7 @@ func getKinDBearerToken() (string, error) {
 }
 
 // createKubeConfigFile creates the KubeConfig file for the local dev environment.
-// If the file already exists, it will be overwritten.
+// If kubeConfig file already exists, it will be overwritten.
 func createKubeConfigFile(serverURL string) error {
 	config := api.NewConfig()
 
