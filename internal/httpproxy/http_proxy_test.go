@@ -167,7 +167,7 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 	defer listener.Close()
 
 	// make proxy TLS
-	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy_server.crt", "../../test/data/proxy_server.key")
+	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key")
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -188,7 +188,7 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 	}
 
 	// make client TLS
-	caCert, _ := os.ReadFile("../../test/data/proxy_server.crt")
+	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -241,7 +241,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	defer listener.Close()
 
 	// make proxy TLS
-	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy_server.crt", "../../test/data/proxy_server.key")
+	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key")
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -255,7 +255,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	}
 
 	// make client TLS
-	caCert, _ := os.ReadFile("../../test/data/proxy_server.crt")
+	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -314,7 +314,7 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 
-	proxyCert, _ := tls.LoadX509KeyPair("../../test/data/proxy_server.crt", "../../test/data/proxy_server.key")
+	proxyCert, _ := tls.LoadX509KeyPair("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key")
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{proxyCert},
@@ -335,7 +335,7 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	}
 
 	// make client TLS
-	caCert, _ := os.ReadFile("../../test/data/proxy_server.crt")
+	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -406,7 +406,7 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 	defer listener.Close()
 
 	// make proxy TLS
-	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy_server.crt", "../../test/data/proxy_server.key")
+	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key")
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -427,7 +427,7 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 	}
 
 	// make client TLS
-	caCert, _ := os.ReadFile("../../test/data/proxy_server.crt")
+	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -490,7 +490,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	}))
 
 	// load certs for mock API server
-	serverCert, _ := tls.LoadX509KeyPair("../../test/data/api_server.crt", "../../test/data/api_server.key")
+	serverCert, _ := tls.LoadX509KeyPair("../../test/data/api_server/tls.crt", "../../test/data/api_server/tls.key")
 
 	apiServerTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -509,9 +509,9 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	// k8s proxy configuration
 	cfg := Config{
-		TLSCert:           "../../test/data/proxy_server.crt",
-		TLSKey:            "../../test/data/proxy_server.key",
-		K8sAPIServerCA:    "../../test/data/api_server.crt",
+		TLSCert:           "../../test/data/proxy/tls.crt",
+		TLSKey:            "../../test/data/proxy/tls.key",
+		K8sAPIServerCA:    "../../test/data/api_server/tls.crt",
 		K8sAPIServerToken: "mock-token",
 		ConnectValidator:  mockValidator,
 		Port:              45678,
@@ -531,7 +531,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	<-ready
 
 	// downstream proxy and client certs
-	caCert, _ := os.ReadFile("../../test/data/proxy_server.crt")
+	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
