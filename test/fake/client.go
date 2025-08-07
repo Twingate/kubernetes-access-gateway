@@ -19,7 +19,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"sync"
 
 	"go.uber.org/zap"
@@ -132,7 +131,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	defer c.wg.Done()
 
 	// Proxy certs
-	caCert, _ := os.ReadFile("../data/proxy/tls.crt")
+	caCert, _ := ReadFileFromProjectDirectory("./test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -168,7 +167,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 
 	connectReq.Header.Set("Proxy-Authorization", "Bearer "+gat)
 
-	clientKey, _ := ReadECKey("../data/client/key.pem")
+	clientKey, _ := ReadECKey("./test/data/client/key.pem")
 	ekm, _ := httpproxy.ExportKeyingMaterial(proxyTLSConn)
 	ekmHash := sha256.Sum256(ekm)
 	signature, _ := ecdsa.SignASN1(rand.Reader, clientKey, ekmHash[:])
@@ -212,7 +211,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 }
 
 func (c *Client) fetchGAT() (string, error) {
-	clientPublicKey, _ := ReadECKey("../data/client/key.pem")
+	clientPublicKey, _ := ReadECKey("./test/data/client/key.pem")
 	requestBody := requestBody{
 		ClientPublicKey: &token.PublicKey{
 			PublicKey: clientPublicKey.PublicKey,

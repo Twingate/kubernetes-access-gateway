@@ -7,14 +7,17 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
-func ReadECKey(filename string) (*ecdsa.PrivateKey, error) {
-	filename = filepath.Clean(filename)
+var errFailedToGetCaller = errors.New("failed to get caller")
 
-	privateKeyBytes, err := os.ReadFile(filename)
+func ReadECKey(filename string) (*ecdsa.PrivateKey, error) {
+	privateKeyBytes, err := ReadFileFromProjectDirectory(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -25,4 +28,16 @@ func ReadECKey(filename string) (*ecdsa.PrivateKey, error) {
 	}
 
 	return x509.ParseECPrivateKey(privateKeyBlock.Bytes)
+}
+
+func ReadFileFromProjectDirectory(filename string) ([]byte, error) {
+	_, b, _, ok := runtime.Caller(0)
+	if !ok {
+		return nil, fmt.Errorf("reading file from project directory: %w", errFailedToGetCaller)
+	}
+
+	root := filepath.Join(filepath.Dir(b), "..", "..") // from ./test/fake to project directory
+	path := filepath.Clean(filepath.Join(root, filename))
+
+	return os.ReadFile(path)
 }
