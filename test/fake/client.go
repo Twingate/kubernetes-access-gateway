@@ -100,13 +100,6 @@ func (c *Client) Close() {
 }
 
 func (c *Client) serve(ctx context.Context) {
-	gat, err := c.fetchGAT()
-	if err != nil {
-		c.logger.Error("Failed to fetch GAT", zap.Error(err))
-
-		return
-	}
-
 	for {
 		clientConn, err := c.Listener.Accept()
 		if err != nil {
@@ -118,6 +111,13 @@ func (c *Client) serve(ctx context.Context) {
 			}
 
 			continue
+		}
+
+		gat, err := c.fetchGAT()
+		if err != nil {
+			c.logger.Error("Failed to fetch GAT", zap.Error(err))
+
+			return
 		}
 
 		c.wg.Add(1)

@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -38,6 +39,7 @@ const (
 	kindPort              = 6443
 	controllerPort        = 8080
 	kubeConfigClusterName = "twingate-gateway-local"
+	defaultUsername       = "alex@acme.com"
 )
 
 var kindClusterYaml = fmt.Sprintf(`
@@ -58,6 +60,11 @@ nodes:
 // - Caddy must be already running. Run `caddy run` to start Caddy.
 // - Update `kubeConfigPath` above to point to your local KubeConfig file.
 func main() {
+	// Parse command line flags
+	username := flag.String("username", defaultUsername, "Username to use for authentication")
+	createKubeConfig := flag.Bool("create-kubeconfig", true, "Whether to create kubeConfig. If kubeConfig already exists, it will be overwritten")
+	flag.Parse()
+
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		log.Fatalf("Failed to create logger: %v", err)
@@ -82,7 +89,7 @@ func main() {
 		cancel()
 	}()
 
-	if err := createKindCluster(logger); err != nil {
+	if err := createKindCluster(logger, *username); err != nil {
 		logger.Fatal("Failed to create kind cluster", zap.Error(err))
 	}
 
@@ -93,7 +100,7 @@ func main() {
 
 	user := &token.User{
 		ID:       "user-1",
-		Username: "alex@acme.com",
+		Username: *username,
 		Groups:   []string{"Developer", "OnCall"},
 	}
 
@@ -107,15 +114,17 @@ func main() {
 
 	logger.Info("Client is serving at", zap.String("url", client.URL))
 
-	if err := createKubeConfigFile(client.URL); err != nil {
-		logger.Error("Failed to create kubeConfig", zap.Error(err))
+	if *createKubeConfig {
+		if err := createKubeConfigFile(client.URL); err != nil {
+			logger.Error("Failed to create kubeConfig", zap.Error(err))
 
-		return
+			return
+		}
+
+		logger.Info("Created kubeConfig", zap.String("path", kubeConfigPath))
+		logger.Info("You can now use kubectl with this config:",
+			zap.String("command", fmt.Sprintf("kubectl --kubeconfig=%s get pods", kubeConfigPath)))
 	}
-
-	logger.Info("Created kubeConfig", zap.String("path", kubeConfigPath))
-	logger.Info("You can now use kubectl with this config:",
-		zap.String("command", fmt.Sprintf("kubectl --kubeconfig=%s get pods", kubeConfigPath)))
 
 	kindBearerToken, err := getKinDBearerToken()
 	if err != nil {
@@ -206,11 +215,11 @@ roleRef:
   name: edit
 subjects:
 - kind: User
-  name: "alex@acme.com"
+  name: %s
   apiGroup: rbac.authorization.k8s.io
 `
 
-func createKindCluster(logger *zap.Logger) error {
+func createKindCluster(logger *zap.Logger, username string) error {
 	provider := kindcluster.NewProvider(kindcluster.ProviderWithLogger(kindcmd.NewLogger()))
 
 	existingClusters, err := provider.List()
@@ -251,7 +260,7 @@ func createKindCluster(logger *zap.Logger) error {
 		logger.Fatal("Failed waiting for default service account", zap.Error(err))
 	}
 
-	_, err = k.WithInput(setupYaml).Command("apply", "-f", "-")
+	_, err = k.WithInput(fmt.Sprintf(setupYaml, username)).Command("apply", "-f", "-")
 	if err != nil {
 		logger.Fatal("Failed to apply setup YAML", zap.Error(err))
 	}
