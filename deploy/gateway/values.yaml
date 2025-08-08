@@ -174,7 +174,7 @@ metrics:
       #   expr: |
       #     max_over_time(
       #       (sum by (code, method, type) (rate(twingate_gateway_http_requests_total{code=~"5[0-9][0-9]"}[5m])) > bool 0.8)[2m:30s]
-      #     )
+      #     ) > 0
       #   for: 2m
       #   labels:
       #     severity: critical
@@ -185,7 +185,7 @@ metrics:
       #   expr: |
       #     max_over_time(
       #       (sum by (code, method, type) (rate(twingate_gateway_api_server_requests_total{code=~"5[0-9][0-9]"}[5m])) > bool 0.8)[2m:30s]
-      #     )
+      #     ) > 0
       #   for: 2m
       #   labels:
       #     severity: critical
@@ -198,7 +198,11 @@ metrics:
       #     (
       #       sum(rate(twingate_gateway_client_authentication_total{code!="200"}[5m])) /
       #       sum(rate(twingate_gateway_client_authentication_total[5m]))
-      #     ) > 0.1
+      #     ) > 0.1 
+      #     and
+      #     ( 
+      #       sum(rate(twingate_gateway_client_authentication_total[5m])) > 1
+      #     )
       #   for: 2m
       #   labels:
       #     severity: warning
