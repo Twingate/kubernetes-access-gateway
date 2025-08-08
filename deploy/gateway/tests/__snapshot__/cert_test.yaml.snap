@@ -1,0 +1,34 @@
+should render:
+  1: |
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: kubernetes-access-gateway
+        app.kubernetes.io/version: 0.1.0
+        helm.sh/chart: kubernetes-access-gateway-0.1.0
+      name: RELEASE-NAME-kubernetes-access-gateway-crt
+    spec:
+      commonName: kubernetes.default.svc.cluster.local
+      dnsNames:
+        - kubernetes
+        - kubernetes.default
+        - kubernetes.default.svc
+        - kubernetes.default.svc.cluster.local
+        - my-alias.int
+        - foo.int
+        - 1.1.1.1
+      duration: 2160h
+      issuerRef:
+        kind: Issuer
+        name: RELEASE-NAME-kubernetes-access-gateway-ca-issuer
+      privateKey:
+        algorithm: RSA
+        size: 2048
+      renewBefore: 360h
+      secretName: RELEASE-NAME-kubernetes-access-gateway-tls
+      subject:
+        organizations:
+          - Twingate

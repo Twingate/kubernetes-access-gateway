@@ -8,7 +8,9 @@ should show ClusterIP instructions when service type is ClusterIP:
 
       RELEASE-NAME-kubernetes-access-gateway.NAMESPACE.svc.cluster.local
 
-      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret. The CA certificate is
+      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret.
+
+      The CA certificate is:
 
       -----BEGIN CERTIFICATE-----
       MIIDIDCCAgigAwIBAgIRANR3YBydhgMaFH4HzGiKyOEwDQYJKoZIhvcNAQELBQAw
@@ -40,7 +42,9 @@ should show LoadBalancer instructions when service type is LoadBalancer:
 
       Watch the LoadBalancer address with: 'kubectl get svc --namespace NAMESPACE -w RELEASE-NAME-kubernetes-access-gateway -o jsonpath='{.status.loadBalancer.ingress[0]}''
 
-      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret. The CA certificate is
+      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret.
+
+      The CA certificate is:
 
       -----BEGIN CERTIFICATE-----
       MIIDIDCCAgigAwIBAgIRANR3YBydhgMaFH4HzGiKyOEwDQYJKoZIhvcNAQELBQAw
@@ -62,7 +66,7 @@ should show LoadBalancer instructions when service type is LoadBalancer:
       khGd00QOCDRCpVisdRQmbzFv6JkeYKxhWzaulPHgl1JRzWaI
       -----END CERTIFICATE-----
 
-should show previously generated CA when the alternative names have not changed:
+should show cert-manager instructions when TLS auto-generated engine is cert-manager:
   1: |+
     raw: |2+
 
@@ -72,7 +76,23 @@ should show previously generated CA when the alternative names have not changed:
 
       RELEASE-NAME-kubernetes-access-gateway.NAMESPACE.svc.cluster.local
 
-      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret. The CA certificate is
+      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret.
+
+      Run the following command to get the CA certificate: 'kubectl get secrets RELEASE-NAME-kubernetes-access-gateway-tls -o jsonpath='{.data.ca\.crt}' | base64 -d'
+
+should show previously helm-generated CA when the alternative names have not changed:
+  1: |+
+    raw: |2+
+
+      Admin Console URL - https://.twingate.com
+
+      1. The Gateway is accessible via its ClusterIP DNS at
+
+      RELEASE-NAME-kubernetes-access-gateway.NAMESPACE.svc.cluster.local
+
+      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret.
+
+      The CA certificate is:
 
       -----BEGIN CERTIFICATE-----
       MIIDIDCCAgigAwIBAgIRANR3YBydhgMaFH4HzGiKyOEwDQYJKoZIhvcNAQELBQAw
@@ -104,7 +124,9 @@ should use `existingSecret` Secret object when provided:
 
       RELEASE-NAME-kubernetes-access-gateway.NAMESPACE.svc.cluster.local
 
-      2. The Gateway uses TLS certificates from the "my-custom-secret" Secret. The CA certificate is
+      2. The Gateway uses TLS certificates from the "my-custom-secret" Secret.
+
+      The CA certificate is:
 
       -----BEGIN CERTIFICATE-----
       MIIDIDCCAgigAwIBAgIRANR3YBydhgMaFH4HzGiKyOEwDQYJKoZIhvcNAQELBQAw
@@ -136,7 +158,9 @@ should use `tls.ca` value when provided:
 
       RELEASE-NAME-kubernetes-access-gateway.NAMESPACE.svc.cluster.local
 
-      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret. The CA certificate is
+      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret.
+
+      The CA certificate is:
 
       -----BEGIN CERTIFICATE-----
       MIIDIDCCAgigAwIBAgIRANR3YBydhgMaFH4HzGiKyOEwDQYJKoZIhvcNAQELBQAw
