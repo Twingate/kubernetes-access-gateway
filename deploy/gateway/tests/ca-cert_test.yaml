@@ -23,6 +23,13 @@ tests:
     asserts:
       - hasDocuments:
           count: 0
+  - it: should not render when `existingSecret` is provided
+    set:
+      tls:
+        existingSecret: "my-tls-secret"
+    asserts:
+      - hasDocuments:
+          count: 0
   - it: should render using self-signed CA
     asserts:
       - matchSnapshot: {}
