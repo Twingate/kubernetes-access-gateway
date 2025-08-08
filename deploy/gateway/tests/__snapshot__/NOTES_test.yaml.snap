@@ -67,8 +67,8 @@ should show LoadBalancer instructions when service type is LoadBalancer:
       -----END CERTIFICATE-----
 
 should show cert-manager instructions when TLS auto-generated engine is cert-manager:
-  1: |+
-    raw: |2+
+  1: |
+    raw: |2
 
       Admin Console URL - https://.twingate.com
 
@@ -79,7 +79,6 @@ should show cert-manager instructions when TLS auto-generated engine is cert-man
       2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret.
 
       Run the following command to get the CA certificate: 'kubectl get secrets RELEASE-NAME-kubernetes-access-gateway-tls -o jsonpath='{.data.ca\.crt}' | base64 -d'
-
 should show previously helm-generated CA when the alternative names have not changed:
   1: |+
     raw: |2+
