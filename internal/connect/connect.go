@@ -27,6 +27,7 @@ const ConnIDHeaderKey string = "X-Connection-Id"
 type Info struct {
 	Claims *token.GATClaims
 	ConnID string
+	RawGAT string
 }
 
 type HTTPError struct {
@@ -57,6 +58,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 		return Info{
 				Claims: nil,
 				ConnID: "",
+				RawGAT: "",
 			}, &HTTPError{
 				Code:    http.StatusMethodNotAllowed,
 				Message: "expected CONNECT request got " + req.Method,
@@ -74,6 +76,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 		return Info{
 				Claims: nil,
 				ConnID: connID,
+				RawGAT: bearerToken,
 			}, &HTTPError{
 				Code:    http.StatusProxyAuthRequired,
 				Message: fmt.Sprintf("missing identity header in CONNECT %v", tokenErr),
@@ -88,6 +91,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 		return Info{
 				Claims: nil,
 				ConnID: connID,
+				RawGAT: "",
 			}, &HTTPError{
 				Code:    http.StatusUnauthorized,
 				Message: fmt.Sprintf("failed to parse token with error %v", tokenErr),
@@ -103,6 +107,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 		return Info{
 				Claims: gatClaims,
 				ConnID: connID,
+				RawGAT: bearerToken,
 			}, &HTTPError{
 				Code:    http.StatusUnauthorized,
 				Message: fmt.Sprintf("failed to decode client signature with error %v", tokenErr),
@@ -118,6 +123,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 		return Info{
 				Claims: gatClaims,
 				ConnID: connID,
+				RawGAT: bearerToken,
 			}, &HTTPError{
 				Code:    http.StatusUnauthorized,
 				Message: "failed to verify signature",
@@ -133,6 +139,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 		return Info{
 				Claims: gatClaims,
 				ConnID: connID,
+				RawGAT: bearerToken,
 			}, &HTTPError{
 				Code:    http.StatusBadRequest,
 				Message: fmt.Sprintf("failed to parse CONNECT destination: %v", hostErr),
@@ -144,6 +151,7 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 		return Info{
 				Claims: gatClaims,
 				ConnID: connID,
+				RawGAT: bearerToken,
 			}, &HTTPError{
 				Code:    http.StatusBadRequest,
 				Message: fmt.Sprintf("failed to verify CONNECT destination: %s with token resource address %s", host, gatClaims.Resource.Address),
@@ -154,5 +162,6 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 	return Info{
 		Claims: gatClaims,
 		ConnID: connID,
+		RawGAT: bearerToken,
 	}, nil
 }

@@ -24,8 +24,6 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 
-	k8stransport "k8s.io/client-go/transport"
-
 	"k8sgateway/internal/connect"
 	"k8sgateway/internal/metrics"
 	"k8sgateway/internal/token"
@@ -82,6 +80,7 @@ type ProxyConn struct {
 
 	id     string
 	claims *token.GATClaims
+	rawGAT string
 	timer  *time.Timer
 	mu     sync.Mutex
 
@@ -245,6 +244,7 @@ func (p *ProxyConn) authenticate() error {
 func (p *ProxyConn) setConnectInfo(connectInfo connect.Info) {
 	p.id = connectInfo.ConnID
 	p.claims = connectInfo.Claims
+	p.rawGAT = connectInfo.RawGAT
 	p.timer = time.AfterFunc(time.Until(connectInfo.Claims.ExpiresAt.Time), func() {
 		_ = p.Close()
 	})
@@ -325,18 +325,18 @@ func NewProxy(cfg Config) (*Proxy, error) {
 
 	logger.Infof("loaded upstream K8sAPIServerCA cert")
 
-	upstreamTLSConfig := &tls.Config{
-		MinVersion: tls.VersionTLS13,
-		RootCAs:    caCertPool,
-	}
+	// upstreamTLSConfig := &tls.Config{
+	// 	MinVersion: tls.VersionTLS13,
+	// 	RootCAs:    caCertPool,
+	// }
 
-	transport, err := k8stransport.NewBearerAuthWithRefreshRoundTripper(
-		cfg.K8sAPIServerToken,
-		cfg.K8sAPIServerTokenFile,
-		&http.Transport{
-			TLSClientConfig: upstreamTLSConfig,
-		},
-	)
+	// transport, err := k8stransport.NewBearerAuthWithRefreshRoundTripper(
+	// 	cfg.K8sAPIServerToken,
+	// 	cfg.K8sAPIServerTokenFile,
+	// 	&http.Transport{
+	// 		TLSClientConfig: upstreamTLSConfig,
+	// 	},
+	// )
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bearer auth round tripper: %w", err)
 	}
@@ -355,7 +355,8 @@ func NewProxy(cfg Config) (*Proxy, error) {
 				apiServerAddress = fmt.Sprintf("%s:%d", conn.claims.Resource.Address, cfg.K8sAPIServerPort)
 			}
 			targetURL := &url.URL{
-				Scheme: "https",
+				//Scheme: "https",
+				Scheme: "http",
 				Host:   apiServerAddress,
 			}
 			r.SetURL(targetURL)
@@ -371,16 +372,19 @@ func NewProxy(cfg Config) (*Proxy, error) {
 				}
 			}
 
+			r.Out.Header.Set("Authorization", fmt.Sprintf("Bearer %s", conn.rawGAT))
+
 			// Set impersonation header to impersonate the user
 			// identified from downstream.
-			r.Out.Header.Set("Impersonate-User", conn.claims.User.Username)
-			for _, group := range conn.claims.User.Groups {
-				r.Out.Header.Add("Impersonate-Group", group)
-			}
+			//r.Out.Header.Set("Impersonate-User", conn.claims.User.Username)
+			//for _, group := range conn.claims.User.Groups {
+			//	r.Out.Header.Add("Impersonate-Group", group)
+			//}
 		},
 		Transport: metrics.RoundTripper(metrics.RoundTripperConfig{
 			Registry: cfg.Registry,
-			Next:     transport,
+			// Next:     transport,
+			Next: &http.Transport{},
 		}),
 	}
 
