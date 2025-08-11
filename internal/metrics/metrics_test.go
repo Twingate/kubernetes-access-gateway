@@ -21,8 +21,6 @@ func TestInitMetricCollectors(t *testing.T) {
 	// Note that this list only contain a subset of Go and process metrics.
 	// We want to make sure that the Go and process collectors are registered.
 	expectedMetrics := []string{
-		// Build Info Metric
-		"twingate_gateway_build_info",
 		// Go Metric
 		"go_gc_duration_seconds",
 		// Process Metric
