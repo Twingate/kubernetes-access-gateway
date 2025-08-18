@@ -211,7 +211,7 @@
         "type": "prometheus",
         "uid": "$datasource"
       },
-      "description": "Percentile latency of HTTP requests between Client and Gateway, grouped by request type.",
+      "description": "Percentile duration of HTTP requests between Client and Gateway, grouped by request type.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -332,7 +332,7 @@
           "useBackend": false
         }
       ],
-      "title": "Request Latency",
+      "title": "Request Duration",
       "type": "timeseries"
     },
     {
@@ -1059,7 +1059,7 @@
         "type": "prometheus",
         "uid": "$datasource"
       },
-      "description": "Percentile latency of HTTP requests to Kubernetes API Server, grouped by request type.",
+      "description": "Percentile duration of HTTP requests to Kubernetes API Server, grouped by request type.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1292,7 +1292,7 @@
         "type": "prometheus",
         "uid": "$datasource"
       },
-      "description": "Percentile latency of the recorded session.",
+      "description": "Percentile duration of the recorded session.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1696,7 +1696,7 @@
         "type": "prometheus",
         "uid": "$datasource"
       },
-      "description": "Percentile latency of Client TCP connections to Gateway, grouped by connection category.",
+      "description": "Percentile duration of Client TCP connections to Gateway, grouped by connection category.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2031,7 +2031,7 @@
         "type": "prometheus",
         "uid": "$datasource"
       },
-      "description": "Percentile latency of HTTP Connect authentication attempts.",
+      "description": "Percentile duration of HTTP Connect authentication attempts.",
       "fieldConfig": {
         "defaults": {
           "color": {
