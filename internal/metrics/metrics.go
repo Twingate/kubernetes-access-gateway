@@ -6,14 +6,11 @@ package metrics
 import (
 	"fmt"
 	"net/http"
-	"runtime"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"k8sgateway/internal/version"
 )
 
 const Namespace = "twingate_gateway"
@@ -44,21 +41,9 @@ func Start(config Config) error {
 }
 
 func registerCoreMetrics(reg *prometheus.Registry) {
-	buildInfo := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: Namespace,
-		Name:      "build_info",
-		Help:      "A metric with a constant '1' value labeled by version, goversion, goos and goarch from which Twingate Kubernetes Access Gateway was built.",
-		ConstLabels: prometheus.Labels{
-			"version":   version.Version,
-			"goversion": runtime.Version(),
-			"goos":      runtime.GOOS,
-			"goarch":    runtime.GOARCH,
-		},
-	}, func() float64 { return 1 })
-
 	goCollector := collectors.NewGoCollector()
 
 	processCollector := collectors.NewProcessCollector(collectors.ProcessCollectorOpts{})
 
-	reg.MustRegister(buildInfo, goCollector, processCollector)
+	reg.MustRegister(goCollector, processCollector)
 }
