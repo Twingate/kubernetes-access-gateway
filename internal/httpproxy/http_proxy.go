@@ -305,7 +305,8 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		logger.Fatal("failed to initialize cert provider", zap.Error(err))
 	}
 
-	if err := cert.RunOnce(context.Background()); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := cert.RunOnce(ctx); err != nil {
 		logger.Fatal("failed to load TLS certificate", zap.Error(err))
 	}
 
@@ -329,8 +330,10 @@ func NewProxy(cfg Config) (*Proxy, error) {
 
 	cert.AddListener(certController)
 
-	go cert.Run(context.Background(), 1)
-	go certController.Run(1, make(chan struct{}))
+	stopCh := make(chan struct{})
+
+	go cert.Run(ctx, 1)
+	go certController.Run(1, stopCh)
 
 	downstreamTLSConfig.GetConfigForClient = certController.GetConfigForClient
 
@@ -358,6 +361,8 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		},
 	)
 	if err != nil {
+		cancel()
+
 		return nil, fmt.Errorf("failed to create bearer auth round tripper: %w", err)
 	}
 
@@ -418,6 +423,10 @@ func NewProxy(cfg Config) (*Proxy, error) {
 			return context.WithValue(ctx, ConnContextKey, c)
 		},
 	}
+	httpServer.RegisterOnShutdown(func() {
+		cancel()
+		close(stopCh)
+	})
 
 	p := &Proxy{
 		httpServer:          httpServer,
