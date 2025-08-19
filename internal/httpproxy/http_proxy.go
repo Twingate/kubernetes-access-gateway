@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
+	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 
 	k8stransport "k8s.io/client-go/transport"
 
@@ -298,19 +299,39 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		logger.Fatal("connect validator is nil")
 	}
 
-	// create TLS configuration for downstream
-	cert, err := tls.LoadX509KeyPair(cfg.TLSCert, cfg.TLSKey)
+	certs, err := dynamiccertificates.NewDynamicServingContentFromFiles("downstream-tls-cert", cfg.TLSCert, cfg.TLSKey)
 	if err != nil {
-		logger.Fatalf("failed to load TLS certificate: %v", err)
+		logger.Fatal("failed to initialize cert provider", zap.Error(err))
 	}
 
-	logger.Infof("loaded downstream TLS certs")
+	if err := certs.RunOnce(context.Background()); err != nil {
+		logger.Fatal("failed to load TLS certificate", zap.Error(err))
+	}
 
 	downstreamTLSConfig := &tls.Config{
-		MinVersion:   tls.VersionTLS13,
-		MaxVersion:   tls.VersionTLS13,
-		Certificates: []tls.Certificate{cert},
+		MinVersion: tls.VersionTLS13,
+		MaxVersion: tls.VersionTLS13,
 	}
+
+	certController := dynamiccertificates.NewDynamicServingCertificateController(
+		downstreamTLSConfig,
+		nil,
+		certs,
+		nil,
+		nil,
+	)
+	if err := certController.RunOnce(); err != nil {
+		logger.Fatal("failed to initialize dynamic cert controller", zap.Error(err))
+	}
+
+	certs.AddListener(certController)
+
+	go certs.Run(context.Background(), 1)
+	go certController.Run(1, make(chan struct{}))
+
+	downstreamTLSConfig.GetConfigForClient = certController.GetConfigForClient
+
+	logger.Info("loaded downstream TLS certs")
 
 	// create TLS configuration for upstream
 	caCert, err := os.ReadFile(cfg.K8sAPIServerCA)
