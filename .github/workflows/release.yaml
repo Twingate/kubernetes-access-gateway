@@ -11,14 +11,14 @@ permissions:
   packages: write
 
 env:
-  GOLANG_VERSION: 1.24.5
+  GOLANG_VERSION: 1.24.6
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
