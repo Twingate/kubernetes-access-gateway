@@ -299,14 +299,17 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		logger.Fatal("connect validator is nil")
 	}
 
-	certs, err := dynamiccertificates.NewDynamicServingContentFromFiles("downstream-tls-cert", cfg.TLSCert, cfg.TLSKey)
+	// create TLS configuration for downstream
+	cert, err := dynamiccertificates.NewDynamicServingContentFromFiles("downstream-tls-cert", cfg.TLSCert, cfg.TLSKey)
 	if err != nil {
 		logger.Fatal("failed to initialize cert provider", zap.Error(err))
 	}
 
-	if err := certs.RunOnce(context.Background()); err != nil {
+	if err := cert.RunOnce(context.Background()); err != nil {
 		logger.Fatal("failed to load TLS certificate", zap.Error(err))
 	}
+
+	logger.Info("loaded downstream TLS certs")
 
 	downstreamTLSConfig := &tls.Config{
 		MinVersion: tls.VersionTLS13,
@@ -316,7 +319,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	certController := dynamiccertificates.NewDynamicServingCertificateController(
 		downstreamTLSConfig,
 		nil,
-		certs,
+		cert,
 		nil,
 		nil,
 	)
@@ -324,14 +327,12 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		logger.Fatal("failed to initialize dynamic cert controller", zap.Error(err))
 	}
 
-	certs.AddListener(certController)
+	cert.AddListener(certController)
 
-	go certs.Run(context.Background(), 1)
+	go cert.Run(context.Background(), 1)
 	go certController.Run(1, make(chan struct{}))
 
 	downstreamTLSConfig.GetConfigForClient = certController.GetConfigForClient
-
-	logger.Info("loaded downstream TLS certs")
 
 	// create TLS configuration for upstream
 	caCert, err := os.ReadFile(cfg.K8sAPIServerCA)
@@ -343,8 +344,6 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
 		logger.Fatal("failed to append K8sAPIServerCA cert to pool")
 	}
-
-	logger.Infof("loaded upstream K8sAPIServerCA cert")
 
 	upstreamTLSConfig := &tls.Config{
 		MinVersion: tls.VersionTLS13,
