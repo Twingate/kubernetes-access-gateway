@@ -29,6 +29,8 @@ should render using self-signed CA:
       issuerRef:
         kind: Issuer
         name: RELEASE-NAME-kubernetes-access-gateway-clusterissuer
+      privateKey:
+        rotationPolicy: Always
       secretName: RELEASE-NAME-kubernetes-access-gateway-ca-crt
   3: |
     apiVersion: cert-manager.io/v1
