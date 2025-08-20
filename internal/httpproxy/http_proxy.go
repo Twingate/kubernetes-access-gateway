@@ -20,10 +20,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-logr/zapr"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
+	"k8s.io/klog/v2"
 
 	k8stransport "k8s.io/client-go/transport"
 
@@ -298,6 +300,9 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	if cfg.ConnectValidator == nil {
 		logger.Fatal("connect validator is nil")
 	}
+
+	// Dynamic Certificates use klog internally as a logger, we need to redirect klog to our logger
+	klog.SetLogger(zapr.NewLogger(zap.L()))
 
 	// create TLS configuration for downstream
 	cert, err := dynamiccertificates.NewDynamicServingContentFromFiles("downstream-tls-cert", cfg.TLSCert, cfg.TLSKey)
