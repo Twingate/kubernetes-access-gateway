@@ -8,12 +8,9 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"os/exec"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -27,13 +24,14 @@ import (
 
 	"k8sgateway/internal/token"
 	"k8sgateway/test/fake"
+	"k8sgateway/test/integration/testutil"
 )
 
 const (
 	network               = "acme"
 	gatewayPort           = 8443
 	gatewayHost           = "127.0.0.1"
-	kubeConfigPath        = "/Users/<username>/.kube/config-twingate-gateway-local"
+	kubeConfigPath        = "config-twingate-gateway-local"
 	clusterName           = "gateway-local-development"
 	kindClusterName       = "kind-" + clusterName
 	kindPort              = 6443
@@ -122,8 +120,6 @@ func main() {
 		}
 
 		logger.Info("Created kubeConfig", zap.String("path", kubeConfigPath))
-		logger.Info("You can now use kubectl with this config:",
-			zap.String("command", fmt.Sprintf("kubectl --kubeconfig=%s get pods", kubeConfigPath)))
 	}
 
 	kindBearerToken, err := getKinDBearerToken()
@@ -133,6 +129,7 @@ func main() {
 		return
 	}
 
+	//nolint:forbidigo
 	_, _ = fmt.Printf(`
 =====================================================
 Twingate local dev environment running!
@@ -241,15 +238,17 @@ func createKindCluster(logger *zap.Logger, username string) error {
 		return err
 	}
 
-	k := &Kubectl{
-		context: kindClusterName,
+	kubectl := &testutil.Kubectl{
+		Options: testutil.KubectlOptions{
+			Context: kindClusterName,
+		},
 	}
 
 	// It takes a while for KinD to create the `default` service account...
 	logger.Info("Waiting for default service account to be created...")
 
-	err = wait.PollUntilContextTimeout(context.Background(), time.Second, 30*time.Second, true, func(_ctx context.Context) (bool, error) {
-		_, err = k.Command("get", "serviceaccount", "default")
+	err = wait.PollUntilContextTimeout(context.Background(), time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+		_, err = kubectl.CommandContext(ctx, "get", "serviceaccount", "default")
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}
@@ -260,12 +259,12 @@ func createKindCluster(logger *zap.Logger, username string) error {
 		logger.Fatal("Failed waiting for default service account", zap.Error(err))
 	}
 
-	_, err = k.WithInput(fmt.Sprintf(setupYaml, username)).Command("apply", "-f", "-")
+	_, err = kubectl.CommandWithInput(fmt.Sprintf(setupYaml, username), "apply", "-f", "-")
 	if err != nil {
 		logger.Fatal("Failed to apply setup YAML", zap.Error(err))
 	}
 
-	_, err = k.Command("wait", "--for=condition=Ready", "pod/test-pod", "--timeout=30s")
+	_, err = kubectl.Command("wait", "--for=condition=Ready", "pod/test-pod", "--timeout=30s")
 	if err != nil {
 		logger.Fatal("Failed waiting for busybox pod", zap.Error(err))
 	}
@@ -274,11 +273,13 @@ func createKindCluster(logger *zap.Logger, username string) error {
 }
 
 func getKinDBearerToken() (string, error) {
-	k := &Kubectl{
-		context: kindClusterName,
+	kubectl := &testutil.Kubectl{
+		Options: testutil.KubectlOptions{
+			Context: kindClusterName,
+		},
 	}
 
-	b64BearerToken, err := k.Command("get", "secret", "gateway-default-service-account", "-o", "jsonpath={.data.token}")
+	b64BearerToken, err := kubectl.Command("get", "secret", "gateway-default-service-account", "-o", "jsonpath={.data.token}")
 	if err != nil {
 		return "", err
 	}
@@ -312,36 +313,7 @@ func createKubeConfigFile(serverURL string) error {
 	ctx.AuthInfo = kubeConfigClusterName
 	config.Contexts[kubeConfigClusterName] = ctx
 
-	// Set current `kubectl` context
 	config.CurrentContext = kubeConfigClusterName
 
 	return clientcmd.WriteToFile(*config, kubeConfigPath)
-}
-
-// Kubectl contains context to run `kubectl` commands.
-type Kubectl struct {
-	context string
-	Stdin   io.Reader
-}
-
-// Command is a general func to run `kubectl` commands.
-func (k *Kubectl) Command(cmdOptions ...string) ([]byte, error) {
-	cmd := exec.Command("kubectl", append([]string{"--context", k.context}, cmdOptions...)...) // #nosec G204 -- `kubectl` is safe to use
-	cmd.Stdin = k.Stdin
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		command := strings.Join(cmd.Args, " ")
-
-		return output, fmt.Errorf("%q failed with error %q: %w", command, string(output), err)
-	}
-
-	return output, nil
-}
-
-// WithInput is a general func to run `kubectl` commands with input.
-func (k *Kubectl) WithInput(stdinInput string) *Kubectl {
-	k.Stdin = strings.NewReader(stdinInput)
-
-	return k
 }

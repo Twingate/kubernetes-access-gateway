@@ -33,9 +33,6 @@ linters:
       - path: '_test\.go'
         linters:
           - err113
-      - path: 'tools/local/main.go'
-        linters:
-          - forbidigo
   settings:
     goheader:
       template: |-
