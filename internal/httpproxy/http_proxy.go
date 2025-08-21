@@ -20,12 +20,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-logr/zapr"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
-	"k8s.io/apiserver/pkg/server/dynamiccertificates"
-	"k8s.io/klog/v2"
 
 	k8stransport "k8s.io/client-go/transport"
 
@@ -301,46 +298,15 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		logger.Fatal("connect validator is nil")
 	}
 
-	// Dynamic Certificates use klog internally as a logger, we need to redirect klog to our logger
-	klog.SetLogger(zapr.NewLogger(zap.L()))
+	certReloader := newCertReloader(cfg.TLSCert, cfg.TLSKey, logger)
+	certReloader.watch()
 
 	// create TLS configuration for downstream
-	cert, err := dynamiccertificates.NewDynamicServingContentFromFiles("downstream-tls-cert", cfg.TLSCert, cfg.TLSKey)
-	if err != nil {
-		logger.Fatal("failed to initialize cert provider", zap.Error(err))
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	if err := cert.RunOnce(ctx); err != nil {
-		logger.Fatal("failed to load TLS certificate", zap.Error(err))
-	}
-
-	logger.Info("loaded downstream TLS certs")
-
 	downstreamTLSConfig := &tls.Config{
-		MinVersion: tls.VersionTLS13,
-		MaxVersion: tls.VersionTLS13,
+		MinVersion:     tls.VersionTLS13,
+		MaxVersion:     tls.VersionTLS13,
+		GetCertificate: certReloader.getCertificate,
 	}
-
-	certController := dynamiccertificates.NewDynamicServingCertificateController(
-		downstreamTLSConfig,
-		nil,
-		cert,
-		nil,
-		nil,
-	)
-	if err := certController.RunOnce(); err != nil {
-		logger.Fatal("failed to initialize dynamic cert controller", zap.Error(err))
-	}
-
-	cert.AddListener(certController)
-
-	stopCh := make(chan struct{})
-
-	go cert.Run(ctx, 1)
-	go certController.Run(1, stopCh)
-
-	downstreamTLSConfig.GetConfigForClient = certController.GetConfigForClient
 
 	// create TLS configuration for upstream
 	caCert, err := os.ReadFile(cfg.K8sAPIServerCA)
@@ -366,8 +332,6 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		},
 	)
 	if err != nil {
-		cancel()
-
 		return nil, fmt.Errorf("failed to create bearer auth round tripper: %w", err)
 	}
 
@@ -429,8 +393,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		},
 	}
 	httpServer.RegisterOnShutdown(func() {
-		cancel()
-		close(stopCh)
+		certReloader.stop()
 	})
 
 	p := &Proxy{
