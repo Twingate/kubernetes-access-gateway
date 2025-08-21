@@ -319,6 +319,8 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		logger.Fatal("failed to append K8sAPIServerCA cert to pool")
 	}
 
+	logger.Infof("loaded upstream K8sAPIServerCA cert")
+
 	upstreamTLSConfig := &tls.Config{
 		MinVersion: tls.VersionTLS13,
 		RootCAs:    caCertPool,
