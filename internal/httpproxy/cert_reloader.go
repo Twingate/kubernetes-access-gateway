@@ -51,14 +51,14 @@ func (cr *certReloader) watch() {
 	}
 
 	if err := watcher.Add(cr.certFile); err != nil {
-		cr.logger.Fatal("failed to watch cert file", zap.Error(err))
+		cr.logger.Fatal("failed to watch cert file: ", cr.certFile, zap.Error(err))
 	}
 
 	if err := watcher.Add(cr.keyFile); err != nil {
-		cr.logger.Fatal("failed to watch key file", zap.Error(err))
+		cr.logger.Fatal("failed to watch key file: ", cr.keyFile, zap.Error(err))
 	}
 
-	cr.logger.Info("watching cert and key files")
+	cr.logger.Info("Start watching cert and key files changes")
 
 	if err := cr.load(); err != nil {
 		cr.logger.Error("failed to load cert or key file", zap.Error(err))
@@ -69,18 +69,17 @@ func (cr *certReloader) watch() {
 			select {
 			case <-cr.watching:
 				_ = watcher.Close()
-
-				cr.logger.Info("watcher stopped")
+				cr.logger.Info("Stopped watching cert and key files changes")
 
 				return
 			case event := <-watcher.Events:
-				cr.logger.Info("watch event: %v", event)
+				cr.logger.Info("Received watch event: ", event)
 
 				if err := cr.load(); err != nil {
 					cr.logger.Error("failed to load cert or key file", zap.Error(err))
 				}
 			case err := <-watcher.Errors:
-				cr.logger.Error("watcher error", zap.Error(err))
+				cr.logger.Error("received error from watcher", zap.Error(err))
 			}
 		}
 	}()
