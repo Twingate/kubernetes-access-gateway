@@ -54,8 +54,7 @@ nodes:
       containerPath: /etc/kubernetes/pki/ca.key
 `, kindPort)
 
-// Before running this local dev client, you need to do the following:
-// - Caddy must be already running. Run `caddy run` to start Caddy.
+// Before running this local dev client, Caddy must be already running. Run `caddy run` to start Caddy.
 func main() {
 	// Parse command line flags
 	username := flag.String("username", defaultUsername, "Username to use for authentication")
