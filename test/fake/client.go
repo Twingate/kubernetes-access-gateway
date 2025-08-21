@@ -19,13 +19,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"sync"
 
 	"go.uber.org/zap"
 
 	"k8sgateway/internal/httpproxy"
 	"k8sgateway/internal/token"
+	"k8sgateway/test/data"
 )
 
 // Client simulates a Twingate Client, authenticating and forwarding kubectl requests to the Gateway.
@@ -101,13 +101,6 @@ func (c *Client) Close() {
 }
 
 func (c *Client) serve(ctx context.Context) {
-	gat, err := c.fetchGAT()
-	if err != nil {
-		c.logger.Error("Failed to fetch GAT", zap.Error(err))
-
-		return
-	}
-
 	for {
 		clientConn, err := c.Listener.Accept()
 		if err != nil {
@@ -121,6 +114,13 @@ func (c *Client) serve(ctx context.Context) {
 			continue
 		}
 
+		gat, err := c.fetchGAT()
+		if err != nil {
+			c.logger.Error("Failed to fetch GAT", zap.Error(err))
+
+			return
+		}
+
 		c.wg.Add(1)
 
 		go c.handleConnection(ctx, clientConn, gat)
@@ -132,7 +132,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	defer c.wg.Done()
 
 	// Proxy certs
-	caCert, _ := os.ReadFile("../data/proxy/tls.crt")
+	caCert := data.ProxyCert
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -168,7 +168,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 
 	connectReq.Header.Set("Proxy-Authorization", "Bearer "+gat)
 
-	clientKey, _ := ReadECKey("../data/client/key.pem")
+	clientKey, _ := ReadECKey(data.ClientKey)
 	ekm, _ := httpproxy.ExportKeyingMaterial(proxyTLSConn)
 	ekmHash := sha256.Sum256(ekm)
 	signature, _ := ecdsa.SignASN1(rand.Reader, clientKey, ekmHash[:])
@@ -212,7 +212,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 }
 
 func (c *Client) fetchGAT() (string, error) {
-	clientPublicKey, _ := ReadECKey("../data/client/key.pem")
+	clientPublicKey, _ := ReadECKey(data.ClientKey)
 	requestBody := requestBody{
 		ClientPublicKey: &token.PublicKey{
 			PublicKey: clientPublicKey.PublicKey,

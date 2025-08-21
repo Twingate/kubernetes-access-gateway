@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"k8sgateway/internal/token"
+	"k8sgateway/test/data"
 )
 
 const keyID = "1"
@@ -38,7 +39,7 @@ type requestBody struct {
 func NewController(network string, port int) *httptest.Server {
 	logger := zap.Must(zap.NewDevelopment()).Named("controller")
 
-	controllerKey, _ := ReadECKey("../data/controller/key.pem")
+	controllerKey, _ := ReadECKey(data.ControllerKey)
 
 	jwkSetJSON, err := createJWKSet(controllerKey)
 	if err != nil {
