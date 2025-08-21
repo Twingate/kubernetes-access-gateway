@@ -31,7 +31,7 @@ const (
 	network               = "acme"
 	gatewayPort           = 8443
 	gatewayHost           = "127.0.0.1"
-	kubeConfigPath        = "config-twingate-gateway-local"
+	kubeConfigPath        = "kubeconfig-local"
 	clusterName           = "gateway-local-development"
 	kindClusterName       = "kind-" + clusterName
 	kindPort              = 6443
@@ -56,7 +56,6 @@ nodes:
 
 // Before running this local dev client, you need to do the following:
 // - Caddy must be already running. Run `caddy run` to start Caddy.
-// - Update `kubeConfigPath` above to point to your local KubeConfig file.
 func main() {
 	// Parse command line flags
 	username := flag.String("username", defaultUsername, "Username to use for authentication")
