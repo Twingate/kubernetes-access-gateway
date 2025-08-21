@@ -132,7 +132,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	defer c.wg.Done()
 
 	// Proxy certs
-	caCert, _ := data.Files.ReadFile("proxy/tls.crt")
+	caCert := data.ProxyCert
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -168,7 +168,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 
 	connectReq.Header.Set("Proxy-Authorization", "Bearer "+gat)
 
-	clientKey, _ := ReadECKey("client/key.pem")
+	clientKey, _ := ReadECKey(data.ClientKey)
 	ekm, _ := httpproxy.ExportKeyingMaterial(proxyTLSConn)
 	ekmHash := sha256.Sum256(ekm)
 	signature, _ := ecdsa.SignASN1(rand.Reader, clientKey, ekmHash[:])
@@ -212,7 +212,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 }
 
 func (c *Client) fetchGAT() (string, error) {
-	clientPublicKey, _ := ReadECKey("client/key.pem")
+	clientPublicKey, _ := ReadECKey(data.ClientKey)
 	requestBody := requestBody{
 		ClientPublicKey: &token.PublicKey{
 			PublicKey: clientPublicKey.PublicKey,

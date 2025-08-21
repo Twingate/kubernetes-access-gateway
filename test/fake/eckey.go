@@ -7,20 +7,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
-
-	"k8sgateway/test/data"
 )
 
-func ReadECKey(filename string) (*ecdsa.PrivateKey, error) {
-	privateKeyBytes, err := data.Files.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
+func ReadECKey(privateKeyBytes []byte) (*ecdsa.PrivateKey, error) {
 	privateKeyBlock, _ := pem.Decode(privateKeyBytes)
-	if privateKeyBlock == nil {
-		return nil, err
-	}
 
 	return x509.ParseECPrivateKey(privateKeyBlock.Bytes)
 }

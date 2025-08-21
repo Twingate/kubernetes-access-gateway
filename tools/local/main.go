@@ -28,16 +28,15 @@ import (
 )
 
 const (
-	network               = "acme"
-	gatewayPort           = 8443
-	gatewayHost           = "127.0.0.1"
-	kubeConfigPath        = "kubeconfig-local"
-	clusterName           = "gateway-local-development"
-	kindClusterName       = "kind-" + clusterName
-	kindPort              = 6443
-	controllerPort        = 8080
-	kubeConfigClusterName = "twingate-gateway-local"
-	defaultUsername       = "alex@acme.com"
+	network         = "acme"
+	gatewayPort     = 8443
+	gatewayHost     = "127.0.0.1"
+	kubeConfigPath  = "kubeconfig-local"
+	clusterName     = "gateway-local-development"
+	kindClusterName = "kind-" + clusterName
+	kindPort        = 6443
+	controllerPort  = 8080
+	defaultUsername = "alex@acme.com"
 )
 
 var kindClusterYaml = fmt.Sprintf(`
@@ -298,20 +297,20 @@ func createKubeConfigFile(serverURL string) error {
 	cluster := api.NewCluster()
 	cluster.Server = serverURL
 	cluster.InsecureSkipTLSVerify = true
-	config.Clusters[kubeConfigClusterName] = cluster
+	config.Clusters[clusterName] = cluster
 
 	// Create auth info (no credentials needed as the fake client handles auth)
 	authInfo := &api.AuthInfo{
 		Token: "void",
 	}
-	config.AuthInfos[kubeConfigClusterName] = authInfo
+	config.AuthInfos[clusterName] = authInfo
 
 	ctx := api.NewContext()
-	ctx.Cluster = kubeConfigClusterName
-	ctx.AuthInfo = kubeConfigClusterName
-	config.Contexts[kubeConfigClusterName] = ctx
+	ctx.Cluster = clusterName
+	ctx.AuthInfo = clusterName
+	config.Contexts[clusterName] = ctx
 
-	config.CurrentContext = kubeConfigClusterName
+	config.CurrentContext = clusterName
 
 	return clientcmd.WriteToFile(*config, kubeConfigPath)
 }

@@ -4,8 +4,14 @@
 package data
 
 import (
-	"embed"
+	_ "embed"
 )
 
-//go:embed client/key.pem controller/key.pem proxy/tls.crt
-var Files embed.FS
+//go:embed client/key.pem
+var ClientKey []byte
+
+//go:embed controller/key.pem
+var ControllerKey []byte
+
+//go:embed proxy/tls.crt
+var ProxyCert []byte
