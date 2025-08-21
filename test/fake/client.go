@@ -25,6 +25,7 @@ import (
 
 	"k8sgateway/internal/httpproxy"
 	"k8sgateway/internal/token"
+	"k8sgateway/test/data"
 )
 
 // Client simulates a Twingate Client, authenticating and forwarding kubectl requests to the Gateway.
@@ -131,7 +132,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	defer c.wg.Done()
 
 	// Proxy certs
-	caCert, _ := ReadFileFromProjectDirectory("./test/data/proxy/tls.crt")
+	caCert, _ := data.Files.ReadFile("proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -167,7 +168,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 
 	connectReq.Header.Set("Proxy-Authorization", "Bearer "+gat)
 
-	clientKey, _ := ReadECKey("./test/data/client/key.pem")
+	clientKey, _ := ReadECKey("client/key.pem")
 	ekm, _ := httpproxy.ExportKeyingMaterial(proxyTLSConn)
 	ekmHash := sha256.Sum256(ekm)
 	signature, _ := ecdsa.SignASN1(rand.Reader, clientKey, ekmHash[:])
@@ -211,7 +212,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 }
 
 func (c *Client) fetchGAT() (string, error) {
-	clientPublicKey, _ := ReadECKey("./test/data/client/key.pem")
+	clientPublicKey, _ := ReadECKey("client/key.pem")
 	requestBody := requestBody{
 		ClientPublicKey: &token.PublicKey{
 			PublicKey: clientPublicKey.PublicKey,

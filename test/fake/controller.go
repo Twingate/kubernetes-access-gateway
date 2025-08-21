@@ -38,7 +38,7 @@ type requestBody struct {
 func NewController(network string, port int) *httptest.Server {
 	logger := zap.Must(zap.NewDevelopment()).Named("controller")
 
-	controllerKey, _ := ReadECKey("./test/data/controller/key.pem")
+	controllerKey, _ := ReadECKey("controller/key.pem")
 
 	jwkSetJSON, err := createJWKSet(controllerKey)
 	if err != nil {
