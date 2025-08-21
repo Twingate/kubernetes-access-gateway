@@ -69,6 +69,7 @@ func (cr *certReloader) watch() {
 			select {
 			case <-cr.watching:
 				_ = watcher.Close()
+
 				cr.logger.Info("Stopped watching cert and key files changes")
 
 				return
