@@ -39,7 +39,6 @@ func (cr *certReloader) load() error {
 	defer cr.mu.Unlock()
 
 	cr.cert = &cert
-	cr.logger.Info("loaded cert and key files")
 
 	return nil
 }
