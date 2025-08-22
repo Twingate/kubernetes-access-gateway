@@ -88,14 +88,14 @@ func updateCertFiles(t *testing.T, newCert, newKey []byte) {
 	originalCert := data.ProxyCert
 	originalKey := data.ProxyKey
 
-	err := os.WriteFile(certFile, newCert, 0644)
+	err := os.WriteFile(certFile, newCert, 0600)
 	require.NoError(t, err)
 
-	err = os.WriteFile(keyFile, newKey, 0644)
+	err = os.WriteFile(keyFile, newKey, 0600)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		_ = os.WriteFile(certFile, originalCert, 0644)
-		_ = os.WriteFile(keyFile, originalKey, 0644)
+		_ = os.WriteFile(certFile, originalCert, 0600)
+		_ = os.WriteFile(keyFile, originalKey, 0600)
 	})
 }
