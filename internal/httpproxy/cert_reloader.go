@@ -85,19 +85,11 @@ func (cr *certReloader) watch(stopCh <-chan struct{}) error {
 
 	for {
 		select {
-		case event, ok := <-cr.watcher.Events:
-			if !ok { // Channel is closed when Watcher.Close() is called
-				return nil
-			}
-
+		case event := <-cr.watcher.Events:
 			if err := cr.handleWatchEvent(event); err != nil {
 				return err
 			}
-		case err, ok := <-cr.watcher.Errors:
-			if !ok {
-				return nil
-			}
-
+		case err := <-cr.watcher.Errors:
 			cr.logger.Error("received error from watcher", zap.Error(err))
 
 			return fmt.Errorf("received error from watcher: %w", err)
@@ -111,13 +103,11 @@ func (cr *certReloader) watch(stopCh <-chan struct{}) error {
 func (cr *certReloader) handleWatchEvent(event fsnotify.Event) error {
 	cr.logger.Info("Received watch event: ", event)
 
-	defer func() {
+	if !event.Has(fsnotify.Remove) && !event.Has(fsnotify.Rename) {
 		if err := cr.load(); err != nil {
 			cr.logger.Error("failed to load cert or key file", zap.Error(err))
 		}
-	}()
-
-	if !event.Has(fsnotify.Remove) && !event.Has(fsnotify.Rename) {
+		cr.logger.Info("reloaded cert and key files")
 		return nil
 	}
 
