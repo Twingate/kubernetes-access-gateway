@@ -107,7 +107,9 @@ func (cr *certReloader) handleWatchEvent(event fsnotify.Event) error {
 		if err := cr.load(); err != nil {
 			cr.logger.Error("failed to load cert or key file", zap.Error(err))
 		}
+
 		cr.logger.Info("reloaded cert and key files")
+
 		return nil
 	}
 
