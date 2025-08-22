@@ -23,8 +23,10 @@ const (
 
 func TestReloadWhenFileChanged(t *testing.T) {
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop().Sugar())
+
 	certReloader.run()
 	defer certReloader.stop()
+
 	time.Sleep(5 * time.Millisecond)
 
 	updateCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
@@ -47,8 +49,10 @@ func TestReloadWhenFileChanged(t *testing.T) {
 
 func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop().Sugar())
+
 	certReloader.run()
 	defer certReloader.stop()
+
 	time.Sleep(5 * time.Millisecond)
 
 	// Invalid key pair
@@ -85,7 +89,7 @@ func TestStop(t *testing.T) {
 	newCert, err := certReloader.getCertificate(hello)
 	require.NoError(t, err)
 
-	assert.Equal(t, newCert.Certificate, expectedCert.Certificate)
+	assert.Equal(t, expectedCert.Certificate, newCert.Certificate)
 }
 
 func updateCertFiles(t *testing.T, newCert, newKey string) {
