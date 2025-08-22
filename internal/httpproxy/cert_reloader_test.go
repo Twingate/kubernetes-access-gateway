@@ -137,7 +137,7 @@ func TestErrorInitializeCertReloader(t *testing.T) {
 			certReloader.run()
 			defer certReloader.stop()
 
-			time.Sleep(5 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 
 			log := logs.All()[0]
 			assert.Equal(t, zapcore.ErrorLevel, log.Level)
