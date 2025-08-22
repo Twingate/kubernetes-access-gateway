@@ -21,12 +21,12 @@ type certReloader struct {
 	keyFile  string
 	watcher  *fsnotify.Watcher
 	cert     *tls.Certificate
-	logger   *zap.SugaredLogger
+	logger   *zap.Logger
 
 	cancel context.CancelFunc
 }
 
-func newCertReloader(certFile, keyFile string, logger *zap.SugaredLogger) *certReloader {
+func newCertReloader(certFile, keyFile string, logger *zap.Logger) *certReloader {
 	return &certReloader{
 		certFile: certFile,
 		keyFile:  keyFile,
@@ -101,14 +101,12 @@ func (cr *certReloader) watch(stopCh <-chan struct{}) error {
 }
 
 func (cr *certReloader) handleWatchEvent(event fsnotify.Event) error {
-	cr.logger.Info("Received watch event: ", event)
+	cr.logger.Info("Received watch event", zap.Any("event", event))
 
 	if !event.Has(fsnotify.Remove) && !event.Has(fsnotify.Rename) {
 		if err := cr.load(); err != nil {
 			cr.logger.Error("failed to load cert or key file", zap.Error(err))
 		}
-
-		cr.logger.Info("reloaded cert and key files")
 
 		return nil
 	}
@@ -118,7 +116,7 @@ func (cr *certReloader) handleWatchEvent(event fsnotify.Event) error {
 	}
 
 	if err := cr.watcher.Add(event.Name); err != nil {
-		cr.logger.Error("error adding watch for file", event.Name, zap.Error(err))
+		cr.logger.Error("error adding watch for file", zap.String("filename", event.Name), zap.Error(err))
 
 		return err
 	}

@@ -298,7 +298,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		logger.Fatal("connect validator is nil")
 	}
 
-	certReloader := newCertReloader(cfg.TLSCert, cfg.TLSKey, logger)
+	certReloader := newCertReloader(cfg.TLSCert, cfg.TLSKey, zap.L())
 	certReloader.run()
 
 	// create TLS configuration for downstream
