@@ -15,7 +15,7 @@ type certReloader struct {
 	mu       sync.RWMutex
 	certFile string
 	keyFile  string
-	watching chan bool
+	watching chan struct{}
 	cert     *tls.Certificate
 	logger   *zap.SugaredLogger
 }
@@ -25,7 +25,7 @@ func newCertReloader(certFile, keyFile string, logger *zap.SugaredLogger) *certR
 		certFile: certFile,
 		keyFile:  keyFile,
 		logger:   logger,
-		watching: make(chan bool),
+		watching: make(chan struct{}, 1),
 	}
 }
 
@@ -61,7 +61,7 @@ func (cr *certReloader) watch() {
 	cr.logger.Info("Start watching cert and key files changes")
 
 	if err := cr.load(); err != nil {
-		cr.logger.Error("failed to load cert or key file", zap.Error(err))
+		cr.logger.Fatal("failed to load cert or key file", zap.Error(err))
 	}
 
 	go func() {
@@ -94,5 +94,5 @@ func (cr *certReloader) getCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate
 }
 
 func (cr *certReloader) stop() {
-	cr.watching <- false
+	cr.watching <- struct{}{}
 }
