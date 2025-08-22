@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -20,6 +19,7 @@ import (
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 
 	"k8sgateway/internal/token"
+	"k8sgateway/test/data"
 	"k8sgateway/test/fake"
 	"k8sgateway/test/integration/testutil"
 )
@@ -202,14 +202,10 @@ tls:
 func deployHelmChart(t *testing.T, clusterName, imageTag string) {
 	t.Helper()
 
-	tlsCert, err := os.ReadFile("../data/proxy/tls.crt")
-	require.NoError(t, err, "failed to read TLS certificate")
-
+	tlsCert := data.ProxyCert
 	tlsCertStr := strconv.Quote(string(tlsCert))
 
-	tlsKey, err := os.ReadFile("../data/proxy/tls.key")
-	require.NoError(t, err, "failed to read TLS key")
-
+	tlsKey := data.ProxyKey
 	tlsKeyStr := strconv.Quote(string(tlsKey))
 
 	hostIP := getKindHostAccessIP(t, clusterName)
