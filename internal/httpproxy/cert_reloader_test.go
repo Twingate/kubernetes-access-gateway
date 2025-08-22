@@ -141,7 +141,7 @@ func TestErrorInitializeCertReloader(t *testing.T) {
 
 			log := logs.All()[0]
 			assert.Equal(t, zapcore.ErrorLevel, log.Level)
-			assert.Equal(t, log.Message, "failed to watch cert and key file, will retry later")
+			assert.Equal(t, "failed to watch cert and key file, will retry later", log.Message)
 		})
 	}
 }
