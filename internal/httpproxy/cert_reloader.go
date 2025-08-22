@@ -15,7 +15,7 @@ type certReloader struct {
 	mu       sync.RWMutex
 	certFile string
 	keyFile  string
-	watching chan struct{}
+	watcher  *fsnotify.Watcher
 	cert     *tls.Certificate
 	logger   *zap.SugaredLogger
 }
@@ -25,7 +25,6 @@ func newCertReloader(certFile, keyFile string, logger *zap.SugaredLogger) *certR
 		certFile: certFile,
 		keyFile:  keyFile,
 		logger:   logger,
-		watching: make(chan struct{}, 1),
 	}
 }
 
@@ -44,16 +43,18 @@ func (cr *certReloader) load() error {
 }
 
 func (cr *certReloader) watch() {
-	watcher, err := fsnotify.NewWatcher()
+	var err error
+
+	cr.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
 		cr.logger.Fatal("failed to create watcher", zap.Error(err))
 	}
 
-	if err := watcher.Add(cr.certFile); err != nil {
+	if err := cr.watcher.Add(cr.certFile); err != nil {
 		cr.logger.Fatal("failed to watch cert file: ", cr.certFile, zap.Error(err))
 	}
 
-	if err := watcher.Add(cr.keyFile); err != nil {
+	if err := cr.watcher.Add(cr.keyFile); err != nil {
 		cr.logger.Fatal("failed to watch key file: ", cr.keyFile, zap.Error(err))
 	}
 
@@ -66,19 +67,21 @@ func (cr *certReloader) watch() {
 	go func() {
 		for {
 			select {
-			case <-cr.watching:
-				_ = watcher.Close()
+			case event, ok := <-cr.watcher.Events:
+				if !ok { // Channel is closed when Watcher.Close() is called
+					return
+				}
 
-				cr.logger.Info("Stopped watching cert and key files changes")
-
-				return
-			case event := <-watcher.Events:
 				cr.logger.Info("Received watch event: ", event)
 
 				if err := cr.load(); err != nil {
 					cr.logger.Error("failed to load cert or key file", zap.Error(err))
 				}
-			case err := <-watcher.Errors:
+			case err, ok := <-cr.watcher.Errors:
+				if !ok {
+					return
+				}
+
 				cr.logger.Error("received error from watcher", zap.Error(err))
 			}
 		}
@@ -93,5 +96,6 @@ func (cr *certReloader) getCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate
 }
 
 func (cr *certReloader) stop() {
-	cr.watching <- struct{}{}
+	_ = cr.watcher.Close()
+	cr.logger.Info("Stopped watching cert and key files changes")
 }
