@@ -4,11 +4,15 @@
 package httpproxy
 
 import (
+	"context"
 	"crypto/tls"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type certReloader struct {
@@ -18,6 +22,8 @@ type certReloader struct {
 	watcher  *fsnotify.Watcher
 	cert     *tls.Certificate
 	logger   *zap.SugaredLogger
+
+	cancel context.CancelFunc
 }
 
 func newCertReloader(certFile, keyFile string, logger *zap.SugaredLogger) *certReloader {
@@ -26,6 +32,18 @@ func newCertReloader(certFile, keyFile string, logger *zap.SugaredLogger) *certR
 		keyFile:  keyFile,
 		logger:   logger,
 	}
+}
+
+func (cr *certReloader) run() {
+	var ctx context.Context
+
+	ctx, cr.cancel = context.WithCancel(context.Background())
+
+	go wait.Until(func() {
+		if err := cr.watch(ctx.Done()); err != nil {
+			cr.logger.Error("failed to watch cert and key file, will retry later", zap.Error(err))
+		}
+	}, time.Minute, ctx.Done())
 }
 
 func (cr *certReloader) load() error {
@@ -42,50 +60,78 @@ func (cr *certReloader) load() error {
 	return nil
 }
 
-func (cr *certReloader) watch() {
+func (cr *certReloader) watch(stopCh <-chan struct{}) error {
 	var err error
 
 	cr.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
-		cr.logger.Fatal("failed to create watcher", zap.Error(err))
+		return fmt.Errorf("error creating fsnotify watcher: %w", err)
 	}
+	defer cr.watcher.Close()
 
 	if err := cr.watcher.Add(cr.certFile); err != nil {
-		cr.logger.Fatal("failed to watch cert file: ", cr.certFile, zap.Error(err))
+		return fmt.Errorf("error adding watch for file %s: %w", cr.certFile, err)
 	}
 
 	if err := cr.watcher.Add(cr.keyFile); err != nil {
-		cr.logger.Fatal("failed to watch key file: ", cr.keyFile, zap.Error(err))
+		return fmt.Errorf("error adding watch for file %s: %w", cr.keyFile, err)
+	}
+
+	if err := cr.load(); err != nil {
+		return fmt.Errorf("error loading certificate: %w", err)
 	}
 
 	cr.logger.Info("Start watching cert and key files changes")
 
-	if err := cr.load(); err != nil {
-		cr.logger.Fatal("failed to load cert or key file", zap.Error(err))
-	}
-
-	go func() {
-		for {
-			select {
-			case event, ok := <-cr.watcher.Events:
-				if !ok { // Channel is closed when Watcher.Close() is called
-					return
-				}
-
-				cr.logger.Info("Received watch event: ", event)
-
-				if err := cr.load(); err != nil {
-					cr.logger.Error("failed to load cert or key file", zap.Error(err))
-				}
-			case err, ok := <-cr.watcher.Errors:
-				if !ok {
-					return
-				}
-
-				cr.logger.Error("received error from watcher", zap.Error(err))
+	for {
+		select {
+		case event, ok := <-cr.watcher.Events:
+			if !ok { // Channel is closed when Watcher.Close() is called
+				return nil
 			}
+
+			if err := cr.handleWatchEvent(event); err != nil {
+				return err
+			}
+		case err, ok := <-cr.watcher.Errors:
+			if !ok {
+				return nil
+			}
+
+			cr.logger.Error("received error from watcher", zap.Error(err))
+
+			return fmt.Errorf("received error from watcher: %w", err)
+
+		case <-stopCh:
+			return nil
+		}
+	}
+}
+
+func (cr *certReloader) handleWatchEvent(event fsnotify.Event) error {
+	cr.logger.Info("Received watch event: ", event)
+
+	defer func() {
+		if err := cr.load(); err != nil {
+			cr.logger.Error("failed to load cert or key file", zap.Error(err))
 		}
 	}()
+
+	if !event.Has(fsnotify.Remove) && !event.Has(fsnotify.Rename) {
+		return nil
+	}
+
+	if err := cr.watcher.Remove(event.Name); err != nil {
+		cr.logger.Info("failed to remove file watch, it may have been deleted", zap.Error(err))
+	}
+
+	if err := cr.watcher.Add(event.Name); err != nil {
+		cr.logger.Error("error adding watch for file", event.Name, zap.Error(err))
+
+		return err
+	}
+
+	return nil
 }
 
 func (cr *certReloader) getCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -96,6 +142,6 @@ func (cr *certReloader) getCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate
 }
 
 func (cr *certReloader) stop() {
-	_ = cr.watcher.Close()
+	cr.cancel()
 	cr.logger.Info("Stopped watching cert and key files changes")
 }

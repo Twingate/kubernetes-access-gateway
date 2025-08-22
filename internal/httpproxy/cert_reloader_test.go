@@ -22,14 +22,11 @@ const (
 )
 
 func TestReloadWhenFileChanged(t *testing.T) {
-	originalCert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	require.NoError(t, err)
-
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop().Sugar())
-	certReloader.watch()
+	certReloader.run()
+	time.Sleep(5 * time.Millisecond)
 
-	updateCertFiles(t, data.ProxyCert1, data.ProxyKey1)
-
+	updateCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
 	time.Sleep(5 * time.Millisecond)
 
 	hello := &tls.ClientHelloInfo{}
@@ -37,7 +34,14 @@ func TestReloadWhenFileChanged(t *testing.T) {
 	newCert, err := certReloader.getCertificate(hello)
 	require.NoError(t, err)
 
-	assert.NotEqual(t, newCert.Certificate, originalCert.Certificate)
+	expectedCert, err := tls.X509KeyPair(data.ProxyCert1, data.ProxyKey1)
+	require.NoError(t, err)
+
+	assert.Equal(t, expectedCert.Certificate, newCert.Certificate)
+
+	// Ensure cert and key files are still being watched
+	watchList := certReloader.watcher.WatchList()
+	assert.ElementsMatch(t, watchList, []string{certFile, keyFile})
 }
 
 func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
@@ -45,14 +49,14 @@ func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
 	require.NoError(t, err)
 
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop().Sugar())
-	certReloader.watch()
+	certReloader.run()
+	time.Sleep(5 * time.Millisecond)
 
 	// Invalid key pair
-	updateCertFiles(t, data.ProxyCert1, data.ProxyKey)
+	updateCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls.key")
+	time.Sleep(5 * time.Millisecond)
 
 	hello := &tls.ClientHelloInfo{}
-
-	time.Sleep(5 * time.Millisecond)
 
 	newCert, err := certReloader.getCertificate(hello)
 	require.NoError(t, err)
@@ -62,39 +66,35 @@ func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
 }
 
 func TestStop(t *testing.T) {
-	originalCert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	require.NoError(t, err)
-
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop().Sugar())
-	certReloader.watch()
+	certReloader.run()
+	time.Sleep(5 * time.Millisecond)
 
 	certReloader.stop()
 
-	updateCertFiles(t, data.ProxyCert1, data.ProxyKey1)
-
+	updateCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
 	time.Sleep(5 * time.Millisecond)
 
-	hello := &tls.ClientHelloInfo{}
-
-	newCert, err := certReloader.getCertificate(hello)
-	require.NoError(t, err)
-
-	assert.Equal(t, newCert.Certificate, originalCert.Certificate)
+	watchList := certReloader.watcher.WatchList()
+	assert.Empty(t, watchList)
 }
 
-func updateCertFiles(t *testing.T, newCert, newKey []byte) {
+func updateCertFiles(t *testing.T, newCert, newKey string) {
 	t.Helper()
 
 	originalCert := data.ProxyCert
 	originalKey := data.ProxyKey
 
-	err := os.WriteFile(certFile, newCert, 0600)
+	err := os.Rename(newCert, certFile)
 	require.NoError(t, err)
 
-	err = os.WriteFile(keyFile, newKey, 0600)
+	err = os.Rename(newKey, keyFile)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
+		_ = os.Rename(certFile, newCert)
+		_ = os.Rename(keyFile, newKey)
+
 		_ = os.WriteFile(certFile, originalCert, 0600)
 		_ = os.WriteFile(keyFile, originalKey, 0600)
 	})
