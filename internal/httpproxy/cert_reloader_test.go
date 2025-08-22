@@ -24,6 +24,7 @@ const (
 func TestReloadWhenFileChanged(t *testing.T) {
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop().Sugar())
 	certReloader.run()
+	defer certReloader.stop()
 	time.Sleep(5 * time.Millisecond)
 
 	updateCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
@@ -45,11 +46,9 @@ func TestReloadWhenFileChanged(t *testing.T) {
 }
 
 func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
-	originalCert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	require.NoError(t, err)
-
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop().Sugar())
 	certReloader.run()
+	defer certReloader.stop()
 	time.Sleep(5 * time.Millisecond)
 
 	// Invalid key pair
@@ -61,8 +60,11 @@ func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
 	newCert, err := certReloader.getCertificate(hello)
 	require.NoError(t, err)
 
+	expectedCert, err := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	require.NoError(t, err)
+
 	// Ensure certificate is unchanged
-	assert.Equal(t, newCert.Certificate, originalCert.Certificate)
+	assert.Equal(t, expectedCert.Certificate, newCert.Certificate)
 }
 
 func TestStop(t *testing.T) {
@@ -75,8 +77,15 @@ func TestStop(t *testing.T) {
 	updateCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
 	time.Sleep(5 * time.Millisecond)
 
-	watchList := certReloader.watcher.WatchList()
-	assert.Empty(t, watchList)
+	expectedCert, err := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	require.NoError(t, err)
+
+	hello := &tls.ClientHelloInfo{}
+
+	newCert, err := certReloader.getCertificate(hello)
+	require.NoError(t, err)
+
+	assert.Equal(t, newCert.Certificate, expectedCert.Certificate)
 }
 
 func updateCertFiles(t *testing.T, newCert, newKey string) {
