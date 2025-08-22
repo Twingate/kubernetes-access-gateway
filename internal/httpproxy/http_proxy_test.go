@@ -167,7 +167,8 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 	defer listener.Close()
 
 	// make proxy TLS
-	serverCert, _ := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	serverCert, err := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	require.NoError(t, err)
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -240,7 +241,8 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	defer listener.Close()
 
 	// make proxy TLS
-	serverCert, _ := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	serverCert, err := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	require.NoError(t, err)
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -312,7 +314,8 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 
-	proxyCert, _ := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	proxyCert, err := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	require.NoError(t, err)
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{proxyCert},
@@ -403,7 +406,8 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 	defer listener.Close()
 
 	// make proxy TLS
-	serverCert, _ := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	serverCert, err := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
+	require.NoError(t, err)
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -486,7 +490,8 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	}))
 
 	// load certs for mock API server
-	serverCert, _ := tls.X509KeyPair(data.ServerCert, data.ServerKey)
+	serverCert, err := tls.X509KeyPair(data.ServerCert, data.ServerKey)
+	require.NoError(t, err)
 
 	apiServerTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
