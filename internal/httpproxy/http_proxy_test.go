@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -28,6 +27,7 @@ import (
 
 	"k8sgateway/internal/connect"
 	"k8sgateway/internal/token"
+	"k8sgateway/test/data"
 )
 
 type mockConn struct {
@@ -167,7 +167,7 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 	defer listener.Close()
 
 	// make proxy TLS
-	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key")
+	serverCert, _ := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -188,9 +188,8 @@ func TestProxyConn_Read_BadRequest(t *testing.T) {
 	}
 
 	// make client TLS
-	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool.AppendCertsFromPEM(data.ProxyCert)
 
 	clientTLSConfig := &tls.Config{
 		ServerName: "127.0.0.1",
@@ -241,7 +240,7 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	defer listener.Close()
 
 	// make proxy TLS
-	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key")
+	serverCert, _ := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -255,9 +254,8 @@ func TestProxyConn_Read_HealthCheck(t *testing.T) {
 	}
 
 	// make client TLS
-	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool.AppendCertsFromPEM(data.ProxyCert)
 
 	clientTLSConfig := &tls.Config{
 		ServerName: "127.0.0.1",
@@ -314,7 +312,7 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	listener, addr := startMockListener(t)
 	defer listener.Close()
 
-	proxyCert, _ := tls.LoadX509KeyPair("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key")
+	proxyCert, _ := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{proxyCert},
@@ -335,9 +333,8 @@ func TestProxyConn_Read_ValidConnectRequest(t *testing.T) {
 	}
 
 	// make client TLS
-	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool.AppendCertsFromPEM(data.ProxyCert)
 
 	clientTLSConfig := &tls.Config{
 		ServerName: "127.0.0.1",
@@ -406,7 +403,7 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 	defer listener.Close()
 
 	// make proxy TLS
-	serverCert, _ := tls.LoadX509KeyPair("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key")
+	serverCert, _ := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
 
 	proxyTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -427,9 +424,8 @@ func TestProxyConn_Read_FailedValidation(t *testing.T) {
 	}
 
 	// make client TLS
-	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool.AppendCertsFromPEM(data.ProxyCert)
 
 	clientTLSConfig := &tls.Config{
 		ServerName: "127.0.0.1",
@@ -490,7 +486,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	}))
 
 	// load certs for mock API server
-	serverCert, _ := tls.LoadX509KeyPair("../../test/data/api_server/tls.crt", "../../test/data/api_server/tls.key")
+	serverCert, _ := tls.X509KeyPair(data.ServerCert, data.ServerKey)
 
 	apiServerTLSConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
@@ -531,9 +527,8 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	<-ready
 
 	// downstream proxy and client certs
-	caCert, _ := os.ReadFile("../../test/data/proxy/tls.crt")
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool.AppendCertsFromPEM(data.ProxyCert)
 
 	tlsConfig := &tls.Config{
 		ServerName: "127.0.0.1",
