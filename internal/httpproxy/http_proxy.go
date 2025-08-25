@@ -299,7 +299,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	}
 
 	certReloader := newCertReloader(cfg.TLSCert, cfg.TLSKey, zap.L())
-	certReloader.run()
+	certReloader.run(context.Background())
 
 	// create TLS configuration for downstream
 	downstreamTLSConfig := &tls.Config{

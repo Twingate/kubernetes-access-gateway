@@ -16,14 +16,15 @@ import (
 )
 
 type certReloader struct {
-	mu       sync.RWMutex
 	certFile string
 	keyFile  string
-	watcher  *fsnotify.Watcher
-	cert     *tls.Certificate
 	logger   *zap.Logger
 
-	cancel context.CancelFunc
+	watcher *fsnotify.Watcher
+	cancel  context.CancelFunc
+
+	mu   sync.RWMutex
+	cert *tls.Certificate
 }
 
 func newCertReloader(certFile, keyFile string, logger *zap.Logger) *certReloader {
@@ -34,13 +35,11 @@ func newCertReloader(certFile, keyFile string, logger *zap.Logger) *certReloader
 	}
 }
 
-func (cr *certReloader) run() {
-	var ctx context.Context
-
-	ctx, cr.cancel = context.WithCancel(context.Background())
+func (cr *certReloader) run(ctx context.Context) {
+	ctx, cr.cancel = context.WithCancel(ctx)
 
 	go wait.Until(func() {
-		if err := cr.watch(ctx.Done()); err != nil {
+		if err := cr.watch(ctx); err != nil {
 			cr.logger.Error("failed to watch cert and key file, will retry later", zap.Error(err))
 		}
 	}, time.Minute, ctx.Done())
@@ -60,7 +59,7 @@ func (cr *certReloader) load() error {
 	return nil
 }
 
-func (cr *certReloader) watch(stopCh <-chan struct{}) error {
+func (cr *certReloader) watch(ctx context.Context) error {
 	var err error
 
 	cr.watcher, err = fsnotify.NewWatcher()
@@ -93,15 +92,14 @@ func (cr *certReloader) watch(stopCh <-chan struct{}) error {
 			cr.logger.Error("received error from watcher", zap.Error(err))
 
 			return fmt.Errorf("received error from watcher: %w", err)
-
-		case <-stopCh:
+		case <-ctx.Done():
 			return nil
 		}
 	}
 }
 
 func (cr *certReloader) handleWatchEvent(event fsnotify.Event) error {
-	cr.logger.Info("Received watch event", zap.Any("event", event))
+	cr.logger.Debug("Received watch event", zap.Any("event", event))
 
 	if !event.Has(fsnotify.Remove) && !event.Has(fsnotify.Rename) {
 		if err := cr.load(); err != nil {

@@ -4,6 +4,7 @@
 package httpproxy
 
 import (
+	"context"
 	"crypto/tls"
 	"os"
 	"testing"
@@ -26,12 +27,12 @@ const (
 func TestReloadWhenFileChanged(t *testing.T) {
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop())
 
-	certReloader.run()
+	certReloader.run(context.Background())
 	defer certReloader.stop()
 
 	time.Sleep(5 * time.Millisecond)
 
-	updateCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
+	replaceCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
 	time.Sleep(5 * time.Millisecond)
 
 	hello := &tls.ClientHelloInfo{}
@@ -52,13 +53,13 @@ func TestReloadWhenFileChanged(t *testing.T) {
 func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop())
 
-	certReloader.run()
+	certReloader.run(context.Background())
 	defer certReloader.stop()
 
 	time.Sleep(5 * time.Millisecond)
 
 	// Invalid key pair
-	updateCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls.key")
+	replaceCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls.key")
 	time.Sleep(5 * time.Millisecond)
 
 	hello := &tls.ClientHelloInfo{}
@@ -79,12 +80,12 @@ func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop())
-	certReloader.run()
+	certReloader.run(context.Background())
 	time.Sleep(5 * time.Millisecond)
 
 	certReloader.stop()
 
-	updateCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
+	replaceCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
 	time.Sleep(5 * time.Millisecond)
 
 	expectedCert, err := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
@@ -134,9 +135,10 @@ func TestErrorInitializeCertReloader(t *testing.T) {
 
 			certReloader := tt.setup(logger)
 
-			certReloader.run()
+			certReloader.run(context.Background())
 			defer certReloader.stop()
 
+			// Wait for the logs to be flushed
 			time.Sleep(100 * time.Millisecond)
 
 			log := logs.All()[0]
@@ -146,23 +148,23 @@ func TestErrorInitializeCertReloader(t *testing.T) {
 	}
 }
 
-func updateCertFiles(t *testing.T, newCert, newKey string) {
+func replaceCertFiles(t *testing.T, newCertFile, newKeyFile string) {
 	t.Helper()
 
-	originalCert := data.ProxyCert
-	originalKey := data.ProxyKey
+	originalCertData := data.ProxyCert
+	originalKeyData := data.ProxyKey
 
-	err := os.Rename(newCert, certFile)
+	err := os.Rename(newCertFile, certFile)
 	require.NoError(t, err)
 
-	err = os.Rename(newKey, keyFile)
+	err = os.Rename(newKeyFile, keyFile)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		_ = os.Rename(certFile, newCert)
-		_ = os.Rename(keyFile, newKey)
+		_ = os.Rename(certFile, newCertFile)
+		_ = os.Rename(keyFile, newKeyFile)
 
-		_ = os.WriteFile(certFile, originalCert, 0600)
-		_ = os.WriteFile(keyFile, originalKey, 0600)
+		_ = os.WriteFile(certFile, originalCertData, 0600)
+		_ = os.WriteFile(keyFile, originalKeyData, 0600)
 	})
 }
