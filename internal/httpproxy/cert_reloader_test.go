@@ -148,21 +148,21 @@ func TestErrorInitializeCertReloader(t *testing.T) {
 	}
 }
 
-func replaceCertFiles(t *testing.T, newCertFile, newKeyFile string) {
+func replaceCertFiles(t *testing.T, otherCertFile, otherKeyFile string) {
 	t.Helper()
 
 	originalCertData := data.ProxyCert
 	originalKeyData := data.ProxyKey
 
-	err := os.Rename(newCertFile, certFile)
+	err := os.Rename(otherCertFile, certFile)
 	require.NoError(t, err)
 
-	err = os.Rename(newKeyFile, keyFile)
+	err = os.Rename(otherKeyFile, keyFile)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		_ = os.Rename(certFile, newCertFile)
-		_ = os.Rename(keyFile, newKeyFile)
+		_ = os.Rename(certFile, otherCertFile)
+		_ = os.Rename(keyFile, otherKeyFile)
 
 		_ = os.WriteFile(certFile, originalCertData, 0600)
 		_ = os.WriteFile(keyFile, originalKeyData, 0600)
