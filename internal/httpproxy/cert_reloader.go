@@ -21,7 +21,6 @@ type certReloader struct {
 	logger   *zap.Logger
 
 	watcher *fsnotify.Watcher
-	cancel  context.CancelFunc
 
 	mu   sync.RWMutex
 	cert *tls.Certificate
@@ -36,8 +35,6 @@ func newCertReloader(certFile, keyFile string, logger *zap.Logger) *certReloader
 }
 
 func (cr *certReloader) run(ctx context.Context) {
-	ctx, cr.cancel = context.WithCancel(ctx)
-
 	go wait.Until(func() {
 		if err := cr.watch(ctx); err != nil {
 			cr.logger.Error("failed to watch cert and key file, will retry later", zap.Error(err))
@@ -89,10 +86,10 @@ func (cr *certReloader) watch(ctx context.Context) error {
 				return err
 			}
 		case err := <-cr.watcher.Errors:
-			cr.logger.Error("received error from watcher", zap.Error(err))
-
 			return fmt.Errorf("received error from watcher: %w", err)
 		case <-ctx.Done():
+			cr.logger.Info("Stopped watching cert and key files changes")
+
 			return nil
 		}
 	}
@@ -117,13 +114,9 @@ func (cr *certReloader) handleWatchEvent(event fsnotify.Event) error {
 		cr.logger.Info("failed to remove file watch, it may have been deleted", zap.Error(err))
 	}
 
-	if err := cr.watcher.Add(event.Name); err != nil {
-		cr.logger.Error("error adding watch for file", zap.String("filename", event.Name), zap.Error(err))
+	err := cr.watcher.Add(event.Name)
 
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (cr *certReloader) getCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -131,9 +124,4 @@ func (cr *certReloader) getCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate
 	defer cr.mu.RUnlock()
 
 	return cr.cert, nil
-}
-
-func (cr *certReloader) stop() {
-	cr.cancel()
-	cr.logger.Info("Stopped watching cert and key files changes")
 }

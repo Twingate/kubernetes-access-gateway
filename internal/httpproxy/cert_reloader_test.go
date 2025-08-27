@@ -27,8 +27,10 @@ const (
 func TestReloadWhenFileChanged(t *testing.T) {
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop())
 
-	certReloader.run(context.Background())
-	defer certReloader.stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	certReloader.run(ctx)
+
+	defer cancel()
 
 	time.Sleep(5 * time.Millisecond)
 
@@ -53,8 +55,10 @@ func TestReloadWhenFileChanged(t *testing.T) {
 func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop())
 
-	certReloader.run(context.Background())
-	defer certReloader.stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	certReloader.run(ctx)
+
+	defer cancel()
 
 	time.Sleep(5 * time.Millisecond)
 
@@ -78,12 +82,14 @@ func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
 	assert.ElementsMatch(t, watchList, []string{certFile, keyFile})
 }
 
-func TestStop(t *testing.T) {
+func TestDontReloadWhenContextIsCancelled(t *testing.T) {
 	certReloader := newCertReloader(certFile, keyFile, zap.NewNop())
-	certReloader.run(context.Background())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	certReloader.run(ctx)
 	time.Sleep(5 * time.Millisecond)
 
-	certReloader.stop()
+	cancel()
 
 	replaceCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
 	time.Sleep(5 * time.Millisecond)
@@ -135,8 +141,10 @@ func TestErrorInitializeCertReloader(t *testing.T) {
 
 			certReloader := tt.setup(logger)
 
-			certReloader.run(context.Background())
-			defer certReloader.stop()
+			ctx, cancel := context.WithCancel(context.Background())
+			certReloader.run(ctx)
+
+			defer cancel()
 
 			// Wait for the logs to be flushed
 			time.Sleep(100 * time.Millisecond)

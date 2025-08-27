@@ -299,7 +299,8 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	}
 
 	certReloader := newCertReloader(cfg.TLSCert, cfg.TLSKey, zap.L())
-	certReloader.run(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	certReloader.run(ctx)
 
 	// create TLS configuration for downstream
 	downstreamTLSConfig := &tls.Config{
@@ -334,6 +335,8 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		},
 	)
 	if err != nil {
+		cancel()
+
 		return nil, fmt.Errorf("failed to create bearer auth round tripper: %w", err)
 	}
 
@@ -395,7 +398,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		},
 	}
 	httpServer.RegisterOnShutdown(func() {
-		certReloader.stop()
+		cancel()
 	})
 
 	p := &Proxy{
