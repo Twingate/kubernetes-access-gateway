@@ -19,6 +19,12 @@ var ProxyCert []byte
 //go:embed proxy/tls.key
 var ProxyKey []byte
 
+//go:embed proxy/tls1.crt
+var ProxyCert1 []byte
+
+//go:embed proxy/tls1.key
+var ProxyKey1 []byte
+
 //go:embed api_server/tls.crt
 var ServerCert []byte
 
