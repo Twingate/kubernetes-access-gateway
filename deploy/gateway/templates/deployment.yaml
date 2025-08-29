@@ -11,11 +11,10 @@ spec:
       {{- include "gateway.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
       annotations:
-        checksum/tlsAlternativeNames: {{ include "gateway.alternativeNamesHash" . }}
-        {{- with .Values.podAnnotations }}
-          {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
         {{- include "gateway.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
