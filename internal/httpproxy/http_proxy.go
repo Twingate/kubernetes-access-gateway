@@ -298,18 +298,15 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		logger.Fatal("connect validator is nil")
 	}
 
+	certReloader := newCertReloader(cfg.TLSCert, cfg.TLSKey, zap.L())
+	ctx, cancel := context.WithCancel(context.Background())
+	certReloader.run(ctx)
+
 	// create TLS configuration for downstream
-	cert, err := tls.LoadX509KeyPair(cfg.TLSCert, cfg.TLSKey)
-	if err != nil {
-		logger.Fatalf("failed to load TLS certificate: %v", err)
-	}
-
-	logger.Infof("loaded downstream TLS certs")
-
 	downstreamTLSConfig := &tls.Config{
-		MinVersion:   tls.VersionTLS13,
-		MaxVersion:   tls.VersionTLS13,
-		Certificates: []tls.Certificate{cert},
+		MinVersion:     tls.VersionTLS13,
+		MaxVersion:     tls.VersionTLS13,
+		GetCertificate: certReloader.getCertificate,
 	}
 
 	// create TLS configuration for upstream
@@ -338,6 +335,8 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		},
 	)
 	if err != nil {
+		cancel()
+
 		return nil, fmt.Errorf("failed to create bearer auth round tripper: %w", err)
 	}
 
@@ -398,6 +397,9 @@ func NewProxy(cfg Config) (*Proxy, error) {
 			return context.WithValue(ctx, ConnContextKey, c)
 		},
 	}
+	httpServer.RegisterOnShutdown(func() {
+		cancel()
+	})
 
 	p := &Proxy{
 		httpServer:          httpServer,

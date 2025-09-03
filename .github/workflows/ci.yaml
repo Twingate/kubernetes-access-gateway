@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GOLANG_VERSION: 1.24.6
+  GOLANG_VERSION: 1.25.0
   CADDY_VERSION: 2.10.0
 
 permissions:
@@ -48,7 +48,7 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v8
       with:
-        version: v2.3
+        version: v2.4
         only-new-issues: true
 
   test-helm:
