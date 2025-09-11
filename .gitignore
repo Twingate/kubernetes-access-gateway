@@ -27,3 +27,4 @@ bin/*
 # Added by goreleaser init:
 dist/
 /.envrc.local
+/k8sgateway
