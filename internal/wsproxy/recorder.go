@@ -302,14 +302,19 @@ func (r *AsciicastRecorder) flush(isFinal bool) {
 	r.recordedLines = r.recordedLines[:0]
 	r.mu.Unlock()
 
-	// Optionally enrich with an AI summary (best-effort, time-limited)
-	ai := summarizeAsciicastWithOpenAI(asciicast)
+    // Optionally enrich with an AI summary (best-effort, time-limited).
+    // Only include the field if a non-empty summary is returned.
+    ai := summarizeAsciicastWithOpenAI(asciicast)
 
-	r.config.logger.Info(message,
-		zap.String("asciicast", asciicast),
-		zap.Int("asciicast_sequence_num", seq),
-		zap.String("ai", ai),
-	)
+    fields := []zap.Field{
+        zap.String("asciicast", asciicast),
+        zap.Int("asciicast_sequence_num", seq),
+    }
+    if ai != "" {
+        fields = append(fields, zap.String("ai", ai))
+    }
+
+    r.config.logger.Info(message, fields...)
 }
 
 // summarizeAsciicastWithOpenAI sends a short prompt to OpenAI to obtain
