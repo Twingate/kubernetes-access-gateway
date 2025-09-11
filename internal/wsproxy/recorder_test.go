@@ -357,10 +357,30 @@ func TestRecorder_WriteJSON_Error(t *testing.T) {
 }
 
 func TestRecorder_StoreEvent_Error(t *testing.T) {
-	r := NewRecorder(zap.NewNop())
-	r.Stop()
+    r := NewRecorder(zap.NewNop())
+    r.Stop()
 
-	err := r.storeEvent("test event")
-	require.Error(t, err, "storeEvent should return error when recording is finished")
-	assert.Equal(t, errAlreadyFinished, err)
+    err := r.storeEvent("test event")
+    require.Error(t, err, "storeEvent should return error when recording is finished")
+    assert.Equal(t, errAlreadyFinished, err)
+}
+
+func TestRecorder_NoAIFieldWhenSummaryEmpty(t *testing.T) {
+    testRegistry := prometheus.NewRegistry()
+    RegisterRecordedSessionMetrics("test", testRegistry)
+
+    core, logs := observer.New(zap.InfoLevel)
+    r := NewRecorder(zap.New(core))
+
+    // Write a header and an event to trigger a final flush on Stop.
+    require.NoError(t, r.WriteHeader(AsciicastHeader{Version: 2, Width: 80, Height: 24}))
+    require.NoError(t, r.WriteOutputEvent([]byte("hello")))
+
+    r.Stop()
+
+    // Expect one final log; assert that 'ai' field is not present
+    require.Equal(t, 1, logs.Len())
+    entry := logs.TakeAll()[0]
+    _, hasAI := entry.ContextMap()["ai"]
+    assert.False(t, hasAI, "ai field should be omitted when summary is empty")
 }
