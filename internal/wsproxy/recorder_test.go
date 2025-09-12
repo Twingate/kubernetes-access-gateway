@@ -378,9 +378,11 @@ func TestRecorder_NoAIFieldWhenSummaryEmpty(t *testing.T) {
 
     r.Stop()
 
-    // Expect one final log; assert that 'ai' field is not present
+    // Expect one final log; assert that AI fields are not present
     require.Equal(t, 1, logs.Len())
     entry := logs.TakeAll()[0]
-    _, hasAI := entry.ContextMap()["ai"]
-    assert.False(t, hasAI, "ai field should be omitted when summary is empty")
+    _, hasSummary := entry.ContextMap()["ai_summary"]
+    _, hasScore := entry.ContextMap()["ai_score"]
+    assert.False(t, hasSummary, "ai_summary should be omitted when summary is empty")
+    assert.False(t, hasScore, "ai_score should be omitted when summary is empty")
 }

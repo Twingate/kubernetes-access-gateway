@@ -23,16 +23,16 @@ func TestSummarizeAsciicastWithOpenAI_Disabled_ReturnsEmpty(t *testing.T) {
     t.Setenv("GATEWAY_AI_SUMMARY_ENABLED", "0")
     t.Setenv("OPENAI_API_KEY", "")
 
-    got := summarizeAsciicastWithOpenAI("anything")
-    assert.Equal(t, "", got)
+    _, ok := summarizeAsciicastWithOpenAI("anything")
+    assert.False(t, ok)
 }
 
 func TestSummarizeAsciicastWithOpenAI_NoAPIKey_ReturnsEmpty(t *testing.T) {
     t.Setenv("GATEWAY_AI_SUMMARY_ENABLED", "true")
     t.Setenv("OPENAI_API_KEY", "")
 
-    got := summarizeAsciicastWithOpenAI("anything")
-    assert.Equal(t, "", got)
+    _, ok := summarizeAsciicastWithOpenAI("anything")
+    assert.False(t, ok)
 }
 
 func TestSummarizeAsciicastWithOpenAI_Success_ReturnsSummary(t *testing.T) {
@@ -62,7 +62,8 @@ func TestSummarizeAsciicastWithOpenAI_Success_ReturnsSummary(t *testing.T) {
         require.GreaterOrEqual(t, len(payload.Messages), 2)
 
         // Return a minimal successful response
-        respBody := `{"choices":[{"message":{"content":"user ran kubectl get pods"}}]}`
+        // The content itself is a JSON string we will parse.
+        respBody := `{"choices":[{"message":{"content":"{\"summary\":\"user ran kubectl get pods\",\"score\":2}"}}]}`
         return &http.Response{
             StatusCode: 200,
             Body:       ioutil.NopCloser(bytes.NewBufferString(respBody)),
@@ -70,8 +71,10 @@ func TestSummarizeAsciicastWithOpenAI_Success_ReturnsSummary(t *testing.T) {
         }, nil
     })
 
-    got := summarizeAsciicastWithOpenAI("header\n[0.1, \"o\", \"kubectl get pods\"]")
-    assert.Equal(t, "user ran kubectl get pods", got)
+    got, ok := summarizeAsciicastWithOpenAI("header\n[0.1, \"o\", \"kubectl get pods\"]")
+    assert.True(t, ok)
+    assert.Equal(t, "user ran kubectl get pods", got.Summary)
+    assert.Equal(t, 2, got.Score)
 }
 
 func TestSummarizeAsciicastWithOpenAI_Non200_ReturnsEmpty(t *testing.T) {
@@ -85,7 +88,6 @@ func TestSummarizeAsciicastWithOpenAI_Non200_ReturnsEmpty(t *testing.T) {
         return &http.Response{StatusCode: 500, Body: ioutil.NopCloser(bytes.NewBuffer(nil)), Header: make(http.Header)}, nil
     })
 
-    got := summarizeAsciicastWithOpenAI("data")
-    assert.Equal(t, "", got)
+    _, ok := summarizeAsciicastWithOpenAI("data")
+    assert.False(t, ok)
 }
-

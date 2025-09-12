@@ -299,15 +299,16 @@ func (r *AsciicastRecorder) flush(isFinal bool) {
 
 	// Optionally enrich with an AI summary (best-effort, time-limited).
 	// Only include the field if a non-empty summary is returned.
-	ai := summarizeAsciicastWithOpenAI(asciicast)
+    ai, ok := summarizeAsciicastWithOpenAI(asciicast)
 
-	fields := []zap.Field{
-		zap.String("asciicast", asciicast),
-		zap.Int("asciicast_sequence_num", seq),
-	}
-	if ai != "" {
-		fields = append(fields, zap.String("ai", ai))
-	}
+    fields := []zap.Field{
+        zap.String("asciicast", asciicast),
+        zap.Int("asciicast_sequence_num", seq),
+    }
+    if ok {
+        fields = append(fields, zap.String("ai_summary", ai.Summary))
+        fields = append(fields, zap.Int("ai_score", ai.Score))
+    }
 
 	r.config.logger.Info(message, fields...)
 }
