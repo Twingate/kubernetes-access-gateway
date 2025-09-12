@@ -33,14 +33,14 @@ tests:
         type: null
     asserts:
       - failedTemplate:
-          errorPattern: 'service: type is required'
+          errorPattern: "at '/service': missing property 'type'"
   - it: should not allow other Service type
     set:
       service:
         type: ExternalName
     asserts:
       - failedTemplate:
-          errorPattern: 'service.type must be one of the following: "ClusterIP", "NodePort", "LoadBalancer"'
+          errorPattern: "at '/service/type': value must be one of 'ClusterIP', 'NodePort', 'LoadBalancer'"
   - it: should support NodePort type with custom nodePort
     set:
       service:
