@@ -39,6 +39,7 @@ func TestSummarizeAsciicastWithOpenAI_Success_ReturnsSummary(t *testing.T) {
     t.Setenv("GATEWAY_AI_SUMMARY_ENABLED", "true")
     t.Setenv("OPENAI_API_KEY", "sk-test")
     t.Setenv("OPENAI_MODEL", "gpt-test")
+    t.Setenv("OPENAI_API_URL", "https://example.com/v1/chat/completions")
 
     // Stub network call
     prev := http.DefaultClient.Transport
@@ -46,7 +47,7 @@ func TestSummarizeAsciicastWithOpenAI_Success_ReturnsSummary(t *testing.T) {
 
     http.DefaultClient.Transport = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
         // Verify endpoint and headers are present
-        require.Equal(t, "https://api.openai.com/v1/chat/completions", r.URL.String())
+        require.Equal(t, "https://example.com/v1/chat/completions", r.URL.String())
         require.Equal(t, "Bearer sk-test", r.Header.Get("Authorization"))
 
         // Inspect payload shape

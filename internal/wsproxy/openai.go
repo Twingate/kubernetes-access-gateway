@@ -78,7 +78,11 @@ Output should be in JSON format and contain 2 fields only: 'summary' and 'score'
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-    req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(b))
+    apiURL := os.Getenv("OPENAI_API_URL")
+    if apiURL == "" {
+        apiURL = "https://api.openai.com/v1/chat/completions"
+    }
+    req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(b))
     if err != nil {
         return AISummary{}, false
     }
