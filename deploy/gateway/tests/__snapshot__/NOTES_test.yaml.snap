@@ -2,7 +2,6 @@ should show ClusterIP instructions when service type is ClusterIP:
   1: |+
     raw: |2+
 
-
       Admin Console URL - https://.twingate.com
 
       1. The Gateway is accessible via its ClusterIP DNS at
@@ -34,7 +33,6 @@ should show ClusterIP instructions when service type is ClusterIP:
 should show LoadBalancer instructions when service type is LoadBalancer:
   1: |+
     raw: |2+
-
 
       Admin Console URL - https://.twingate.com
 
@@ -68,7 +66,6 @@ should show previously generated CA when the alternative names have not changed:
   1: |+
     raw: |2+
 
-
       Admin Console URL - https://.twingate.com
 
       1. The Gateway is accessible via its ClusterIP DNS at
@@ -101,7 +98,6 @@ should use `existingSecret` Secret object when provided:
   1: |+
     raw: |2+
 
-
       Admin Console URL - https://.twingate.com
 
       1. The Gateway is accessible via its ClusterIP DNS at
@@ -133,7 +129,6 @@ should use `existingSecret` Secret object when provided:
 should use `tls.ca` value when provided:
   1: |+
     raw: |2+
-
 
       Admin Console URL - https://.twingate.com
 
