@@ -35,21 +35,25 @@ func TestReloadWhenFileChanged(t *testing.T) {
 	time.Sleep(5 * time.Millisecond)
 
 	replaceCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
-	time.Sleep(5 * time.Millisecond)
-
-	hello := &tls.ClientHelloInfo{}
-
-	newCert, err := certReloader.getCertificate(hello)
-	require.NoError(t, err)
 
 	expectedCert, err := tls.X509KeyPair(data.ProxyCert1, data.ProxyKey1)
 	require.NoError(t, err)
 
-	assert.Equal(t, expectedCert.Certificate, newCert.Certificate)
+	hello := &tls.ClientHelloInfo{}
+
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		newCert, err := certReloader.getCertificate(hello)
+		require.NoError(c, err)
+
+		assert.Equal(c, expectedCert.Certificate, newCert.Certificate)
+	}, time.Second, 5*time.Millisecond)
 
 	// Ensure cert and key files are still being watched
-	watchList := certReloader.watcher.WatchList()
-	assert.ElementsMatch(t, watchList, []string{certFile, keyFile})
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		watchList := certReloader.watcher.WatchList()
+
+		assert.ElementsMatch(c, watchList, []string{certFile, keyFile})
+	}, time.Second, 5*time.Millisecond)
 }
 
 func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
@@ -64,7 +68,7 @@ func TestDontReloadWhenInvalidKeyPair(t *testing.T) {
 
 	// Invalid key pair
 	replaceCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls.key")
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	hello := &tls.ClientHelloInfo{}
 
@@ -92,7 +96,7 @@ func TestDontReloadWhenContextIsCancelled(t *testing.T) {
 	cancel()
 
 	replaceCertFiles(t, "../../test/data/proxy/tls1.crt", "../../test/data/proxy/tls1.key")
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	expectedCert, err := tls.X509KeyPair(data.ProxyCert, data.ProxyKey)
 	require.NoError(t, err)
