@@ -89,6 +89,11 @@ affinity: {}
 #     value: "bar"
 extraEnvVars: []
 
+pdb:
+  create: false
+  minAvailable: 1
+  maxUnavailable: ""
+
 
 # TLS configuration for the Gateway
 tls:
