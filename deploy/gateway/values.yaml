@@ -91,8 +91,8 @@ extraEnvVars: []
 
 pdb:
   create: false
-  minAvailable: 1
-  maxUnavailable: ""
+  # minAvailable: 1
+  # maxUnavailable:
 
 
 # TLS configuration for the Gateway
@@ -172,7 +172,7 @@ metrics:
   # For more information checkout: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api-reference/api.md#prometheusrule
   prometheusRule:
     enabled: false
-    additionalLabels: {}  
+    additionalLabels: {}
     rules: []
       # # High error rate alerts
       # - alert: TwingateGatewayHighHTTPErrorRate
@@ -203,9 +203,9 @@ metrics:
       #     (
       #       sum(rate(twingate_gateway_client_authentication_total{code!="200"}[5m])) /
       #       sum(rate(twingate_gateway_client_authentication_total[5m]))
-      #     ) > 0.1 
+      #     ) > 0.1
       #     and
-      #     ( 
+      #     (
       #       sum(rate(twingate_gateway_client_authentication_total[5m])) > 1
       #     )
       #   for: 2m
