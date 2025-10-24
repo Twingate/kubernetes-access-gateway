@@ -13,7 +13,6 @@ tests:
     set:
       pdb.create: true
       pdb.minAvailable: 1
-      pdb.maxUnavailable: ""
     asserts:
       - isKind:
           of: PodDisruptionBudget
@@ -26,7 +25,6 @@ tests:
   - it: should render PodDisruptionBudget with maxUnavailable
     set:
       pdb.create: true
-      pdb.minAvailable: ""
       pdb.maxUnavailable: 1
     asserts:
       - isKind:
