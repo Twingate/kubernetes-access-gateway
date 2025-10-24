@@ -92,7 +92,7 @@ extraEnvVars: []
 pdb:
   create: false
   # minAvailable: 1
-  # maxUnavailable:
+  # maxUnavailable: ""
 
 
 # TLS configuration for the Gateway

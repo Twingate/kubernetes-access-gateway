@@ -1,4 +1,4 @@
-suite: test poddisruptionbudget
+suite: Pod Disruption Budget
 templates:
   - pdb.yaml
 tests:
