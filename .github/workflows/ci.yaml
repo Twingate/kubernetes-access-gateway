@@ -46,7 +46,7 @@ jobs:
     - name: Check Format
       run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then exit 1; fi
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v8
+      uses: golangci/golangci-lint-action@v9
       with:
         version: v2.4
         only-new-issues: true
