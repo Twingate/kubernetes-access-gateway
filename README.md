@@ -9,11 +9,12 @@
 
 Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes cluster. It provides a seamless integration between Twingate's secure access platform and your Kubernetes infrastructure, allowing you to manage and control access to your cluster through Twingate's security policies.
 
-[Wiki][1]  |  [Quick Started][2]  |  [Installation][3]
+[Demo][1]   |  [Wiki][2]  |  [Quick Start][3]  |  [Installation][4]
 
-[1]: https://github.com/Twingate/kubernetes-access-gateway/wiki
-[2]: https://github.com/Twingate/kubernetes-access-gateway/wiki/Quick-Start-Guide
-[3]: https://github.com/Twingate/kubernetes-access-gateway/wiki/Installation
+[1]: https://youtu.be/kLE9txLo8Kg?si=iUrjzFuILMwnWCVI&t=1038
+[2]: https://github.com/Twingate/kubernetes-access-gateway/wiki
+[3]: https://github.com/Twingate/kubernetes-access-gateway/wiki/Quick-Start-Guide
+[4]: https://github.com/Twingate/kubernetes-access-gateway/wiki/Installation
 
 ## Prerequisites
 
