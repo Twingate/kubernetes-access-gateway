@@ -27,7 +27,9 @@ jobs:
         with:
           go-version: ${{ env.GOLANG_VERSION }}
 
-      - uses: azure/setup-helm@v4.3.0
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.2
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
