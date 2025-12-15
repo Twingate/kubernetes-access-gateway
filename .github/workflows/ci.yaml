@@ -142,7 +142,7 @@ jobs:
         docker save -o kubernetes-access-gateway-images.tar $(docker images --filter=reference='twingate/kubernetes-access-gateway:*' --format '{{.Repository}}:{{.Tag}}')
 
     - name: Upload docker images
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: docker-images
         path: kubernetes-access-gateway-images.tar
