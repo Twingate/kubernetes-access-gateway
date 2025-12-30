@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"k8sgateway/internal/log"
 	"k8sgateway/internal/token"
 )
 
@@ -90,8 +89,6 @@ func createParserAndGATToken(t *testing.T, claims token.GATClaims) (*token.Parse
 }
 
 func TestConnectValidator_ParseConnect(t *testing.T) {
-	log.InitializeLogger("gateway", false)
-
 	c := newClient()
 	gatClaims := newGATTokenClaims(c.getPublicKey())
 	parser, signedToken := createParserAndGATToken(t, gatClaims)

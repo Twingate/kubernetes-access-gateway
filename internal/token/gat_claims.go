@@ -82,9 +82,17 @@ type Device struct {
 	ID string `json:"id"`
 }
 
+type ResourceType = string
+
+const (
+	ResourceTypeKubernetes = "KUBERNETES"
+	ResourceTypeSSH        = "SSH"
+)
+
 type Resource struct {
-	ID      string `json:"id"`
-	Address string `json:"address"`
+	ID      string       `json:"id"`
+	Type    ResourceType `json:"type"`
+	Address string       `json:"address"`
 }
 
 // PublicKey is a wrapper for ecdsa.PublicKey that adds support for JSON

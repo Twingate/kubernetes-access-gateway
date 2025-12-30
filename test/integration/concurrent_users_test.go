@@ -8,19 +8,20 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"net/url"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"k8sgateway/cmd"
+	gatewayconfig "k8sgateway/internal/config"
+	"k8sgateway/internal/proxy"
+	"k8sgateway/internal/sessionrecorder"
 	"k8sgateway/internal/token"
-	"k8sgateway/internal/wsproxy"
 	"k8sgateway/test/fake"
 	"k8sgateway/test/integration/testutil"
 )
@@ -46,52 +47,47 @@ func TestConcurrentUsers(t *testing.T) {
 
 	t.Log("Controller is serving at", controller.URL)
 
+	config := gatewayconfig.Config{
+		Twingate: gatewayconfig.TwingateConfig{
+			Network: network,
+			Host:    host,
+		},
+		Port:        gatewayPort,
+		MetricsPort: 0,
+		TLS: gatewayconfig.TLSConfig{
+			CertificateFile: "../data/proxy/tls.crt",
+			PrivateKeyFile:  "../data/proxy/tls.key",
+		},
+		Kubernetes: &gatewayconfig.KubernetesConfig{
+			Upstreams: []gatewayconfig.KubernetesUpstream{
+				{
+					Name:        "kind-cluster",
+					Address:     kindURL.Host,
+					BearerToken: kindBearerToken,
+					CAFile:      "../data/api_server/tls.crt",
+				},
+			},
+		},
+	}
+
+	core, logs := observer.New(zap.DebugLevel)
+	logger := zap.New(core).Named("test")
+
+	p, err := proxy.NewProxy(&config, prometheus.NewRegistry(), logger)
+	require.NoError(t, err, "failed to create proxy")
+
 	// Start the Gateway
 	go func() {
-		rootCmd := cmd.GetRootCommand()
-		rootCmd.SetArgs([]string{
-			"start",
-			"--port",
-			strconv.Itoa(gatewayPort),
-			"--host",
-			"test",
-			"--network",
-			network,
-			"--tlsKey",
-			"../data/proxy/tls.key",
-			"--tlsCert",
-			"../data/proxy/tls.crt",
-			"--k8sAPIServerPort",
-			kindURL.Port(),
-			"--k8sAPIServerCA",
-			"../data/api_server/tls.crt",
-			"--k8sAPIServerToken",
-			kindBearerToken,
-			"--metricsPort",
-			"0",
-		})
-
-		err := rootCmd.Execute()
+		err := p.Start()
 		t.Logf("Failed to start Gateway: %v", err)
 	}()
 
 	testutil.GatewayHealthCheck(t, gatewayPort)
 
-	// Set up a test logger to capture log output
-	// This must be done after the proxy is started because
-	// the proxy also set the global logger.
-	core, logs := observer.New(zap.DebugLevel)
-	logger := zap.New(core)
-	logger.Named("test")
-
-	originalLogger := zap.L()
-	zap.ReplaceGlobals(logger)
-
-	defer zap.ReplaceGlobals(originalLogger) // Restore original logger
-
-	var users = make([]*testutil.User, 0, numUsers)
-
-	var usersNames = make([]string, 0, numUsers)
+	var (
+		users      = make([]*testutil.User, 0, numUsers)
+		usersNames = make([]string, 0, numUsers)
+	)
 
 	for i := range numUsers {
 		user, err := testutil.NewUser(
@@ -101,7 +97,7 @@ func TestConcurrentUsers(t *testing.T) {
 				Groups:   []string{},
 			},
 			gatewayPort,
-			kindKubeConfig.Host,
+			kindURL.Host,
 			controller.URL,
 		)
 		require.NoError(t, err, "failed to create user %d", i+1)
@@ -121,9 +117,7 @@ func TestConcurrentUsers(t *testing.T) {
 	wg := sync.WaitGroup{}
 
 	for _, user := range users {
-		wg.Add(1)
-
-		go func() {
+		wg.Go(func() {
 			expectedUser := map[string]any{
 				"id":       user.ID,
 				"username": user.Username,
@@ -165,18 +159,13 @@ func TestConcurrentUsers(t *testing.T) {
 					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
 						t.Helper()
 
-						expectedHeader := wsproxy.AsciicastHeader{
+						expectedHeader := sessionrecorder.AsciicastHeader{
 							Version:   2,
 							Width:     0,
 							Height:    0,
 							Timestamp: 0,
 							Command:   "sleep 2",
 							User:      user.Username,
-							K8sMetadata: &wsproxy.K8sMetadata{
-								PodName:   testutil.TestPodName,
-								Namespace: "default",
-								Container: testutil.TestPodName,
-							},
 						}
 						expectedEvents := []string{""}
 						testutil.AssertLogsForExecOrAttach(
@@ -200,18 +189,14 @@ func TestConcurrentUsers(t *testing.T) {
 					},
 					assertLogFn: func(t *testing.T, logs *observer.ObservedLogs) {
 						t.Helper()
-						expectedHeader := wsproxy.AsciicastHeader{
+
+						expectedHeader := sessionrecorder.AsciicastHeader{
 							Version:   2,
 							Width:     0,
 							Height:    0,
 							Timestamp: 0,
 							Command:   "cat /etc/hostname",
 							User:      user.Username,
-							K8sMetadata: &wsproxy.K8sMetadata{
-								PodName:   testutil.TestPodName,
-								Namespace: "default",
-								Container: testutil.TestPodName,
-							},
 						}
 						expectedEvents := []string{"", testutil.TestPodName + "\n"}
 						testutil.AssertLogsForExecOrAttach(
@@ -260,9 +245,7 @@ func TestConcurrentUsers(t *testing.T) {
 				})
 				cmd.assertLogFn(t, userLogs)
 			}
-
-			wg.Done()
-		}()
+		})
 	}
 
 	wg.Wait()

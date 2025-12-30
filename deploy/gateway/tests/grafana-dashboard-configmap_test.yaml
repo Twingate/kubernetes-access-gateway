@@ -1,0 +1,13 @@
+suite: Configmap Grafana Dashboard
+templates:
+  - grafana-dashboard-configmap.yaml
+tests:
+  - it: should create Grafana Dashboard
+    set:
+      metrics:
+        grafanaDashboard:
+          enabled: true
+          labels:
+            grafana_dashboard: "1"
+    asserts:
+      - matchSnapshot: {}

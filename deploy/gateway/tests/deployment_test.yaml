@@ -2,44 +2,48 @@ suite: Deployment
 templates:
   - deployment.yaml
 tests:
-  - it: should keep TLS secret volume and volume mount when other volumes are specified
+  - it: should keep Gateway volumes and volume mounts when other volumes are specified
     set:
       volumes:
-        - name: config-vol
-          mountPath: /etc/config
+        - name: logs
+          mountPath: /var/log
       volumeMounts:
-        - name: config-vol
-          configMap:
-            name: log-config
+        - name: logs
+          mountPath: /var/log
     asserts:
       - equal:
           path: spec.template.spec.volumes
           value:
-            - name: tls-secret-volume
+            - name: config
+              configMap:
+                name: RELEASE-NAME-kubernetes-access-gateway-config
+            - name: tls-certs
               secret:
                 secretName: RELEASE-NAME-kubernetes-access-gateway-tls
-            - name: config-vol
-              mountPath: /etc/config
+            - name: logs
+              mountPath: /var/log
       - equal:
           path: spec.template.spec.containers[0].volumeMounts
           value:
-            - name: tls-secret-volume
-              mountPath: /etc/tls-secret-volume
+            - name: config
+              mountPath: /etc/gateway
               readOnly: true
-            - name: config-vol
-              configMap:
-                name: log-config
+            - name: tls-certs
+              mountPath: /etc/gateway/tls
+              readOnly: true
+            - name: logs
+              mountPath: /var/log
   - it: should use `tls.existingSecret` if provided
     set:
       tls:
         existingSecret: "my-tls-secret"
     asserts:
-      - equal:
+      - contains:
           path: spec.template.spec.volumes
-          value:
-            - name: tls-secret-volume
-              secret:
-                secretName: my-tls-secret
+          content:
+            name: tls-certs
+            secret:
+              secretName: my-tls-secret
   - it: should add extra environment variables
     set:
       extraEnvVars:
@@ -51,3 +55,181 @@ tests:
           content:
             name: FOO
             value: "bar"
+---
+suite: Deployment with SSH
+templates:
+  - deployment.yaml
+set:
+  ssh:
+    enabled: true
+tests:
+  - it: should not add SSH manual CA volume and volume mount when `ssh.enabled` is true but `ssh.ca.manual` is not specified
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: config
+              configMap:
+                name: RELEASE-NAME-kubernetes-access-gateway-config
+            - name: tls-certs
+              secret:
+                secretName: RELEASE-NAME-kubernetes-access-gateway-tls
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: config
+              mountPath: /etc/gateway
+              readOnly: true
+            - name: tls-certs
+              mountPath: /etc/gateway/tls
+              readOnly: true
+  - it: should add SSH manual CA volume and volume mount when `ssh.enabled` is true and `ssh.ca.manual` is specified
+    set:
+      ssh:
+        ca:
+          manual:
+            privateKey: "my-private-key"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: ssh-manual-ca
+            mountPath: /etc/gateway/ssh
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: ssh-manual-ca
+            secret:
+              secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-manual-ca
+  - it: should error when replicaCount > 1 and `ssh.ca` is not specified
+    set:
+      replicaCount: 2
+      ssh:
+        ca: {}
+    asserts:
+      - failedTemplate:
+          errorPattern: "ssh.ca must be configured (manual or vault) when replicaCount > 1. Auto-generated CA is only supported for single replica deployments."
+---
+suite: Deployment with SSH and Vault CA
+templates:
+  - deployment.yaml
+set:
+  ssh:
+    enabled: true
+    ca:
+      vault:
+        address: "https://vault.example.com:8200"
+        role: "gateway"
+tests:
+  - it: should include Vault token env var
+    set:
+      ssh:
+        ca:
+          vault:
+            auth:
+              token: "vault-token"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VAULT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-token
+                key: token
+  - it: should use existing token secret when specified
+    set:
+      ssh:
+        ca:
+          vault:
+            auth:
+              existingTokenSecret: "my-vault-token-secret"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VAULT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: my-vault-token-secret
+                key: token
+  - it: should support Vault CA bundle when CA bundle is specified
+    set:
+      ssh:
+        ca:
+          vault:
+            caBundle: "my-ca-bundle"
+            auth:
+              token: "my-token"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VAULT_CACERT
+            value: /etc/gateway/vault/ca.crt
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: vault-ca-bundle
+            mountPath: /etc/gateway/vault
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vault-ca-bundle
+            secret:
+              secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-ca-bundle
+  - it: should support Vault CA bundle when existing CA bundle secret is specified
+    set:
+      ssh:
+        ca:
+          vault:
+            existingCABundleSecret: "my-ca-bundle-secret"
+            auth:
+              token: "my-token"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VAULT_CACERT
+            value: /etc/gateway/vault/ca.crt
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: vault-ca-bundle
+            mountPath: /etc/gateway/vault
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vault-ca-bundle
+            secret:
+              secretName: my-ca-bundle-secret
+  - it: should not add Vault CA bundle when CA bundle is not specified
+    set:
+      ssh:
+        ca:
+          vault:
+            caBundle: ""
+            existingCABundleSecret: ""
+            auth:
+              token: "my-token"
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VAULT_CACERT
+            value: /etc/gateway/vault/ca.crt
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: vault-ca-bundle
+            mountPath: /etc/gateway/vault
+            readOnly: true
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: vault-ca-bundle
+            secret:
+              secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-ca-bundle

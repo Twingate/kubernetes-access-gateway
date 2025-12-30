@@ -1,0 +1,15 @@
+twingate:
+  network: acme
+  host: test
+
+metricsPort: 0
+
+tls:
+  certificateFile: "./test/data/proxy/tls.crt"
+  privateKeyFile: "./test/data/proxy/tls.key"
+
+kubernetes:
+  upstreams:
+    - name: "k8s-cluster"
+      address: "127.0.0.1:6443"
+      bearerToken: "token"

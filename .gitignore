@@ -1,5 +1,7 @@
 /deploy/gateway/values.local.yaml
 kubeconfig-local
+gateway-config.local.yaml
+known_hosts_local
 
 # macOS filesystem metadata
 *.DS_Store

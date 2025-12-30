@@ -19,14 +19,14 @@ var ProxyCert []byte
 //go:embed proxy/tls.key
 var ProxyKey []byte
 
-//go:embed proxy/tls1.crt
-var ProxyCert1 []byte
-
-//go:embed proxy/tls1.key
-var ProxyKey1 []byte
-
 //go:embed api_server/tls.crt
 var ServerCert []byte
 
 //go:embed api_server/tls.key
 var ServerKey []byte
+
+//go:embed ssh/ca/ca.pub
+var SSHCAPublicKey []byte
+
+//go:embed ssh/host/host.pub
+var SSHHostPublicKey []byte

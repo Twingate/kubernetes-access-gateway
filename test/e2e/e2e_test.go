@@ -71,7 +71,7 @@ func TestInCluster(t *testing.T) {
 			Groups:   []string{"OnCall", "Engineering"},
 		},
 		nodePort,
-		"https://kubernetes.default.svc.cluster.local:443",
+		"kubernetes.default.svc.cluster.local:443",
 		controller.URL,
 	)
 	require.NoError(t, err, "failed to create user")
@@ -167,6 +167,12 @@ const helmValuesYamlTemplate = `
 twingate:
   network: acme
   host: test
+
+kubernetes:
+  enabled: true
+  upstreams:
+    - name: "In-cluster k8s cluster"
+      inCluster: true
 
 image:
   repository: twingate/kubernetes-access-gateway

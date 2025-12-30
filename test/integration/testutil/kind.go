@@ -166,12 +166,15 @@ roleRef:
 subjects:
 `
 
+	var sb strings.Builder
 	for _, user := range users {
-		yaml += fmt.Sprintf(`- kind: User
+		sb.WriteString(fmt.Sprintf(`- kind: User
   name: "%s"
   apiGroup: rbac.authorization.k8s.io
-`, user)
+`, user))
 	}
+
+	yaml += sb.String()
 
 	_, err := kindKubectl.CommandWithInput(yaml, "apply", "-f", "-")
 	require.NoError(t, err, "failed to apply setup YAML")

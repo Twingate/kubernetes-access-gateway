@@ -13,7 +13,7 @@ import (
 type KubectlOptions struct {
 	Context                  string
 	ServerURL                string
-	CertificateAuthorityPath string
+	CertificateAuthorityFile string
 }
 
 // Kubectl contains context or server info to run kubectl commands.
@@ -42,7 +42,7 @@ func (k *Kubectl) executeKubectl(ctx context.Context, stdIn io.Reader, cmdOption
 	} else {
 		options = []string{
 			"--server", k.Options.ServerURL,
-			"--certificate-authority", k.Options.CertificateAuthorityPath,
+			"--certificate-authority", k.Options.CertificateAuthorityFile,
 			"--token", "void", // Bearer token is not used but kubectl CLI requires some authentication
 		}
 	}

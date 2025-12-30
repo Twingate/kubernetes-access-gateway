@@ -48,7 +48,7 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.4
+        version: v2.6
         only-new-issues: true
 
   test-helm:
@@ -59,7 +59,7 @@ jobs:
         with:
           version: v3.19.2
       - name: Install helm-unittest plugin
-        run: helm plugin install https://github.com/helm-unittest/helm-unittest
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3
       - name: Run tests
         run: helm unittest deploy/gateway
 
@@ -86,6 +86,10 @@ jobs:
         run: sudo caddy start
       - name: Map acme.test to 127.0.0.1
         run: echo "127.0.0.1 acme.test" | sudo tee -a /etc/hosts
+      - name: Add CA Public key to known_hosts file
+        run: |
+          mkdir ~/.ssh
+          echo "@cert-authority * $(cat ./test/data/ssh/ca/ca.pub)" > ~/.ssh/known_hosts
       - name: Run Integration Tests
         run: make test-integration-with-coverage
 
