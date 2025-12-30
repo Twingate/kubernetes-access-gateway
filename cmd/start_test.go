@@ -4,69 +4,60 @@
 package cmd
 
 import (
-	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"k8sgateway/internal/httpproxy"
+	"go.uber.org/zap"
 )
 
-type mockProxy struct {
-	startCalled bool
+func TestNewProxy_Success(t *testing.T) {
+	viper.Reset()
+	defer viper.Reset()
+
+	viper.Set("config", "../test/data/config.yaml")
+	viper.Set("debug", false)
+
+	p, err := newProxy(zap.NewNop())
+	require.NoError(t, err)
+
+	assert.NotNil(t, p)
 }
 
-func (m *mockProxy) Start(_ready chan struct{}) {
-	m.startCalled = true
+func TestNewProxy_InvalidConfigPath(t *testing.T) {
+	viper.Reset()
+	defer viper.Reset()
+
+	viper.Set("config", "/nonexistent/config.yaml")
+
+	gateway, err := newProxy(zap.NewNop())
+	require.Error(t, err)
+
+	assert.Nil(t, gateway)
+	assert.Contains(t, err.Error(), "failed to load config")
 }
 
-func TestStart(t *testing.T) {
-	tests := []struct {
-		name           string
-		newProxyErr    error
-		wantErr        bool
-		wantErrMessage string
-	}{
-		{
-			name:        "successful start",
-			newProxyErr: nil,
-			wantErr:     false,
-		},
-		{
-			name:           "gateway creation fails",
-			newProxyErr:    errors.New("invalid configuration"),
-			wantErr:        true,
-			wantErrMessage: "failed to create k8s gateway invalid configuration",
-		},
-	}
+func TestNewProxy_InvalidConfigContent(t *testing.T) {
+	viper.Reset()
+	defer viper.Reset()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			viper.Set("network", "acme")
-			viper.Set("metricsPort", 0)
+	content := `
+twingate:
+  network: acme
+  host: test
+`
+	invalidConfig := filepath.Join(t.TempDir(), "invalid.yaml")
+	err := os.WriteFile(invalidConfig, []byte(content), 0600)
+	require.NoError(t, err)
 
-			var mockProxyInstance *mockProxy
+	viper.Set("config", invalidConfig)
 
-			mockNewProxy := func(_config httpproxy.Config) (httpproxy.ProxyService, error) {
-				mockProxyInstance = &mockProxy{}
+	gateway, err := newProxy(zap.NewNop())
+	require.Error(t, err)
 
-				return mockProxyInstance, tt.newProxyErr
-			}
-
-			err := start(mockNewProxy)
-
-			if tt.wantErr {
-				require.Error(t, err)
-
-				if tt.wantErrMessage != "" {
-					assert.Equal(t, tt.wantErrMessage, err.Error())
-				}
-			} else {
-				require.NoError(t, err)
-				assert.True(t, mockProxyInstance.startCalled)
-			}
-		})
-	}
+	assert.Nil(t, gateway)
+	assert.Contains(t, err.Error(), "failed to validate config")
 }

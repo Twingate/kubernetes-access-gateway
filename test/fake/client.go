@@ -18,30 +18,32 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"sync"
 
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/httpproxy"
+	"k8sgateway/internal/connect"
 	"k8sgateway/internal/token"
 	"k8sgateway/test/data"
 )
 
-// Client simulates a Twingate Client, authenticating and forwarding kubectl requests to the Gateway.
+// Client simulates a Twingate Client, authenticating and forwarding requests to the Gateway.
 //
 // Client is implemented as a TCP proxy. On receiving a connection, it opens a connection to the
 // Gateway, authenticates using a CONNECT request, and then forwards TCP data.
 //
-// kubectl CLI needs to connect to this Client's listener address.
+// kubectl CLI or SSH client needs to connect to this Client's listener address.
 type Client struct {
 	Listener net.Listener
-	URL      string
+	Address  string
 
 	user          *token.User
 	proxyAddress  string
 	controllerURL string
-	apiServerURL  *url.URL
+
+	resourceHostname string
+	resourcePort     string
+	resourceType     token.ResourceType
 
 	cancel context.CancelFunc
 	wg     *sync.WaitGroup
@@ -49,8 +51,8 @@ type Client struct {
 	logger *zap.Logger
 }
 
-// apiServerURL must include both the protocol and the port.
-func NewClient(user *token.User, proxyAddress, controllerURL, apiServerURL string) *Client {
+// NewClient creates a new Client. upstreamAddress must include both the host and the port.
+func NewClient(user *token.User, proxyAddress, controllerURL, upstreamAddress string, resourceType token.ResourceType) *Client {
 	logger := zap.Must(zap.NewDevelopment()).Named(fmt.Sprintf("client-%s-%s", user.ID, user.Username))
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -60,9 +62,9 @@ func NewClient(user *token.User, proxyAddress, controllerURL, apiServerURL strin
 		return nil
 	}
 
-	parsedAPIServerURL, err := url.Parse(apiServerURL)
+	resourceHostname, resourcePort, err := net.SplitHostPort(upstreamAddress)
 	if err != nil {
-		logger.Fatal("Failed to parse API server URL", zap.Error(err))
+		logger.Fatal("Failed to parse split resource address host and port", zap.Error(err))
 
 		return nil
 	}
@@ -70,15 +72,17 @@ func NewClient(user *token.User, proxyAddress, controllerURL, apiServerURL strin
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c := &Client{
-		Listener:      listener,
-		URL:           "https://" + listener.Addr().String(),
-		proxyAddress:  proxyAddress,
-		controllerURL: controllerURL,
-		apiServerURL:  parsedAPIServerURL,
-		user:          user,
-		cancel:        cancel,
-		wg:            &sync.WaitGroup{},
-		logger:        logger,
+		Listener:         listener,
+		Address:          listener.Addr().String(),
+		proxyAddress:     proxyAddress,
+		controllerURL:    controllerURL,
+		user:             user,
+		resourceHostname: resourceHostname,
+		resourcePort:     resourcePort,
+		resourceType:     resourceType,
+		cancel:           cancel,
+		wg:               &sync.WaitGroup{},
+		logger:           logger,
 	}
 	go c.serve(ctx)
 
@@ -138,7 +142,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS13,
-		ServerName: c.apiServerURL.Hostname(),
+		ServerName: c.resourceHostname,
 		RootCAs:    caCertPool,
 	}
 
@@ -159,7 +163,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	defer proxyTLSConn.Close()
 
 	// Create CONNECT request
-	connectReq, err := http.NewRequest(http.MethodConnect, c.apiServerURL.String(), nil)
+	connectReq, err := http.NewRequest(http.MethodConnect, "https://"+net.JoinHostPort(c.resourceHostname, c.resourcePort), nil)
 	if err != nil {
 		c.logger.Error("Failed to create request", zap.Error(err))
 
@@ -169,7 +173,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	connectReq.Header.Set("Proxy-Authorization", "Bearer "+gat)
 
 	clientKey, _ := ReadECKey(data.ClientKey)
-	ekm, _ := httpproxy.ExportKeyingMaterial(proxyTLSConn)
+	ekm, _ := connect.ExportKeyingMaterial(proxyTLSConn)
 	ekmHash := sha256.Sum256(ekm)
 	signature, _ := ecdsa.SignASN1(rand.Reader, clientKey, ekmHash[:])
 	b64Signature := base64.StdEncoding.EncodeToString(signature)
@@ -223,7 +227,8 @@ func (c *Client) fetchGAT() (string, error) {
 		},
 		Resource: &token.Resource{
 			ID:      "resource-1",
-			Address: c.apiServerURL.Hostname(),
+			Type:    c.resourceType,
+			Address: c.resourceHostname,
 		},
 	}
 

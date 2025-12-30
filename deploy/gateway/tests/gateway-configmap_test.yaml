@@ -1,0 +1,344 @@
+suite: Gateway configmap
+templates:
+  - gateway-configmap.yaml
+tests:
+  - it: should set common settings
+    set:
+      twingate:
+        network: "acme"
+        host: "test"
+      auditLog:
+        flushInterval: "10s"
+        flushSizeThreshold: 200
+      containerPorts:
+        https: 8000
+        metrics: 9000
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "test"
+
+            port: 8000
+            metricsPort: 9000
+
+            auditLog:
+              flushInterval: 10s
+              flushSizeThreshold: 200
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+  - it: should error when network is not provided
+    set:
+      twingate:
+        network: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "twingate.network is required"
+---
+suite: Gateway configmap with Kubernetes
+templates:
+  - gateway-configmap.yaml
+set:
+  twingate:
+    network: "acme"
+  kubernetes:
+    enabled: true
+tests:
+  - it: should include Kubernetes settings with in-cluster upstream
+    set:
+      kubernetes:
+        enabled: true
+        upstreams:
+          - name: "k8s api server"
+            inCluster: true
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            kubernetes:
+              upstreams:
+                - inCluster: true
+                  name: k8s api server
+  - it: should include Kubernetes settings with out-of-cluster upstream
+    set:
+      kubernetes:
+        enabled: true
+        upstreams:
+          - name: "k8s api server"
+            inCluster: false
+            address: "10.0.0.1:443"
+            bearerTokenFile: "/token"
+            caFile: "/ca.crt"
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            kubernetes:
+              upstreams:
+                - address: 10.0.0.1:443
+                  bearerTokenFile: /token
+                  caFile: /ca.crt
+                  inCluster: false
+                  name: k8s api server
+  - it: should error when out-of-cluster Kubernetes upstream doesn't have address
+    set:
+      kubernetes:
+        enabled: true
+        upstreams:
+          - name: "k8s api server"
+            inCluster: false
+            bearerToken: "token"
+            caFile: "/ca.crt"
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/kubernetes/upstreams/0': missing property 'address'"
+  - it: should error when out-of-cluster Kubernetes upstream doesn't have bearer token nor bearer token file
+    set:
+      kubernetes:
+        enabled: true
+        upstreams:
+          - name: "k8s api server"
+            inCluster: false
+            address: "10.0.0.1:443"
+            caFile: "/ca.crt"
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/kubernetes/upstreams/0': missing property 'bearerToken'"
+  - it: should error when out-of-cluster Kubernetes upstream doesn't have CA file
+    set:
+      kubernetes:
+        enabled: true
+        upstreams:
+          - name: "k8s api server"
+            inCluster: false
+            address: "10.0.0.1:443"
+            bearerToken: "token"
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/kubernetes/upstreams/0': missing property 'caFile'"
+---
+suite: Gateway configmap with SSH
+templates:
+  - gateway-configmap.yaml
+set:
+  twingate:
+    network: "acme"
+  ssh:
+    enabled: true
+    gateway:
+      username: "gateway"
+    upstreams:
+      - name: "ssh-server"
+        address: "10.0.0.1:22"
+tests:
+  - it: should include SSH without any CA (using auto-generated CA)
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            ssh:
+              gateway:
+                username: "gateway"
+                key:
+                  type: "ed25519"
+                hostCertificate:
+                  ttl: "24h"
+                userCertificate:
+                  ttl: "5m"
+
+              upstreams:
+                - address: 10.0.0.1:22
+                  name: ssh-server
+  - it: should include SSH with manual CA
+    set:
+      ssh:
+        ca:
+          manual:
+            privateKey: "my-private-key"
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            ssh:
+              gateway:
+                username: "gateway"
+                key:
+                  type: "ed25519"
+                hostCertificate:
+                  ttl: "24h"
+                userCertificate:
+                  ttl: "5m"
+
+              ca:
+                manual:
+                  privateKeyFile: "/etc/gateway/ssh/ca-private-key"
+              upstreams:
+                - address: 10.0.0.1:22
+                  name: ssh-server
+  - it: should include SSH with Vault CA
+    set:
+      ssh:
+        ca:
+          vault:
+            address: "https://vault.example.com:8200"
+            caBundle: "ca-cert"
+            namespace: "test-namespace"
+            auth:
+              token: "test-token"
+
+            mount: "ssh-gateway"
+            role: "gateway"
+
+            gatewayHostCA:
+              mount: "ssh-gateway-host"
+              role: "gateway-host"
+
+            gatewayUserCA:
+              mount: "ssh-gateway-user"
+              role: "gateway-user"
+
+            upstreamHostCA:
+              mount: "ssh-upstream-host"
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            ssh:
+              gateway:
+                username: "gateway"
+                key:
+                  type: "ed25519"
+                hostCertificate:
+                  ttl: "24h"
+                userCertificate:
+                  ttl: "5m"
+
+              ca:
+                vault:
+                  address: "https://vault.example.com:8200"
+                  namespace: "test-namespace"
+                  mount: "ssh-gateway"
+                  role: "gateway"
+                  gatewayHostCA:
+                    mount: "ssh-gateway-host"
+                    role: "gateway-host"
+                  gatewayUserCA:
+                    mount: "ssh-gateway-user"
+                    role: "gateway-user"
+                  upstreamHostCA:
+                    mount: "ssh-upstream-host"
+              upstreams:
+                - address: 10.0.0.1:22
+                  name: ssh-server
+  - it: should error when SSH Gateway username is empty
+    set:
+      ssh:
+        gateway:
+          username: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "ssh.gateway.username is required"
+  - it: should error when both manual and Vault config are provided
+    set:
+      ssh:
+        ca:
+          manual: {}
+          vault: {}
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/ssh/ca': maxProperties: got 2, want 1"
+  - it: should error when SSH upstream doesn't have name
+    set:
+      ssh:
+        upstreams:
+          - address: "10.0.0.1:22"
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/ssh/upstreams/0': missing property 'name'"
+  - it: should error when SSH upstream doesn't have address
+    set:
+      ssh:
+        upstreams:
+          - name: "ssh-server"
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/ssh/upstreams/0': missing property 'address'"

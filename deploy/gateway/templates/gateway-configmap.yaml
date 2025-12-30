@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gateway.configMapName" . }}
+  labels:
+    {{- include "gateway.labels" . | nindent 4 }}
+data:
+  config.yaml: |-
+    twingate:
+      network: {{ required "twingate.network is required" .Values.twingate.network | quote }}
+      host: {{ include "gateway.twingate.host" . | quote }}
+
+    {{ with .Values.containerPorts -}}
+    port: {{ .https }}
+    metricsPort: {{ .metrics }}
+    {{- end }}
+
+    {{ with .Values.auditLog -}}
+    auditLog:
+      flushInterval: {{ .flushInterval }}
+      flushSizeThreshold: {{ .flushSizeThreshold }}
+    {{- end }}
+
+    tls:
+      certificateFile: "/etc/gateway/tls/tls.crt"
+      privateKeyFile: "/etc/gateway/tls/tls.key"
+
+    {{ with .Values.kubernetes -}}
+    {{ if and .enabled .upstreams -}}
+    kubernetes:
+      upstreams:
+        {{- .upstreams | toYaml | nindent 8 }}
+    {{ end -}}
+    {{ end -}}
+
+    {{ with .Values.ssh -}}
+    {{ if and .enabled .upstreams -}}
+    ssh:
+      {{- with .gateway }}
+      gateway:
+        username: {{ required "ssh.gateway.username is required" .username | quote }}
+        key:
+          type: {{ .key.type | quote }}
+          {{- with .key.bits }}
+          bits: {{ . }}
+          {{- end }}
+        hostCertificate:
+          ttl: {{ .hostCertificate.ttl | quote }}
+        userCertificate:
+          ttl: {{ .userCertificate.ttl | quote }}
+      {{- end }}
+
+      {{ if and .ca .ca.manual -}}
+      ca:
+        manual:
+          privateKeyFile: "/etc/gateway/ssh/ca-private-key"
+      {{ end -}}
+
+      {{ if and .ca .ca.vault -}}
+      ca:
+        vault:
+          address: {{ .ca.vault.address | quote }}
+          {{- with .ca.vault.namespace }}
+          namespace: {{ . | quote }}
+          {{- end }}
+          mount: {{ default "ssh" .ca.vault.mount | quote }}
+          role: {{ .ca.vault.role | quote }}
+          {{- with .ca.vault.gatewayHostCA }}
+          gatewayHostCA:
+            {{- with .mount }}
+            mount: {{ . | quote }}
+            {{- end }}
+            {{- with .role }}
+            role: {{ . | quote }}
+            {{- end }}
+          {{- end }}
+          {{- with .ca.vault.gatewayUserCA }}
+          gatewayUserCA:
+            {{- with .mount }}
+            mount: {{ . | quote }}
+            {{- end }}
+            {{- with .role }}
+            role: {{ . | quote }}
+            {{- end }}
+          {{- end }}
+          {{- with .ca.vault.upstreamHostCA }}
+          upstreamHostCA:
+            {{- with .mount }}
+            mount: {{ . | quote }}
+            {{- end }}
+          {{- end }}
+      {{ end -}}
+
+      upstreams:
+        {{- .upstreams | toYaml | nindent 8 }}
+    {{ end -}}
+    {{ end -}}

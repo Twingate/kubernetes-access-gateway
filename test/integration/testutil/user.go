@@ -5,6 +5,7 @@ package testutil
 
 import (
 	"fmt"
+	"net"
 
 	"k8sgateway/internal/token"
 	"k8sgateway/test/fake"
@@ -18,18 +19,19 @@ type User struct {
 	client  *fake.Client
 }
 
-func NewUser(user *token.User, gatewayPort int, kindURL, controllerURL string) (*User, error) {
+func NewUser(user *token.User, gatewayPort int, kindAddress, controllerURL string) (*User, error) {
 	client := fake.NewClient(
 		user,
 		fmt.Sprintf("127.0.0.1:%d", gatewayPort),
 		controllerURL,
-		kindURL,
+		kindAddress,
+		token.ResourceTypeKubernetes,
 	)
 
 	kubectl := &Kubectl{
 		Options: KubectlOptions{
-			ServerURL:                client.URL,
-			CertificateAuthorityPath: "../data/proxy/tls.crt",
+			ServerURL:                "https://" + client.Address,
+			CertificateAuthorityFile: "../data/proxy/tls.crt",
 		},
 	}
 
@@ -41,5 +43,38 @@ func NewUser(user *token.User, gatewayPort int, kindURL, controllerURL string) (
 }
 
 func (u *User) Close() {
+	u.client.Close()
+}
+
+// SSHUser represents a user, its SSH client and its fake Client.
+type SSHUser struct {
+	token.User
+
+	SSH    *SSH
+	client *fake.Client
+}
+
+func NewSSHUser(user *token.User, gatewayPort int, sshServerAddress, controllerURL, knownHostsFile string) (*SSHUser, error) {
+	client := fake.NewClient(
+		user,
+		fmt.Sprintf("127.0.0.1:%d", gatewayPort),
+		controllerURL,
+		sshServerAddress,
+		token.ResourceTypeSSH,
+	)
+
+	hostname, port, err := net.SplitHostPort(client.Address)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SSHUser{
+		User:   *user,
+		SSH:    &SSH{username: user.Username, hostname: hostname, port: port, knownHostsFile: knownHostsFile},
+		client: client,
+	}, nil
+}
+
+func (u *SSHUser) Close() {
 	u.client.Close()
 }

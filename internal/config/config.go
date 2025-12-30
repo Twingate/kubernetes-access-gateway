@@ -1,0 +1,492 @@
+// Copyright (c) Twingate Inc.
+// SPDX-License-Identifier: MPL-2.0
+
+package config
+
+import (
+	"errors"
+	"fmt"
+	"net"
+	"os"
+	"time"
+
+	"go.yaml.in/yaml/v4"
+	"golang.org/x/crypto/ssh"
+)
+
+var (
+	ErrRequired          = errors.New("required field is missing")
+	ErrInvalidPort       = errors.New("invalid port number")
+	ErrDuplicateUpstream = errors.New("duplicate upstream name")
+	ErrInvalidAddress    = errors.New("invalid address format")
+	ErrInvalidSSHKeyType = errors.New("invalid SSH key type")
+	ErrNegativeTTL       = errors.New("TTL must be non-negative")
+)
+
+const (
+	defaultTwingateHost               = "twingate.com"
+	defaultPort                       = 8443
+	defaultMetricsPort                = 9090
+	defaultAuditLogFlushInterval      = time.Minute * 10
+	defaultAuditLogFlushSizeThreshold = 1_000_000 // 1MB in bytes
+)
+
+type Config struct {
+	Twingate    TwingateConfig    `yaml:"twingate"`
+	Port        int               `yaml:"port"`
+	MetricsPort int               `yaml:"metricsPort"`
+	AuditLog    AuditLogConfig    `yaml:"auditLog"`
+	TLS         TLSConfig         `yaml:"tls"`
+	Kubernetes  *KubernetesConfig `yaml:"kubernetes,omitempty"`
+	SSH         *SSHConfig        `yaml:"ssh,omitempty"`
+}
+
+type TwingateConfig struct {
+	Network string `yaml:"network"`
+	Host    string `yaml:"host"`
+}
+
+type AuditLogConfig struct {
+	FlushInterval      time.Duration `yaml:"flushInterval"`
+	FlushSizeThreshold int           `yaml:"flushSizeThreshold"` // bytes
+}
+
+type TLSConfig struct {
+	CertificateFile string `yaml:"certificateFile"`
+	PrivateKeyFile  string `yaml:"privateKeyFile"`
+}
+
+type KubernetesConfig struct {
+	Upstreams []KubernetesUpstream `yaml:"upstreams"`
+}
+
+type KubernetesUpstream struct {
+	Name            string `yaml:"name"`
+	InCluster       bool   `yaml:"inCluster,omitempty"`
+	Address         string `yaml:"address,omitempty"`
+	BearerToken     string `yaml:"bearerToken,omitempty"`
+	BearerTokenFile string `yaml:"bearerTokenFile,omitempty"`
+	CAFile          string `yaml:"caFile,omitempty"`
+}
+
+type SSHConfig struct {
+	Gateway   SSHGatewayConfig `yaml:"gateway"`
+	CA        SSHCAConfig      `yaml:"ca"`
+	Upstreams []SSHUpstream    `yaml:"upstreams"`
+}
+
+type SSHGatewayConfig struct {
+	Username        string               `yaml:"username"` // Default username for upstream connections
+	Key             SSHKeyConfig         `yaml:"key"`
+	HostCertificate SSHCertificateConfig `yaml:"hostCertificate"`
+	UserCertificate SSHCertificateConfig `yaml:"userCertificate"`
+}
+
+type SSHKeyConfig struct {
+	Type string `yaml:"type"` // ed25519, ecdsa, rsa or SSH key type identifiers e.g. ssh-rsa, ssh-ed25519, ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, ecdsa-sha2-nistp521. Defaults to ed25519
+	Bits int    `yaml:"bits"` // ECDSA: 256/384/521, RSA: 2048/3072/4096. Defaults to 256 for ECDSA, 2048 for RSA.
+}
+
+type SSHCertificateConfig struct {
+	TTL time.Duration `yaml:"ttl"`
+}
+
+// SSHCAConfig represents the CA configuration. Only one of Manual or Vault should be set.
+// If neither is set, auto-generated CA is used.
+type SSHCAConfig struct {
+	Manual *SSHCAManualConfig `yaml:"manual,omitempty"`
+	Vault  *SSHCAVaultConfig  `yaml:"vault,omitempty"`
+}
+
+type SSHCAManualConfig struct {
+	PrivateKeyFile string `yaml:"privateKeyFile"`
+}
+
+type SSHCAVaultConfig struct {
+	Address      string               `yaml:"address"`
+	CABundleFile string               `yaml:"caBundleFile,omitempty"`
+	Auth         SSHCAVaultAuthConfig `yaml:"auth"`
+
+	Namespace string `yaml:"namespace,omitempty"` // Optional Vault namespace
+
+	// Default mount point and role (used for all CAs unless overridden below)
+	Mount string `yaml:"mount,omitempty"`
+	Role  string `yaml:"role,omitempty"`
+
+	// Optional overrides for advanced setups with separate CAs
+	GatewayHostCA  *SSHCAVaultCertConfig  `yaml:"gatewayHostCA,omitempty"`  // CA for signing Gateway's host certificates (presented to clients)
+	GatewayUserCA  *SSHCAVaultCertConfig  `yaml:"gatewayUserCA,omitempty"`  // CA for signing Gateway's user certificates (presented to upstreams)
+	UpstreamHostCA *SSHCAVaultMountConfig `yaml:"upstreamHostCA,omitempty"` // CA for verifying upstreams' host certificates (no role needed)
+}
+
+// SSHCAVaultCertConfig allows overriding the default mount/role for certificate signing.
+type SSHCAVaultCertConfig struct {
+	Mount string `yaml:"mount,omitempty"`
+	Role  string `yaml:"role,omitempty"`
+}
+
+// SSHCAVaultMountConfig allows overriding the mount for CA public key retrieval (no role needed).
+type SSHCAVaultMountConfig struct {
+	Mount string `yaml:"mount,omitempty"`
+}
+
+type SSHCAVaultAuthConfig struct {
+	Token string `yaml:"token,omitempty"`
+}
+
+type SSHUpstream struct {
+	Name     string `yaml:"name"`
+	Address  string `yaml:"address"`
+	Username string `yaml:"user,omitempty"` // Optional override for username
+}
+
+func newDefaultConfig() *Config {
+	return &Config{
+		Port:        defaultPort,
+		MetricsPort: defaultMetricsPort,
+		Twingate: TwingateConfig{
+			Host: defaultTwingateHost,
+		},
+		AuditLog: AuditLogConfig{
+			FlushInterval:      defaultAuditLogFlushInterval,
+			FlushSizeThreshold: defaultAuditLogFlushSizeThreshold,
+		},
+	}
+}
+
+func Load(path string) (*Config, error) {
+	// #nosec G304 -- file path is from trusted operator configuration
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	cfg := newDefaultConfig()
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	return cfg, nil
+}
+
+func (c *Config) Validate() error {
+	if c.Twingate.Network == "" {
+		return fmt.Errorf("%w: twingate.network", ErrRequired)
+	}
+
+	if err := validatePort(c.Port, "port"); err != nil {
+		return err
+	}
+
+	if err := validatePort(c.MetricsPort, "metricsPort"); err != nil {
+		return err
+	}
+
+	if err := c.TLS.Validate(); err != nil {
+		return fmt.Errorf("tls config: %w", err)
+	}
+
+	if c.Kubernetes != nil {
+		if err := c.Kubernetes.Validate(); err != nil {
+			return fmt.Errorf("kubernetes config: %w", err)
+		}
+	}
+
+	if c.SSH != nil {
+		if err := c.SSH.Validate(); err != nil {
+			return fmt.Errorf("ssh config: %w", err)
+		}
+	}
+
+	// Check that at least one protocol is configured
+	if c.Kubernetes == nil && c.SSH == nil {
+		return fmt.Errorf("%w: at least one protocol (Kubernetes or SSH) must be configured", ErrRequired)
+	}
+
+	return nil
+}
+
+func (t *TLSConfig) Validate() error {
+	if t.CertificateFile == "" {
+		return fmt.Errorf("%w: certificateFile", ErrRequired)
+	}
+
+	if t.PrivateKeyFile == "" {
+		return fmt.Errorf("%w: privateKeyFile", ErrRequired)
+	}
+
+	return nil
+}
+
+func (k *KubernetesConfig) Validate() error {
+	if len(k.Upstreams) == 0 {
+		return fmt.Errorf("%w: at least one upstream is required", ErrRequired)
+	}
+
+	// Check for duplicate upstream names within kubernetes
+	upstreamNames := make(map[string]struct{})
+
+	for i, upstream := range k.Upstreams {
+		if err := upstream.Validate(); err != nil {
+			return fmt.Errorf("upstreams[%d] (name: %q): %w", i, upstream.Name, err)
+		}
+
+		if _, exists := upstreamNames[upstream.Name]; exists {
+			return fmt.Errorf("%w: %q", ErrDuplicateUpstream, upstream.Name)
+		}
+
+		upstreamNames[upstream.Name] = struct{}{}
+	}
+
+	return nil
+}
+
+func (k *KubernetesUpstream) Validate() error {
+	if k.Name == "" {
+		return fmt.Errorf("%w: name", ErrRequired)
+	}
+
+	if !k.InCluster && k.Address == "" {
+		return fmt.Errorf("%w: address is required when inCluster is false", ErrRequired)
+	}
+
+	if !k.InCluster && k.BearerToken == "" && k.BearerTokenFile == "" {
+		return fmt.Errorf("%w: either bearerToken or bearerTokenFile is required when inCluster is false", ErrRequired)
+	}
+
+	return nil
+}
+
+func (s *SSHConfig) Validate() error {
+	if err := s.Gateway.Validate(); err != nil {
+		return fmt.Errorf("gateway: %w", err)
+	}
+
+	if err := s.CA.Validate(); err != nil {
+		return fmt.Errorf("ca: %w", err)
+	}
+
+	if len(s.Upstreams) == 0 {
+		return fmt.Errorf("%w: at least one upstream is required", ErrRequired)
+	}
+
+	// Check for duplicate upstream names within ssh
+	upstreamNames := make(map[string]struct{})
+
+	for i, upstream := range s.Upstreams {
+		if err := upstream.Validate(); err != nil {
+			return fmt.Errorf("upstreams[%d] (name: %q): %w", i, upstream.Name, err)
+		}
+
+		if _, exists := upstreamNames[upstream.Name]; exists {
+			return fmt.Errorf("%w: %q", ErrDuplicateUpstream, upstream.Name)
+		}
+
+		upstreamNames[upstream.Name] = struct{}{}
+	}
+
+	return nil
+}
+
+func (g *SSHGatewayConfig) Validate() error {
+	if g.Username == "" {
+		return fmt.Errorf("%w: username", ErrRequired)
+	}
+
+	if err := g.Key.Validate(); err != nil {
+		return fmt.Errorf("key: %w", err)
+	}
+
+	if err := g.HostCertificate.Validate(); err != nil {
+		return fmt.Errorf("hostCertificate: %w", err)
+	}
+
+	if err := g.UserCertificate.Validate(); err != nil {
+		return fmt.Errorf("userCertificate: %w", err)
+	}
+
+	return nil
+}
+
+func (k *SSHKeyConfig) Validate() error {
+	validTypes := map[string]bool{
+		"ed25519":           true,
+		"ecdsa":             true,
+		"rsa":               true,
+		ssh.KeyAlgoED25519:  true,
+		ssh.KeyAlgoECDSA256: true,
+		ssh.KeyAlgoECDSA384: true,
+		ssh.KeyAlgoECDSA521: true,
+		ssh.KeyAlgoRSA:      true,
+	}
+
+	if k.Type != "" && !validTypes[k.Type] {
+		return ErrInvalidSSHKeyType
+	}
+
+	return nil
+}
+
+func (c *SSHCertificateConfig) Validate() error {
+	if c.TTL < 0 {
+		return ErrNegativeTTL
+	}
+
+	return nil
+}
+
+var ErrConflictingCAConfig = errors.New("only one of 'manual' or 'vault' can be specified for CA config")
+
+func (c *SSHCAConfig) Validate() error {
+	if c.Manual != nil && c.Vault != nil {
+		return ErrConflictingCAConfig
+	}
+
+	if c.Manual != nil {
+		if err := c.Manual.Validate(); err != nil {
+			return fmt.Errorf("manual: %w", err)
+		}
+	}
+
+	if c.Vault != nil {
+		if err := c.Vault.Validate(); err != nil {
+			return fmt.Errorf("vault: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (m *SSHCAManualConfig) Validate() error {
+	if m.PrivateKeyFile == "" {
+		return fmt.Errorf("%w: privateKeyFile", ErrRequired)
+	}
+
+	return nil
+}
+
+func (v *SSHCAVaultConfig) Validate() error {
+	if v.Address == "" {
+		return fmt.Errorf("%w: server", ErrRequired)
+	}
+
+	// Validate that we can resolve Gateway host and user cert mounts/roles
+	if v.GetGatewayHostCAMount() == "" {
+		return fmt.Errorf("%w: mount is required (either at top level or in gatewayHostCA)", ErrRequired)
+	}
+
+	if v.GetGatewayUserCAMount() == "" {
+		return fmt.Errorf("%w: mount is required (either at top level or in gatewayUserCA)", ErrRequired)
+	}
+
+	if v.GetGatewayHostCARole() == "" {
+		return fmt.Errorf("%w: role is required (either at top level or in gatewayHostCA)", ErrRequired)
+	}
+
+	if v.GetGatewayUserCARole() == "" {
+		return fmt.Errorf("%w: role is required (either at top level or in gatewayUserCA)", ErrRequired)
+	}
+
+	return nil
+}
+
+const defaultVaultSSHMount = "ssh"
+
+// GetGatewayHostCAMount returns the effective mount for Gateway host certificate signing.
+func (v *SSHCAVaultConfig) GetGatewayHostCAMount() string {
+	if v.GatewayHostCA != nil && v.GatewayHostCA.Mount != "" {
+		return v.GatewayHostCA.Mount
+	}
+
+	if v.Mount != "" {
+		return v.Mount
+	}
+
+	return defaultVaultSSHMount
+}
+
+// GetGatewayHostCARole returns the effective role for Gateway host certificate signing.
+func (v *SSHCAVaultConfig) GetGatewayHostCARole() string {
+	if v.GatewayHostCA != nil && v.GatewayHostCA.Role != "" {
+		return v.GatewayHostCA.Role
+	}
+
+	return v.Role
+}
+
+// GetGatewayUserCAMount returns the effective mount for Gateway user certificate signing.
+func (v *SSHCAVaultConfig) GetGatewayUserCAMount() string {
+	if v.GatewayUserCA != nil && v.GatewayUserCA.Mount != "" {
+		return v.GatewayUserCA.Mount
+	}
+
+	if v.Mount != "" {
+		return v.Mount
+	}
+
+	return defaultVaultSSHMount
+}
+
+// GetGatewayUserCARole returns the effective role for Gateway user certificate signing.
+func (v *SSHCAVaultConfig) GetGatewayUserCARole() string {
+	if v.GatewayUserCA != nil && v.GatewayUserCA.Role != "" {
+		return v.GatewayUserCA.Role
+	}
+
+	return v.Role
+}
+
+// GetUpstreamHostCAMount returns the effective mount for upstream host certificate verification.
+func (v *SSHCAVaultConfig) GetUpstreamHostCAMount() string {
+	if v.UpstreamHostCA != nil && v.UpstreamHostCA.Mount != "" {
+		return v.UpstreamHostCA.Mount
+	}
+
+	if v.Mount != "" {
+		return v.Mount
+	}
+
+	return defaultVaultSSHMount
+}
+
+func (s *SSHUpstream) Validate() error {
+	if s.Name == "" {
+		return fmt.Errorf("%w: name", ErrRequired)
+	}
+
+	if s.Address == "" {
+		return fmt.Errorf("%w: address", ErrRequired)
+	}
+
+	if err := validateAddress(s.Address); err != nil {
+		return fmt.Errorf("address: %w", err)
+	}
+
+	return nil
+}
+
+func validatePort(port int, fieldName string) error {
+	// Allow port 0 for dynamic port assignment in testing.
+	if port < 0 || port > 65535 {
+		return fmt.Errorf("%w: %s must be between 0 and 65535", ErrInvalidPort, fieldName)
+	}
+
+	return nil
+}
+
+func validateAddress(address string) error {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidAddress, err)
+	}
+
+	if host == "" {
+		return fmt.Errorf("%w: host cannot be empty", ErrInvalidAddress)
+	}
+
+	if port == "" {
+		return fmt.Errorf("%w: port cannot be empty", ErrInvalidAddress)
+	}
+
+	return nil
+}

@@ -14,6 +14,86 @@ twingate:
 #      # Resource alias is included in the auto-generated TLS cert
 #      resource.twingate.com/alias: "myk8s.int"
 
+auditLog:
+  flushInterval: 5m
+  flushSizeThreshold: 1000000  # 1MB
+
+kubernetes:
+  enabled: false
+
+  upstreams: []
+    # # API server of the same cluster (uses service account credentials)
+    # - name: "Local Kubernetes Cluster"
+    #   inCluster: true
+    #
+    # # External API server (requires explicit credentials)
+    # - name: "External Kubernetes Cluster"
+    #   inCluster: false
+    #   address: "https://api.k8s.int:443"
+    #   # Use bearerToken OR bearerTokenFile
+    #   bearerToken: "eyJhbGciOiJSUzI1NiIsImtpZCI6..."
+    #   bearerTokenFile: "/var/run/secrets/k8s-token/token"
+    #   caFile: "/var/run/secrets/k8s-ca/ca.crt"
+
+ssh:
+  enabled: false
+
+  gateway:
+    # Default username for upstream SSH connections (can be overridden per-upstream)
+    username: ""
+    key:
+      # Key type: ed25519, ecdsa, rsa
+      type: "ed25519"
+      # Key bits: ECDSA: 256/384/521, RSA: 2048/3072/4096 (ignored for ed25519)
+      bits: 0
+    hostCertificate:
+      ttl: "24h"
+    userCertificate:
+      ttl: "5m"
+
+  # CA configuration - only one option should be specified
+  # If neither manual nor vault is configured, auto-generated CA is used
+  ca: {}
+    # Manual CA configuration
+    # manual:
+    #   # Name of existing secret containing the CA private key (key name: ca-private-key)
+    #   existingSecret: ""
+    #   # CA private key content (used if existingSecret is not set)
+    #   privateKey: ""
+
+    # Vault CA configuration
+    # vault:
+    #   address: "https://vault.example.com:8200"
+    #   namespace: ""  # Optional
+    #
+    #   # CA bundle for verifying Vault's TLS certificate
+    #   caBundle: ""  # CA bundle content (PEM format)
+    #   existingCABundleSecret: ""  # Name of existing secret containing CA bundle (key name: ca.crt)
+    #
+    #   # Auth configuration
+    #   auth:
+    #     existingTokenSecret: ""  # Name of existing secret containing the token (key name: token)
+    #     token: ""  # Token value
+    #
+    #   # Default mount/role (can be overridden per-CA)
+    #   mount: "ssh"
+    #   role: "gateway"
+    #
+    #   # Optional: Advanced per-CA overrides
+    #   gatewayHostCA:
+    #     mount: ""
+    #     role: ""
+    #   gatewayUserCA:
+    #     mount: ""
+    #     role: ""
+    #   upstreamHostCA:
+    #     mount: ""
+
+  upstreams: []
+    # - name: "SSH Server"
+    #   address: "10.128.0.105:22"
+    #   username: "ubuntu"  # Optional: override gateway.username for this upstream
+
 clusterDomain: cluster.local
 
 # Gateway deployment

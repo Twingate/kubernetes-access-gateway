@@ -3,7 +3,27 @@ excludeTemplates:
   # TLS certificates are dynamic so these templates are tested separately.
   - NOTES.txt
   - tls-secret.yaml
+set:
+  twingate:
+    network: "acme"
 tests:
-  - it: should render
+  - it: should render with Kubernetes enabled
+    set:
+      kubernetes:
+        enabled: true
+        upstreams:
+          - name: "k8s api server"
+            inCluster: true
+    asserts:
+      - matchSnapshot: {}
+  - it: should render with SSH enabled
+    set:
+      ssh:
+        enabled: true
+        gateway:
+          username: "test"
+        upstreams:
+          - name: "ssh-server"
+            address: "10.0.0.1:22"
     asserts:
       - matchSnapshot: {}

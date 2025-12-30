@@ -4,58 +4,26 @@
 package log
 
 import (
-	"fmt"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"k8sgateway/internal/version"
 )
 
-// Used to allow testing.
-var (
-	zapReplaceGlobals = zap.ReplaceGlobals
-	zapRedirectStdLog = zap.RedirectStdLog
-)
+const DefaultName = "gateway"
 
-var destroyFunc func()
-
-func InitializeLogger(name string, debug bool) {
-	loggingConfig := loggingConfiguration(debug)
-
-	logger, err := loggingConfig.Build()
+func NewLogger(name string, debug bool) (*zap.Logger, error) {
+	logger, err := logConfig(debug).Build()
 	if err != nil {
-		panic(fmt.Sprintf("failed to initialize logger: %v", err))
+		return nil, err
 	}
 
-	if name != "" {
-		logger = logger.Named(name)
-	}
+	logger = logger.Named(name).With(zap.String("version", version.Version))
 
-	logger = logger.With(zap.String("version", version.Version))
-
-	undoGlobals := zapReplaceGlobals(logger)
-	undoStd := zapRedirectStdLog(logger)
-
-	destroyFunc = func() {
-		defer func() {
-			err = logger.Sync()
-		}()
-
-		undoGlobals()
-		undoStd()
-	}
-
-	logger.Sugar().Info("initializing Logger")
+	return logger, nil
 }
 
-func Destroy() {
-	if destroyFunc != nil {
-		destroyFunc()
-	}
-}
-
-func loggingConfiguration(debug bool) zap.Config {
+func logConfig(debug bool) zap.Config {
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "ts",
 		LevelKey:       "levelname",
@@ -74,7 +42,7 @@ func loggingConfiguration(debug bool) zap.Config {
 		logLevel = zap.DebugLevel
 	}
 
-	zapConfig := zap.Config{
+	config := zap.Config{
 		Level:            zap.NewAtomicLevelAt(logLevel),
 		Development:      false,
 		Encoding:         "json",
@@ -83,5 +51,5 @@ func loggingConfiguration(debug bool) zap.Config {
 		ErrorOutputPaths: []string{"stderr"},
 	}
 
-	return zapConfig
+	return config
 }

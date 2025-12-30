@@ -62,6 +62,13 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+Create the name of the configmap to use
+*/}}
+{{- define "gateway.configMapName" -}}
+{{- printf "%s-config" (include "gateway.fullname" .) }}
+{{- end }}
+
+{{/*
 Create the name of the TLS secret to use
 */}}
 {{- define "gateway.tlsSecretName" -}}
@@ -71,6 +78,40 @@ Create the name of the TLS secret to use
 {{- printf "%s-tls" (include "gateway.fullname" .) }}
 {{- end }}
 {{- end }}
+
+{{/*
+Create the name of the SSH manual CA secret to use
+*/}}
+{{- define "gateway.sshManualCASecretName" -}}
+{{- if .Values.ssh.ca.manual.existingSecret }}
+{{- .Values.ssh.ca.manual.existingSecret }}
+{{- else }}
+{{- printf "%s-ssh-manual-ca" (include "gateway.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create the name of the SSH Vault CA bundle secret to use
+*/}}
+{{- define "gateway.sshVaultCABundleSecretName" -}}
+{{- if and .Values.ssh.ca.vault .Values.ssh.ca.vault.existingCABundleSecret }}
+{{- .Values.ssh.ca.vault.existingCABundleSecret }}
+{{- else }}
+{{- printf "%s-ssh-vault-ca-bundle" (include "gateway.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create the name of the SSH Vault token secret to use
+*/}}
+{{- define "gateway.sshVaultTokenSecretName" -}}
+{{- if and .Values.ssh.ca.vault .Values.ssh.ca.vault.auth.existingTokenSecret }}
+{{- .Values.ssh.ca.vault.auth.existingTokenSecret }}
+{{- else }}
+{{- printf "%s-ssh-vault-token" (include "gateway.fullname" .) }}
+{{- end }}
+{{- end }}
+
 
 {{/*
 Get the alias of the resource

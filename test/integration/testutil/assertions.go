@@ -17,7 +17,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	"k8sgateway/internal/wsproxy"
+	"k8sgateway/internal/sessionrecorder"
 )
 
 func AssertWhoAmI(t *testing.T, output []byte, expectedUsername string, expectedGroups []string) {
@@ -59,7 +59,7 @@ func AssertLogsForREST(t *testing.T, logs *observer.ObservedLogs, expectedURL st
 	assert.Subset(t, firstLog.ContextMap()["response"], map[string]any{"status_code": expectedStatusCode})
 }
 
-func AssertLogsForExecOrAttach(t *testing.T, logs *observer.ObservedLogs, expectedURL string, expectedUser map[string]any, expectedAsciicastHeader wsproxy.AsciicastHeader, expectedAsciicastEvents []string) {
+func AssertLogsForExecOrAttach(t *testing.T, logs *observer.ObservedLogs, expectedURL string, expectedUser map[string]any, expectedAsciicastHeader sessionrecorder.AsciicastHeader, expectedAsciicastEvents []string) {
 	t.Helper()
 
 	expectedLogs := logs.FilterField(zap.String("url", expectedURL)).All()
@@ -83,7 +83,18 @@ func AssertLogsForExecOrAttach(t *testing.T, logs *observer.ObservedLogs, expect
 	assert.Equal(t, firstLog.ContextMap()["request_id"], secondLog.ContextMap()["request_id"])
 }
 
-func assertAsciicast(t *testing.T, asciicast string, expectedHeader wsproxy.AsciicastHeader, expectedEvents []string) {
+func AssertLogsForSSH(t *testing.T, logs *observer.ObservedLogs, expectedUser, expectedRequest map[string]any) {
+	t.Helper()
+
+	sessionLogs := logs.FilterMessage("Received SSH request").All()
+	assert.Len(t, sessionLogs, 1, "expected 1 log for SSH session, user %v", expectedUser)
+
+	firstLog := sessionLogs[0]
+	assert.Equal(t, expectedUser, firstLog.ContextMap()["user"])
+	assert.Equal(t, expectedRequest, firstLog.ContextMap()["request"])
+}
+
+func assertAsciicast(t *testing.T, asciicast string, expectedHeader sessionrecorder.AsciicastHeader, expectedEvents []string) {
 	t.Helper()
 
 	lines := strings.Split(strings.TrimSpace(asciicast), "\n")
@@ -97,10 +108,10 @@ func assertAsciicast(t *testing.T, asciicast string, expectedHeader wsproxy.Asci
 	}
 }
 
-func assertAsciicastHeader(t *testing.T, headerLine string, expectedHeader wsproxy.AsciicastHeader) {
+func assertAsciicastHeader(t *testing.T, headerLine string, expectedHeader sessionrecorder.AsciicastHeader) {
 	t.Helper()
 
-	var header wsproxy.AsciicastHeader
+	var header sessionrecorder.AsciicastHeader
 
 	err := json.Unmarshal([]byte(headerLine), &header)
 	require.NoError(t, err)

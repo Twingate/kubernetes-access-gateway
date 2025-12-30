@@ -5,59 +5,35 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
-
-	kindcluster "sigs.k8s.io/kind/pkg/cluster"
-	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 
 	"k8sgateway/internal/token"
 	"k8sgateway/test/fake"
-	"k8sgateway/test/integration/testutil"
 )
 
 const (
-	network         = "acme"
-	gatewayPort     = 8443
-	gatewayHost     = "127.0.0.1"
-	kubeConfigPath  = "kubeconfig-local"
-	clusterName     = "gateway-local-development"
-	kindClusterName = "kind-" + clusterName
-	kindPort        = 6443
-	controllerPort  = 8080
-	defaultUsername = "alex@acme.com"
+	network           = "acme"
+	gatewayPort       = 8443
+	gatewayHost       = "127.0.0.1"
+	controllerPort    = 8080
+	defaultUsername   = "alex@acme.com"
+	gatewayConfigFile = "gateway-config.local.yaml"
 )
-
-var kindClusterYaml = fmt.Sprintf(`
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-networking:
-  apiServerPort: %d
-nodes:
-- role: control-plane
-  extraMounts:
-    - hostPath: ./test/data/api_server/tls.crt
-      containerPath: /etc/kubernetes/pki/ca.crt
-    - hostPath: ./test/data/api_server/tls.key
-      containerPath: /etc/kubernetes/pki/ca.key
-`, kindPort)
 
 // Before running this local dev client, Caddy must be already running. Run `caddy run` to start Caddy.
 func main() {
 	// Parse command line flags
 	username := flag.String("username", defaultUsername, "Username to use for authentication")
 	createKubeConfig := flag.Bool("create-kubeconfig", true, "Whether to create kubeConfig. If kubeConfig already exists, it will be overwritten")
+	createKnownHosts := flag.Bool("create-ssh-known-hosts", true, "Whether to create SSH known_hosts. If known_hosts already exists, it will be overwritten")
+
 	flag.Parse()
 
 	logger, err := zap.NewDevelopment()
@@ -88,6 +64,10 @@ func main() {
 		logger.Fatal("Failed to create kind cluster", zap.Error(err))
 	}
 
+	if err = setupSSHServer(logger); err != nil {
+		logger.Fatal("Failed to setup SSH server", zap.Error(err))
+	}
+
 	controller := fake.NewController(network, controllerPort)
 	defer controller.Close()
 
@@ -99,24 +79,26 @@ func main() {
 		Groups:   []string{"Developer", "OnCall"},
 	}
 
-	client := fake.NewClient(
+	kubernetesClient := fake.NewClient(
 		user,
 		fmt.Sprintf("%s:%d", gatewayHost, gatewayPort),
 		controller.URL,
-		"https://127.0.0.1:6443",
+		fmt.Sprintf("%s:%d", gatewayHost, kindPort),
+		token.ResourceTypeKubernetes,
 	)
-	defer client.Close()
 
-	logger.Info("Client is serving at", zap.String("url", client.URL))
+	defer kubernetesClient.Close()
+
+	logger.Info("Kubernetes fake Twingate client is serving at", zap.String("url", kubernetesClient.Address))
 
 	if *createKubeConfig {
-		if err := createKubeConfigFile(client.URL); err != nil {
+		if err := createKubeConfigFile("https://" + kubernetesClient.Address); err != nil {
 			logger.Error("Failed to create kubeConfig", zap.Error(err))
 
 			return
 		}
 
-		logger.Info("Created kubeConfig", zap.String("path", kubeConfigPath))
+		logger.Info("Created kubeConfig", zap.String("path", kubeConfigFile))
 	}
 
 	kindBearerToken, err := getKinDBearerToken()
@@ -126,191 +108,102 @@ func main() {
 		return
 	}
 
-	//nolint:forbidigo
-	_, _ = fmt.Printf(`
+	sshClient := fake.NewClient(
+		user,
+		fmt.Sprintf("%s:%d", gatewayHost, gatewayPort),
+		controller.URL,
+		fmt.Sprintf("%s:%d", gatewayHost, sshPort),
+		token.ResourceTypeSSH,
+	)
+
+	defer sshClient.Close()
+
+	logger.Info("SSH fake Twingate client is serving at", zap.String("address", sshClient.Address))
+
+	if *createKnownHosts {
+		err := createKnownHostsFile()
+		if err != nil {
+			logger.Error("Failed to add SSH CA to SSH known hosts file", zap.Error(err))
+
+			return
+		}
+
+		logger.Info("Created SSH known_hosts file", zap.String("path", sshKnownHostFile))
+	}
+
+	err = createLocalGatewayConfig(kindBearerToken)
+	if err != nil {
+		logger.Error("Failed to create local gateway config", zap.Error(err))
+
+		return
+	}
+
+	outputMsg := fmt.Sprintf(`
 =====================================================
 Twingate local dev environment running!
-Controller: %s
-Client:     %s
-User:       %s
-KubeConfig:  %s (context: %s)
+Controller:           %s
+User:                 %s
+Client (Kubernetes):  %s
+KubeConfig:           %s (context: %s)
+Client (SSH):         %s
+`, controller.URL, user.Username, kubernetesClient.Address, kubeConfigFile, kindClusterName, sshClient.Address)
+
+	gatewayRunCmd := "go run main.go start --debug --config " + gatewayConfigFile
+
+	outputMsg += fmt.Sprintf(`
 Start the Gateway at the project root with this command:
-go run main.go start --network %s --host test --debug --tlsKey ./test/data/proxy/tls.key --tlsCert ./test/data/proxy/tls.crt --k8sAPIServerPort %d --k8sAPIServerCA ./test/data/api_server/tls.crt --k8sAPIServerToken %s
+
+%s
 
 Press Ctrl+C to stop
 =====================================================
-	`, controller.URL, client.URL, user.Username, kubeConfigPath, kindClusterName, network, kindPort, kindBearerToken)
+`, gatewayRunCmd)
+
+	//nolint:forbidigo
+	_, _ = fmt.Print(outputMsg)
 
 	// Wait for context cancellation
 	<-ctx.Done()
 }
 
-const setupYaml = `
-# Setup default service account for impersonation
-#
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: gateway-impersonation
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - users
-  - groups
-  - serviceaccounts
-  verbs:
-  - impersonate
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: gateway-impersonation
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: gateway-impersonation
-subjects:
-- kind: ServiceAccount
-  name: default
-  namespace: default
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: gateway-default-service-account
-  annotations:
-    kubernetes.io/service-account.name: default
-type: kubernetes.io/service-account-token
----
-
-# Setup a test pod
-#
-apiVersion: v1
-kind: Pod
-metadata:
-  name: test-pod
-spec:
-  containers:
-  - name: test-pod
-    image: busybox
-    command: ["sleep", "3600"]
----
-
-# Setup role binding for test user
-#
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: gateway-test-user
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: edit
-subjects:
-- kind: User
-  name: %s
-  apiGroup: rbac.authorization.k8s.io
+func createLocalGatewayConfig(kindBearerToken string) error {
+	configTemplate := `
+twingate:
+  network: %s
+  host: test
+port: %d
+tls:
+  certificateFile: ./test/data/proxy/tls.crt
+  privateKeyFile: ./test/data/proxy/tls.key
+kubernetes:
+  upstreams:
+    - name: local-kind-cluster
+      address: %s:%d
+      bearerToken: %s
+      caFile: ./test/data/api_server/tls.crt
+ssh:
+  gateway:
+    username: %s
+    key:
+      type: "ed25519"
+    hostCertificate:
+      ttl: "24h"
+    userCertificate:
+      ttl: "5m"
+  ca:
+    manual:
+      privateKeyFile: ./test/data/ssh/ca/ca
+  upstreams:
+    - name: local-ssh-server
+      address: %s:%d
 `
 
-func createKindCluster(logger *zap.Logger, username string) error {
-	provider := kindcluster.NewProvider(kindcluster.ProviderWithLogger(kindcmd.NewLogger()))
+	config := fmt.Sprintf(configTemplate, network, gatewayPort, gatewayHost, kindPort, kindBearerToken, sshUsername, gatewayHost, sshPort)
 
-	existingClusters, err := provider.List()
+	err := os.WriteFile(gatewayConfigFile, []byte(config), 0600)
 	if err != nil {
 		return err
-	}
-
-	for _, cluster := range existingClusters {
-		if cluster == clusterName {
-			logger.Info("Cluster already exists", zap.String("cluster", clusterName))
-
-			return nil
-		}
-	}
-
-	logger.Info("Creating cluster", zap.String("cluster", clusterName))
-
-	if err := provider.Create(clusterName, kindcluster.CreateWithRawConfig([]byte(kindClusterYaml))); err != nil {
-		return err
-	}
-
-	kubectl := &testutil.Kubectl{
-		Options: testutil.KubectlOptions{
-			Context: kindClusterName,
-		},
-	}
-
-	// It takes a while for KinD to create the `default` service account...
-	logger.Info("Waiting for default service account to be created...")
-
-	err = wait.PollUntilContextTimeout(context.Background(), time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
-		_, err = kubectl.CommandContext(ctx, "get", "serviceaccount", "default")
-		if err != nil {
-			return false, nil //nolint:nilerr
-		}
-
-		return true, nil
-	})
-	if err != nil {
-		logger.Fatal("Failed waiting for default service account", zap.Error(err))
-	}
-
-	_, err = kubectl.CommandWithInput(fmt.Sprintf(setupYaml, username), "apply", "-f", "-")
-	if err != nil {
-		logger.Fatal("Failed to apply setup YAML", zap.Error(err))
-	}
-
-	_, err = kubectl.Command("wait", "--for=condition=Ready", "pod/test-pod", "--timeout=30s")
-	if err != nil {
-		logger.Fatal("Failed waiting for busybox pod", zap.Error(err))
 	}
 
 	return nil
-}
-
-func getKinDBearerToken() (string, error) {
-	kubectl := &testutil.Kubectl{
-		Options: testutil.KubectlOptions{
-			Context: kindClusterName,
-		},
-	}
-
-	b64BearerToken, err := kubectl.Command("get", "secret", "gateway-default-service-account", "-o", "jsonpath={.data.token}")
-	if err != nil {
-		return "", err
-	}
-
-	bearerToken, err := base64.StdEncoding.DecodeString(string(b64BearerToken))
-	if err != nil {
-		return "", err
-	}
-
-	return string(bearerToken), nil
-}
-
-// createKubeConfigFile creates the KubeConfig file for the local dev environment.
-// If kubeConfig file already exists, it will be overwritten.
-func createKubeConfigFile(serverURL string) error {
-	config := api.NewConfig()
-
-	cluster := api.NewCluster()
-	cluster.Server = serverURL
-	cluster.InsecureSkipTLSVerify = true
-	config.Clusters[clusterName] = cluster
-
-	// Create auth info (no credentials needed as the fake client handles auth)
-	authInfo := &api.AuthInfo{
-		Token: "void",
-	}
-	config.AuthInfos[clusterName] = authInfo
-
-	ctx := api.NewContext()
-	ctx.Cluster = clusterName
-	ctx.AuthInfo = clusterName
-	config.Contexts[clusterName] = ctx
-
-	config.CurrentContext = clusterName
-
-	return clientcmd.WriteToFile(*config, kubeConfigPath)
 }

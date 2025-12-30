@@ -32,6 +32,7 @@ func TestGATTokenClaims_Validate(t *testing.T) {
 		},
 		Resource: Resource{
 			ID:      "resource-1",
+			Type:    "KUBERNETES",
 			Address: "resource.internal",
 		},
 	}

@@ -37,16 +37,290 @@
       },
       "additionalProperties": false
     },
-    "command": {
-      "type": "array",
-      "items": { "type": "string" }
+    "auditLog": {
+      "type": "object",
+      "properties": {
+        "flushInterval": {
+          "type": "string",
+          "description": "Interval at which audit logs are flushed (e.g., 5m, 30s).",
+          "default": "5m"
+        },
+        "flushSizeThreshold": {
+          "type": "integer",
+          "description": "Size threshold (in bytes) at which audit logs are flushed.",
+          "default": 1000000
+        }
+      },
+      "additionalProperties": false
+    },
+    "kubernetes": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable Kubernetes API server proxying.",
+          "default": false
+        },
+        "upstreams": {
+          "type": "array",
+          "description": "List of Kubernetes API server upstreams.",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the upstream."
+              },
+              "inCluster": {
+                "type": "boolean",
+                "description": "Use in-cluster service account for authentication to the local Kubernetes API server.",
+                "default": false
+              },
+              "address": {
+                "type": "string",
+                "description": "Address of the Kubernetes API server (host:port)."
+              },
+              "bearerToken": {
+                "type": "string",
+                "description": "Bearer token for authenticating to the Kubernetes API server."
+              },
+              "bearerTokenFile": {
+                "type": "string",
+                "description": "Path to file containing bearer token for authenticating to the Kubernetes API server."
+              },
+              "caFile": {
+                "type": "string",
+                "description": "Path to CA certificate file for verifying the Kubernetes API server's TLS certificate."
+              }
+            },
+            "if": {
+              "properties": {
+                "inCluster": { "const": false }
+              }
+            },
+            "then": {
+              "required": ["address", "caFile"],
+              "oneOf": [
+                {"required": ["bearerToken"]},
+                {"required": ["bearerTokenFile"]}
+              ]
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ssh": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable SSH proxying.",
+          "default": false
+        },
+        "gateway": {
+          "type": "object",
+          "description": "Gateway SSH configuration.",
+          "properties": {
+            "username": {
+              "type": "string",
+              "description": "Default username for upstream SSH connections (can be overridden per-upstream)."
+            },
+            "key": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "Key type: ed25519, ecdsa, rsa.",
+                  "default": "ed25519"
+                },
+                "bits": {
+                  "type": "integer",
+                  "description": "Key bits: ECDSA: 256/384/521, RSA: 2048/3072/4096 (ignored for ed25519).",
+                  "default": 0
+                }
+              },
+              "additionalProperties": false
+            },
+            "hostCertificate": {
+              "type": "object",
+              "properties": {
+                "ttl": {
+                  "type": "string",
+                  "description": "TTL for host certificates.",
+                  "default": "24h"
+                }
+              },
+              "additionalProperties": false
+            },
+            "userCertificate": {
+              "type": "object",
+              "properties": {
+                "ttl": {
+                  "type": "string",
+                  "description": "TTL for user certificates.",
+                  "default": "5m"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "ca": {
+          "type": "object",
+          "description": "CA configuration. If neither manual nor vault is configured, auto-generated CA is used.",
+          "properties": {
+            "manual": {
+              "type": "object",
+              "description": "Manual CA configuration.",
+              "properties": {
+                "existingSecret": {
+                  "type": "string",
+                  "description": "Name of existing secret containing the CA private key (key name: ca-private-key)."
+                },
+                "privateKey": {
+                  "type": "string",
+                  "description": "CA private key content (used if existingSecret is not set)."
+                }
+              },
+              "oneOf": [
+                {"required": ["existingSecret"]},
+                {"required": ["privateKey"]}
+              ],
+              "additionalProperties": false
+            },
+            "vault": {
+              "type": "object",
+              "description": "Vault CA configuration.",
+              "required": ["address", "auth", "role"],
+              "properties": {
+                "address": {
+                  "type": "string",
+                  "description": "Vault server address (e.g., https://vault.example.com:8200)."
+                },
+                "namespace": {
+                  "type": "string",
+                  "description": "Vault namespace (optional, for Vault Enterprise)."
+                },
+                "caBundle": {
+                  "type": "string",
+                  "description": "CA bundle content for verifying Vault's TLS certificate (PEM format). Optional if Vault uses a certificate from the system trust store."
+                },
+                "existingCABundleSecret": {
+                  "type": "string",
+                  "description": "Name of existing secret containing CA bundle (key name: ca.crt). Optional if Vault uses a certificate from the system trust store."
+                },
+                "auth": {
+                  "type": "object",
+                  "description": "Vault authentication configuration.",
+                  "properties": {
+                    "existingTokenSecret": {
+                      "type": "string",
+                      "description": "Name of existing secret containing the Vault token (key name: token)."
+                    },
+                    "token": {
+                      "type": "string",
+                      "description": "Vault token."
+                    }
+                  },
+                  "oneOf": [
+                    {"required": ["existingTokenSecret"]},
+                    {"required": ["token"]}
+                  ],
+                  "additionalProperties": false
+                },
+                "mount": {
+                  "type": "string",
+                  "description": "Default SSH mount point (defaults to 'ssh').",
+                  "default": "ssh"
+                },
+                "role": {
+                  "type": "string",
+                  "description": "Default Vault role for certificate signing."
+                },
+                "gatewayHostCA": {
+                  "type": "object",
+                  "description": "Override mount/role for Gateway host certificate signing.",
+                  "properties": {
+                    "mount": {
+                      "type": "string",
+                      "description": "SSH mount point for Gateway host CA."
+                    },
+                    "role": {
+                      "type": "string",
+                      "description": "Vault role for Gateway host CA."
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "gatewayUserCA": {
+                  "type": "object",
+                  "description": "Override mount/role for Gateway user certificate signing.",
+                  "properties": {
+                    "mount": {
+                      "type": "string",
+                      "description": "SSH mount point for Gateway user CA."
+                    },
+                    "role": {
+                      "type": "string",
+                      "description": "Vault role for Gateway user CA."
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "upstreamHostCA": {
+                  "type": "object",
+                  "description": "Override mount for upstream host certificate verification.",
+                  "properties": {
+                    "mount": {
+                      "type": "string",
+                      "description": "SSH mount point for upstream host CA."
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "maxProperties": 1,
+          "additionalProperties": false
+        },
+        "upstreams": {
+          "type": "array",
+          "description": "List of SSH server upstreams.",
+          "items": {
+            "type": "object",
+            "required": ["name", "address"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the upstream."
+              },
+              "address": {
+                "type": "string",
+                "description": "Address of the SSH server (host:port)."
+              },
+              "user": {
+                "type": "string",
+                "description": "Optional username override for this upstream."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "tls": {
       "type": "object",
       "properties": {
         "existingSecret": {
           "type": "string",
-          "description": "Name of an existing secret containing TLS certs."
+          "description": "Name of an existing secret containing TLS certificates."
         },
         "autoGenerated": {
           "type": "boolean",
@@ -58,14 +332,14 @@
           "items": {
             "type": "string"
           },
-          "description": "IP addresses to include in the certificate."
+          "description": "IP addresses to include as Subject Alternative Names in the TLS certificate."
         },
         "dnsNames": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "DNS names to include in the certificate."
+          "description": "DNS names to include as Subject Alternative Names in the TLS certificate."
         },
         "cert": {
           "type": "string",
@@ -201,18 +475,18 @@
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Create a custom prometheusRule Resource for scraping metrics using PrometheusOperator",
+              "description": "Create a PrometheusRule resource for defining alerting rules.",
               "default": false
             },
             "rules": {
               "type": "array",
-              "description": "Custom Prometheus rules",
+              "description": "Custom Prometheus alerting rules.",
               "default": [],
               "items": {}
             },
             "additionalLabels": {
               "type": "object",
-              "description": "Additional labels for the prometheusRule",
+              "description": "Additional labels for the PrometheusRule resource.",
               "default": {}
             }
           }

@@ -15,18 +15,19 @@ import (
 	"k8sgateway/internal/token"
 )
 
-// header that contains the auth token.
+// AuthHeaderKey is the header that contains the auth token.
 const AuthHeaderKey string = "Proxy-Authorization"
 
-// header that contains the signature of the token for Proof-of-Possession.
+// AuthSignatureHeaderKey is the header that contains the signature of the token for Proof-of-Possession.
 const AuthSignatureHeaderKey string = "X-Token-Signature"
 
-// header that contains the Connection ID.
+// ConnIDHeaderKey is the header that contains the Connection ID.
 const ConnIDHeaderKey string = "X-Connection-Id"
 
 type Info struct {
-	Claims *token.GATClaims
-	ConnID string
+	Address string
+	Claims  *token.GATClaims
+	ConnID  string
 }
 
 type HTTPError struct {
@@ -152,7 +153,8 @@ func (v *MessageValidator) ParseConnect(req *http.Request, ekm []byte) (connectI
 	}
 
 	return Info{
-		Claims: gatClaims,
-		ConnID: connID,
+		Address: address,
+		Claims:  gatClaims,
+		ConnID:  connID,
 	}, nil
 }

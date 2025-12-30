@@ -1,3 +1,8 @@
+{{- if and .Values.ssh.enabled (gt (int .Values.replicaCount) 1) (not .Values.ssh.ca) -}}
+  {{- fail "ssh.ca must be configured (manual or vault) when replicaCount > 1. Auto-generated CA is only supported for single replica deployments." -}}
+{{- end -}}
+{{- $manualCAEnabled := and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.manual -}}
+{{- $vaultCABundleEnabled := and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.vault (or .Values.ssh.ca.vault.caBundle .Values.ssh.ca.vault.existingCABundleSecret) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -35,14 +40,19 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           env:
-            - name: TWINGATE_NETWORK
-              value: {{ .Values.twingate.network }}
-            - name: TWINGATE_HOST
-              value: {{ include "gateway.twingate.host" . }}
-            - name: TWINGATE_PORT
-              value: {{ .Values.containerPorts.https | quote }}
-            - name: TWINGATE_METRICSPORT
-              value: {{ .Values.containerPorts.metrics | quote }}
+            - name: TWINGATE_CONFIG
+              value: /etc/gateway/config.yaml
+            {{- if and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.vault }}
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gateway.sshVaultTokenSecretName" . }}
+                  key: token
+            {{- if $vaultCABundleEnabled }}
+            - name: VAULT_CACERT
+              value: /etc/gateway/vault/ca.crt
+            {{- end }}
+            {{- end }}
             {{- with .Values.extraEnvVars }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -60,16 +70,46 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - name: tls-secret-volume
-              mountPath: /etc/tls-secret-volume
+            - name: config
+              mountPath: /etc/gateway
               readOnly: true
+            - name: tls-certs
+              mountPath: /etc/gateway/tls
+              readOnly: true
+            {{- if .Values.ssh.enabled }}
+            {{- if $manualCAEnabled }}
+            - name: ssh-manual-ca
+              mountPath: /etc/gateway/ssh
+              readOnly: true
+            {{- end }}
+            {{- if $vaultCABundleEnabled }}
+            - name: vault-ca-bundle
+              mountPath: /etc/gateway/vault
+              readOnly: true
+            {{- end }}
+            {{- end }}
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
       volumes:
-        - name: tls-secret-volume
+        - name: config
+          configMap:
+            name: {{ include "gateway.configMapName" . }}
+        - name: tls-certs
           secret:
             secretName: {{ include "gateway.tlsSecretName" . }}
+        {{- if .Values.ssh.enabled }}
+        {{- if $manualCAEnabled }}
+        - name: ssh-manual-ca
+          secret:
+            secretName: {{ include "gateway.sshManualCASecretName" . }}
+        {{- end }}
+        {{- if $vaultCABundleEnabled }}
+        - name: vault-ca-bundle
+          secret:
+            secretName: {{ include "gateway.sshVaultCABundleSecretName" . }}
+        {{- end }}
+        {{- end }}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}

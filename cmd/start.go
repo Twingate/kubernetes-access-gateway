@@ -4,112 +4,60 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
 
-	"k8sgateway/internal/connect"
-	"k8sgateway/internal/httpproxy"
+	"k8sgateway/internal/config"
 	"k8sgateway/internal/log"
-	"k8sgateway/internal/metrics"
-	"k8sgateway/internal/token"
-	"k8sgateway/internal/wsproxy"
+	"k8sgateway/internal/proxy"
 )
-
-var errRequiredConfig = errors.New("required configuration must be set")
 
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start Twingate Kubernetes Access Gateway",
 	RunE: func(_cmd *cobra.Command, _args []string) error {
-		newProxy := func(cfg httpproxy.Config) (httpproxy.ProxyService, error) {
-			return httpproxy.NewProxy(cfg)
-		}
-
-		return start(newProxy)
+		return start()
 	},
 }
 
-type ProxyFactory func(httpproxy.Config) (httpproxy.ProxyService, error)
-
-func start(newProxy ProxyFactory) error {
-	log.InitializeLogger("gateway", viper.GetBool("debug"))
-
-	logger := zap.S()
-	logger.Infof("Gateway start called: %+v", viper.AllSettings())
-
-	network := viper.GetString("network")
-
-	if network == "" {
-		return fmt.Errorf("%w: network", errRequiredConfig)
+func start() error {
+	logger, err := log.NewLogger(log.DefaultName, viper.GetBool("debug"))
+	if err != nil {
+		return err
 	}
 
-	parser, err := token.NewParser(token.ParserConfig{
-		Network: network,
-		Host:    viper.GetString("host"),
-	})
+	p, err := newProxy(logger)
 	if err != nil {
-		return fmt.Errorf("failed to create token parser %w", err)
+		return err
+	}
+
+	return p.Start()
+}
+
+func newProxy(logger *zap.Logger) (*proxy.Proxy, error) {
+	logger.Debug("Gateway start called", zap.Any("config", viper.AllSettings()))
+
+	cfg, err := config.Load(viper.GetString("config"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config %w", err)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate config %w", err)
 	}
 
 	registry := prometheus.NewRegistry()
-	cfg := httpproxy.Config{
-		Port:              viper.GetInt("port"),
-		TLSKey:            viper.GetString("tlsKey"),
-		TLSCert:           viper.GetString("tlsCert"),
-		K8sAPIServerCA:    viper.GetString("k8sAPIServerCA"),
-		K8sAPIServerToken: viper.GetString("k8sAPIServerToken"),
-		K8sAPIServerPort:  viper.GetInt("k8sAPIServerPort"),
-		ConnectValidator: &connect.MessageValidator{
-			TokenParser: parser,
-		},
-		LogFlushSizeThreshold: viper.GetInt("logFlushSizeThreshold"),
-		LogFlushInterval:      viper.GetDuration("logFlushInterval"),
-		Registry:              registry,
-	}
 
-	if inClusterK8sCfg, err := rest.InClusterConfig(); inClusterK8sCfg != nil {
-		logger.Info("Using in-cluster configuration")
-
-		cfg.K8sAPIServerCA = inClusterK8sCfg.CAFile
-		cfg.K8sAPIServerToken = inClusterK8sCfg.BearerToken
-		cfg.K8sAPIServerTokenFile = inClusterK8sCfg.BearerTokenFile
-		cfg.TLSCert = "/etc/tls-secret-volume/tls.crt"
-		cfg.TLSKey = "/etc/tls-secret-volume/tls.key"
-	} else if !errors.Is(err, rest.ErrNotInCluster) {
-		logger.Errorf("failed to load in-cluster config: %v", err)
-	}
-
-	metricsPort := viper.GetInt("metricsPort")
-
-	go func() {
-		wsproxy.RegisterRecordedSessionMetrics(metrics.Namespace, cfg.Registry)
-
-		logger.Infof("Starting metrics server on: %v", metricsPort)
-
-		err := metrics.Start(metrics.Config{
-			Port:     metricsPort,
-			Registry: registry,
-		})
-		if err != nil {
-			logger.Fatal("failed to start metrics server:", zap.Error(err))
-		}
-	}()
-
-	proxy, err := newProxy(cfg)
+	p, err := proxy.NewProxy(cfg, registry, logger)
 	if err != nil {
-		return fmt.Errorf("failed to create k8s gateway %w", err)
+		return nil, fmt.Errorf("failed to create proxy %w", err)
 	}
 
-	proxy.Start(nil)
-
-	return nil
+	return p, nil
 }
 
 func init() { //nolint:gochecknoinits
@@ -117,27 +65,8 @@ func init() { //nolint:gochecknoinits
 	viper.AutomaticEnv()
 
 	flags := startCmd.Flags()
+	flags.String("config", "", "Path to the configuration file")
 
-	// Twingate flags
-	flags.String("network", "", "Twingate network ID. For example, network ID is autoco if your URL is autoco.twingate.com")
-	flags.String("host", "twingate.com", "The Twingate service domain")
-
-	// Gateway flags
-	flags.String("port", "8443", "Port to listen on")
-	flags.String("tlsCert", "", "Path to the TLS certificate for the Gateway")
-	flags.String("tlsKey", "", "Path to the TLS key for the Gateway")
-	flags.Int("logFlushSizeThreshold", 1_000_000, "Threshold (in bytes) of the recorded lines to flush")
-	flags.Duration("logFlushInterval", 10*time.Minute, "Interval to flush logs e.g. 30s, 1m, 1h")
-
-	// Kubernetes flags
-	flags.String("k8sAPIServerCA", "", "Path to the CA certificate for the Kubernetes API server")
-	flags.String("k8sAPIServerToken", "", "Bearer token to authenticate to the Kubernetes API server")
-	flags.Int("k8sAPIServerPort", 0, "K8s API Server port, used in local development and testing to override 443 port")
-
-	// Metrics flags
-	flags.Int("metricsPort", 9090, "Port to expose Prometheus metrics on")
-
-	// Misc flags
 	flags.BoolP("debug", "d", false, "Run in debug mode")
 
 	if err := viper.BindPFlags(flags); err != nil {

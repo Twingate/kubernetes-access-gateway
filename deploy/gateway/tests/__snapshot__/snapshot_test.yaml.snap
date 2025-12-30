@@ -1,4 +1,4 @@
-should render:
+should render with Kubernetes enabled:
   1: |
     apiVersion: rbac.authorization.k8s.io/v1
     kind: ClusterRole
@@ -54,14 +54,8 @@ should render:
         spec:
           containers:
             - env:
-                - name: TWINGATE_NETWORK
-                  value: null
-                - name: TWINGATE_HOST
-                  value: twingate.com
-                - name: TWINGATE_PORT
-                  value: "8443"
-                - name: TWINGATE_METRICSPORT
-                  value: "9090"
+                - name: TWINGATE_CONFIG
+                  value: /etc/gateway/config.yaml
               image: twingate/kubernetes-access-gateway:0.1.0
               imagePullPolicy: IfNotPresent
               livenessProbe:
@@ -96,18 +90,56 @@ should render:
                 runAsNonRoot: true
                 runAsUser: 1000
               volumeMounts:
-                - mountPath: /etc/tls-secret-volume
-                  name: tls-secret-volume
+                - mountPath: /etc/gateway
+                  name: config
+                  readOnly: true
+                - mountPath: /etc/gateway/tls
+                  name: tls-certs
                   readOnly: true
           securityContext:
             seccompProfile:
               type: RuntimeDefault
           serviceAccountName: RELEASE-NAME-kubernetes-access-gateway
           volumes:
-            - name: tls-secret-volume
+            - configMap:
+                name: RELEASE-NAME-kubernetes-access-gateway-config
+              name: config
+            - name: tls-certs
               secret:
                 secretName: RELEASE-NAME-kubernetes-access-gateway-tls
   4: |
+    apiVersion: v1
+    data:
+      config.yaml: |-
+        twingate:
+          network: "acme"
+          host: "twingate.com"
+
+        port: 8443
+        metricsPort: 9090
+
+        auditLog:
+          flushInterval: 5m
+          flushSizeThreshold: 1e+06
+
+        tls:
+          certificateFile: "/etc/gateway/tls/tls.crt"
+          privateKeyFile: "/etc/gateway/tls/tls.key"
+
+        kubernetes:
+          upstreams:
+            - inCluster: true
+              name: k8s api server
+    kind: ConfigMap
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: kubernetes-access-gateway
+        app.kubernetes.io/version: 0.1.0
+        helm.sh/chart: kubernetes-access-gateway-0.1.0
+      name: RELEASE-NAME-kubernetes-access-gateway-config
+  5: |
     apiVersion: v1
     kind: Service
     metadata:
@@ -129,7 +161,190 @@ should render:
         app.kubernetes.io/instance: RELEASE-NAME
         app.kubernetes.io/name: kubernetes-access-gateway
       type: ClusterIP
+  6: |
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: kubernetes-access-gateway
+        app.kubernetes.io/version: 0.1.0
+        helm.sh/chart: kubernetes-access-gateway-0.1.0
+      name: RELEASE-NAME-kubernetes-access-gateway
+should render with SSH enabled:
+  1: |
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: RELEASE-NAME-kubernetes-access-gateway-cluster-role
+    rules:
+      - apiGroups:
+          - ""
+        resources:
+          - users
+          - groups
+          - serviceaccounts
+        verbs:
+          - impersonate
+  2: |
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: RELEASE-NAME-kubernetes-access-gateway-cluster-role-binding
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: RELEASE-NAME-kubernetes-access-gateway-cluster-role
+    subjects:
+      - kind: ServiceAccount
+        name: RELEASE-NAME-kubernetes-access-gateway
+        namespace: NAMESPACE
+  3: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: kubernetes-access-gateway
+        app.kubernetes.io/version: 0.1.0
+        helm.sh/chart: kubernetes-access-gateway-0.1.0
+      name: RELEASE-NAME-kubernetes-access-gateway
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app.kubernetes.io/instance: RELEASE-NAME
+          app.kubernetes.io/name: kubernetes-access-gateway
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/instance: RELEASE-NAME
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: kubernetes-access-gateway
+            app.kubernetes.io/version: 0.1.0
+            helm.sh/chart: kubernetes-access-gateway-0.1.0
+        spec:
+          containers:
+            - env:
+                - name: TWINGATE_CONFIG
+                  value: /etc/gateway/config.yaml
+              image: twingate/kubernetes-access-gateway:0.1.0
+              imagePullPolicy: IfNotPresent
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: https
+                  scheme: HTTPS
+                initialDelaySeconds: 5
+                periodSeconds: 5
+              name: kubernetes-access-gateway
+              ports:
+                - containerPort: 8443
+                  name: https
+                  protocol: TCP
+                - containerPort: 9090
+                  name: metrics
+                  protocol: TCP
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: https
+                  scheme: HTTPS
+                initialDelaySeconds: 5
+                periodSeconds: 5
+              resources: {}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+              volumeMounts:
+                - mountPath: /etc/gateway
+                  name: config
+                  readOnly: true
+                - mountPath: /etc/gateway/tls
+                  name: tls-certs
+                  readOnly: true
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          serviceAccountName: RELEASE-NAME-kubernetes-access-gateway
+          volumes:
+            - configMap:
+                name: RELEASE-NAME-kubernetes-access-gateway-config
+              name: config
+            - name: tls-certs
+              secret:
+                secretName: RELEASE-NAME-kubernetes-access-gateway-tls
+  4: |
+    apiVersion: v1
+    data:
+      config.yaml: |-
+        twingate:
+          network: "acme"
+          host: "twingate.com"
+
+        port: 8443
+        metricsPort: 9090
+
+        auditLog:
+          flushInterval: 5m
+          flushSizeThreshold: 1e+06
+
+        tls:
+          certificateFile: "/etc/gateway/tls/tls.crt"
+          privateKeyFile: "/etc/gateway/tls/tls.key"
+
+        ssh:
+          gateway:
+            username: "test"
+            key:
+              type: "ed25519"
+            hostCertificate:
+              ttl: "24h"
+            userCertificate:
+              ttl: "5m"
+
+          upstreams:
+            - address: 10.0.0.1:22
+              name: ssh-server
+    kind: ConfigMap
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: kubernetes-access-gateway
+        app.kubernetes.io/version: 0.1.0
+        helm.sh/chart: kubernetes-access-gateway-0.1.0
+      name: RELEASE-NAME-kubernetes-access-gateway-config
   5: |
+    apiVersion: v1
+    kind: Service
+    metadata:
+      annotations: null
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: kubernetes-access-gateway
+        app.kubernetes.io/version: 0.1.0
+        helm.sh/chart: kubernetes-access-gateway-0.1.0
+      name: RELEASE-NAME-kubernetes-access-gateway
+    spec:
+      ports:
+        - name: https
+          port: 443
+          protocol: TCP
+          targetPort: https
+      selector:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/name: kubernetes-access-gateway
+      type: ClusterIP
+  6: |
     apiVersion: v1
     kind: ServiceAccount
     metadata:
