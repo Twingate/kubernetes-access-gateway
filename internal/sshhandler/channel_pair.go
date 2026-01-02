@@ -101,8 +101,8 @@ func (c *SSHChannelPair) serve() {
 		onPtyRequest: func(req ptyReq) {
 			// Set the asciinema header with the pty request details only once
 			c.ptyRequestOnce.Do(func() {
-				asciinemaHeader.Width = int(req.Columns)
-				asciinemaHeader.Height = int(req.Rows)
+				asciinemaHeader.Width = int(req.WidthColumns)
+				asciinemaHeader.Height = int(req.HeightRows)
 			})
 		},
 		onWindowChange: func(req windowChangeReq) {
@@ -116,7 +116,7 @@ func (c *SSHChannelPair) serve() {
 				return
 			}
 
-			if err := r.WriteResizeEvent(int(req.Columns), int(req.Rows)); err != nil {
+			if err := r.WriteResizeEvent(int(req.WidthColumns), int(req.HeightRows)); err != nil {
 				c.logger.Error("failed to write resize event", zap.Error(err))
 			}
 		},

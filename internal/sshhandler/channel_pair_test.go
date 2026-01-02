@@ -119,7 +119,7 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 		// Send pty-req request
 		ptyRequest := &mockSSHRequest{
 			Type:      "pty-req",
-			Payload:   ssh.Marshal(ptyReq{Columns: 80, Rows: 24}),
+			Payload:   ssh.Marshal(ptyReq{WidthColumns: 80, HeightRows: 24}),
 			WantReply: true,
 		}
 		ptyRequest.On("Reply", true, []byte(nil)).Return(nil)
@@ -159,7 +159,7 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 		// Send window-change request
 		windowChangeRequest := &mockSSHRequest{
 			Type:      "window-change",
-			Payload:   ssh.Marshal(windowChangeReq{Columns: 100, Rows: 44}),
+			Payload:   ssh.Marshal(windowChangeReq{WidthColumns: 100, HeightRows: 44}),
 			WantReply: false,
 		}
 		windowChangeRequest.On("Reply", false, []byte(nil)).Return(nil)

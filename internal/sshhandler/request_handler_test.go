@@ -18,12 +18,12 @@ import (
 
 func createPtyRequestPayload() []byte {
 	ptyReq := ptyReq{
-		Term:     "xterm-256color",
-		Columns:  80,
-		Rows:     24,
-		Width:    640,
-		Height:   480,
-		Modelist: "",
+		Term:         "xterm-256color",
+		WidthColumns: 80,
+		HeightRows:   24,
+		WidthPixels:  640,
+		HeightPixels: 480,
+		Modelist:     "",
 	}
 	payload := ssh.Marshal(ptyReq)
 
@@ -50,10 +50,10 @@ func createSubsystemRequestPayload(name string) []byte {
 
 func createWindowChangeRequestPayload() []byte {
 	windowChangeReq := windowChangeReq{
-		Columns: 80,
-		Rows:    24,
-		Width:   640,
-		Height:  480,
+		WidthColumns: 80,
+		HeightRows:   24,
+		WidthPixels:  640,
+		HeightPixels: 480,
 	}
 	payload := ssh.Marshal(windowChangeReq)
 
@@ -106,8 +106,8 @@ func TestSSHRequestHandler_handleRequests_PtyRequest(t *testing.T) {
 
 	// Verify pty request was processed
 	assert.Equal(t, "xterm-256color", capturedPtyReq.Term)
-	assert.Equal(t, uint32(80), capturedPtyReq.Columns)
-	assert.Equal(t, uint32(24), capturedPtyReq.Rows)
+	assert.Equal(t, uint32(80), capturedPtyReq.WidthColumns)
+	assert.Equal(t, uint32(24), capturedPtyReq.HeightRows)
 
 	mockChannel.AssertExpectations(t)
 
@@ -305,8 +305,8 @@ func TestSSHRequestHandler_handleRequests_WindowChangeRequest(t *testing.T) {
 	<-signals.finished
 
 	// Verify window-change request was processed
-	assert.Equal(t, uint32(80), capturedWindowChangeReq.Columns)
-	assert.Equal(t, uint32(24), capturedWindowChangeReq.Rows)
+	assert.Equal(t, uint32(80), capturedWindowChangeReq.WidthColumns)
+	assert.Equal(t, uint32(24), capturedWindowChangeReq.HeightRows)
 
 	// Assert that Reply was NOT called since WantReply is false
 	mockReq.AssertNotCalled(t, "Reply")
