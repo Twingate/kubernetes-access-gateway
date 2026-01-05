@@ -101,21 +101,21 @@ build: prepare-buildx ##@build Build the go binaries and container images
 	DOCKER_BUILDX_BUILDER=$(DOCKER_BUILDX_BUILDER) GOLANG_VERSION=$(GOLANG_VERSION) IMAGE_REGISTRY=$(REGISTRY) goreleaser release --snapshot --clean
 
 .PHONY: cut-release-prod
-cut-release-prod: ##@release Cut a new release (create a version tagt and push it)
+cut-release-prod: ##@release Cut a production release (create a version tag and push it)
 	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then \
 		echo "❌ Error: cut-release-prod can only be run on master branch. Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
 		exit 1; \
 	fi
-	echo "🚀 Cutting a new release - $(shell go tool svu next)"
+	echo "🚀 Cutting a new production release - $(shell go tool svu next)"
 	git tag "$(shell go tool svu next)"
 	git push --tags
 
 .PHONY: cut-release-dev
-cut-release: ##@release Cut a new release (create a version tagt and push it)
+cut-release-dev: ##@release Cut a development pre-release (create a version tag and push it)
 	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then \
-		echo "❌ Error: cut-release can only be run on master branch. Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
+		echo "❌ Error: cut-release-dev can only be run on master branch. Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
 		exit 1; \
 	fi
-	echo "🚀 Cutting a new release - $(shell go tool svu next)"
+	echo "🚀 Cutting a new development pre-release - $(shell go tool svu next)"
 	git tag "$(shell go tool svu next --prerelease dev --metadata $(shell git rev-parse --short HEAD))"
 	git push --tags
