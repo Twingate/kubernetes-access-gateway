@@ -72,12 +72,12 @@ type SSHRequestHandlerFlushTrigger struct {
 // SSH pty request structure
 // see: https://datatracker.ietf.org/doc/html/rfc4254#section-6.2
 type ptyReq struct {
-	Term     string
-	Columns  uint32
-	Rows     uint32
-	Width    uint32
-	Height   uint32
-	Modelist string
+	Term         string
+	WidthColumns uint32
+	HeightRows   uint32
+	WidthPixels  uint32
+	HeightPixels uint32
+	Modelist     string
 }
 
 // SSH exec request structure
@@ -95,10 +95,10 @@ type subsystemReq struct {
 // SSH window-change request structure
 // see: https://datatracker.ietf.org/doc/html/rfc4254#section-6.7
 type windowChangeReq struct {
-	Columns uint32
-	Rows    uint32
-	Width   uint32
-	Height  uint32
+	WidthColumns uint32
+	HeightRows   uint32
+	WidthPixels  uint32
+	HeightPixels uint32
 }
 
 // RequestHandler defines the interface for handling SSH channel requests.
