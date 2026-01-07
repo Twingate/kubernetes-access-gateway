@@ -16,6 +16,7 @@ HELP_FUN = \
     print "  ${YELLOW}GOLANG_VERSION${RESET} = ${GREEN}$(GOLANG_VERSION)${RESET}\n"; \
     print "  ${YELLOW}VERSION${RESET}        = ${GREEN}$(VERSION)${RESET}\n"; \
     print "  ${YELLOW}IMAGE_NAME${RESET}     = ${GREEN}$(IMAGE_NAME)${RESET}\n"; \
+	print "\n"; \
     for (sort keys %help) { \
     print "${WHITE}$$_:${RESET}\n"; \
     for (@{$$help{$$_}}) { \
@@ -32,7 +33,7 @@ INTEGRATION_TEST_PACKAGES := ./test/integration/...
 E2E_TEST_PACKAGES := ./test/e2e/...
 
 .PHONY: help
-help: ##@other Shows this help.
+help: ##@other Show this help
 	@perl -e '$(HELP_FUN)' $(MAKEFILE_LIST)
 
 .PHONY: version
@@ -40,23 +41,23 @@ version: ##@other Show the version
 	@echo $(VERSION)
 
 .PHONY: lint
-lint: ##@test Run Linter
+lint: ##@lint Lint Go code
 	@echo "Running Linter..."
 	golangci-lint run --fix ./...
 
 .PHONY: lint-dockerfile
-lint-dockerfile: ##@checks Lints Dockerfile
+lint-dockerfile: ##@lint Lint Dockerfile
 	docker run --rm -i hadolint/hadolint < Dockerfile.goreleaser
 	docker run --rm -i hadolint/hadolint < Dockerfile.goreleaser-debug
 
 .PHONY: test-helm
 test-helm: ##@test Run helm-unittest
-	@echo "Running Helm unittest"
+	@echo "Running Helm unit tests..."
 	helm unittest deploy/gateway
 
 .PHONY: test-helm-and-update-snapshots
-test-helm-and-update-snapshots: ##@test Run helm-unittest and also update the test snapshots
-	@echo "Running Helm unittest and update test snapshots"
+test-helm-and-update-snapshots: ##@test Run helm-unittest and update the test snapshots
+	@echo "Running Helm unit tests and update test snapshots..."
 	helm unittest deploy/gateway -u
 
 .PHONY: test
@@ -97,25 +98,25 @@ prepare-buildx: ##@build Prepare buildx
 	docker buildx create --use --name $(DOCKER_BUILDX_BUILDER) --node=$(DOCKER_BUILDX_BUILDER)
 
 .PHONY: build
-build: prepare-buildx ##@build Build the go binaries and container images
+build: prepare-buildx ##@build Build the Go binaries and container images
 	DOCKER_BUILDX_BUILDER=$(DOCKER_BUILDX_BUILDER) GOLANG_VERSION=$(GOLANG_VERSION) IMAGE_REGISTRY=$(REGISTRY) goreleaser release --snapshot --clean
 
 .PHONY: cut-release-prod
-cut-release-prod: ##@release Cut a new release (create a version tagt and push it)
+cut-release-prod: ##@release Cut a production release (create a version tag and push it)
 	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then \
 		echo "❌ Error: cut-release-prod can only be run on master branch. Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
 		exit 1; \
 	fi
-	echo "🚀 Cutting a new release - $(shell go tool svu next)"
+	echo "🚀 Cutting a new production release - $(shell go tool svu next)"
 	git tag "$(shell go tool svu next)"
 	git push --tags
 
 .PHONY: cut-release-dev
-cut-release: ##@release Cut a new release (create a version tagt and push it)
+cut-release-dev: ##@release Cut a development pre-release (create a version tag and push it)
 	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "master" ]; then \
-		echo "❌ Error: cut-release can only be run on master branch. Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
+		echo "❌ Error: cut-release-dev can only be run on master branch. Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
 		exit 1; \
 	fi
-	echo "🚀 Cutting a new release - $(shell go tool svu next)"
+	echo "🚀 Cutting a new development pre-release - $(shell go tool svu next)"
 	git tag "$(shell go tool svu next --prerelease dev --metadata $(shell git rev-parse --short HEAD))"
 	git push --tags
