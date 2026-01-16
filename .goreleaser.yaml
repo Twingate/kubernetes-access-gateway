@@ -10,7 +10,7 @@ before:
     - go mod tidy
 
 snapshot:
-  version_template: '{{ .Version }}-{{envOrDefault "VERSION_PRERELEASE" "local"}}+{{ .ShortCommit }}'
+  version_template: '{{ .Version }}-{{envOrDefault "VERSION_PRERELEASE" "local"}}-{{ .ShortCommit }}'
 
 checksum:
   name_template: 'checksums.txt'
@@ -57,8 +57,8 @@ dockers:
     ids:
       - gateway
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
     build_flag_templates:
       - "--pull"
       - "--builder={{ .Env.DOCKER_BUILDX_BUILDER }}"
@@ -76,8 +76,8 @@ dockers:
     ids:
       - gateway
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
     build_flag_templates:
       - "--pull"
       - "--builder={{ .Env.DOCKER_BUILDX_BUILDER }}"
@@ -96,8 +96,8 @@ dockers:
     ids:
       - gateway-debug
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
     build_flag_templates:
       - "--pull"
       - "--builder={{ .Env.DOCKER_BUILDX_BUILDER }}"
@@ -115,8 +115,8 @@ dockers:
     ids:
       - gateway-debug
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
     build_flag_templates:
       - "--pull"
       - "--builder={{ .Env.DOCKER_BUILDX_BUILDER }}"
@@ -133,87 +133,87 @@ docker_manifests:
   # Example: twingate/kubernetes-access-gateway:latest (or dev)
   - name_template: "twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}"
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
   # Example: twingate/kubernetes-access-gateway:v0.2.2
-  - name_template: "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}"
+  - name_template: "twingate/{{ .ProjectName }}:{{ .Version }}"
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
   # Example: twingate/kubernetes-access-gateway:v0
   - name_template: "twingate/{{ .ProjectName }}:{{.Major}}"
     skip_push: auto
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
   # Example: twingate/kubernetes-access-gateway:v0.2
   - name_template: "twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}"
     skip_push: auto
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
   #### Debug manifests
   - name_template: "twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}-debug"
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
-  - name_template: "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
+  - name_template: "twingate/{{ .ProjectName }}:{{ .Version }}-debug"
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
   - name_template: "twingate/{{ .ProjectName }}:{{.Major}}-debug"
     skip_push: auto
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
   - name_template: "twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}-debug"
     skip_push: auto
     image_templates:
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
-      - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
+      - "twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
 
   #******************* Github *******************#
   # Example: twingate/kubernetes-access-gateway:latest (or dev)
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}"
     image_templates:
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
   # Example: twingate/kubernetes-access-gateway:v0.2.2
-  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}"
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}"
     image_templates:
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
   # Example: twingate/kubernetes-access-gateway:v0
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}"
     skip_push: auto
     image_templates:
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
   # Example: twingate/kubernetes-access-gateway:v0.2
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}"
     skip_push: auto
     image_templates:
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64"
   #### Debug manifests
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}-debug"
     image_templates:
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
-  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
+  - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-debug"
     image_templates:
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}-debug"
     skip_push: auto
     image_templates:
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}-debug"
     skip_push: auto
     image_templates:
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64-debug"
-      - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-amd64-debug"
+      - "ghcr.io/twingate/{{ .ProjectName }}:{{ .Version }}-linux-arm64-debug"
 
 
 archives:
