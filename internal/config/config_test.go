@@ -14,6 +14,7 @@ import (
 )
 
 func TestLoad_Kubernetes(t *testing.T) {
+	t.Parallel()
 	yaml := `
 twingate:
   network: "acme"
@@ -53,6 +54,7 @@ kubernetes:
 }
 
 func TestLoad_SSH(t *testing.T) {
+	t.Parallel()
 	yaml := `
 twingate:
   network: "acme"
@@ -104,6 +106,7 @@ ssh:
 }
 
 func TestLoad_SSH_Vault(t *testing.T) {
+	t.Parallel()
 	yaml := `
 twingate:
   network: "acme"
@@ -157,6 +160,7 @@ ssh:
 }
 
 func TestLoad_UseDefaultValues(t *testing.T) {
+	t.Parallel()
 	yaml := `
 twingate:
   network: "acme"
@@ -185,6 +189,7 @@ kubernetes:
 }
 
 func TestLoad_Errors(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		yaml        string
@@ -199,6 +204,7 @@ func TestLoad_Errors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tmpFile := filepath.Join(t.TempDir(), "config.yaml")
 			err := os.WriteFile(tmpFile, []byte(tt.yaml), 0600)
 			require.NoError(t, err)
@@ -211,12 +217,14 @@ func TestLoad_Errors(t *testing.T) {
 }
 
 func TestLoad_FileNotFound(t *testing.T) {
+	t.Parallel()
 	_, err := Load("/nonexistent/config.yaml")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read config file")
 }
 
 func TestConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		config      *Config
@@ -315,6 +323,7 @@ func TestConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.config.Validate()
 			if tt.wantErr {
 				require.Error(t, err)
@@ -327,6 +336,7 @@ func TestConfig_Validate(t *testing.T) {
 }
 
 func TestTLSConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		tls         TLSConfig
@@ -354,6 +364,7 @@ func TestTLSConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.tls.Validate()
 			if tt.wantErr {
 				require.Error(t, err)
@@ -366,6 +377,7 @@ func TestTLSConfig_Validate(t *testing.T) {
 }
 
 func TestKubernetesConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		k8s         KubernetesConfig
@@ -404,6 +416,7 @@ func TestKubernetesConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.k8s.Validate()
 			if tt.wantErr {
 				require.Error(t, err)
@@ -416,6 +429,7 @@ func TestKubernetesConfig_Validate(t *testing.T) {
 }
 
 func TestKubernetesUpstream_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		upstream    KubernetesUpstream
@@ -467,6 +481,7 @@ func TestKubernetesUpstream_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.upstream.Validate()
 			if tt.wantErr {
 				require.Error(t, err)
@@ -479,6 +494,7 @@ func TestKubernetesUpstream_Validate(t *testing.T) {
 }
 
 func TestSSHConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		ssh         SSHConfig
@@ -642,6 +658,7 @@ func TestSSHConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.ssh.Validate()
 			if tt.wantErr {
 				require.Error(t, err)
@@ -654,6 +671,7 @@ func TestSSHConfig_Validate(t *testing.T) {
 }
 
 func TestSSHUpstream_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		upstream    SSHUpstream
@@ -687,6 +705,7 @@ func TestSSHUpstream_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.upstream.Validate()
 			if tt.wantErr {
 				require.Error(t, err)
@@ -699,6 +718,7 @@ func TestSSHUpstream_Validate(t *testing.T) {
 }
 
 func TestSSHCAVaultConfig_EffectiveMountAndRole(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                  string
 		cfg                   *SSHCAVaultConfig
@@ -771,6 +791,7 @@ func TestSSHCAVaultConfig_EffectiveMountAndRole(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, tt.wantGatewayHostMount, tt.cfg.GetGatewayHostCAMount())
 			assert.Equal(t, tt.wantGatewayHostRole, tt.cfg.GetGatewayHostCARole())
 			assert.Equal(t, tt.wantGatewayUserMount, tt.cfg.GetGatewayUserCAMount())
@@ -781,7 +802,9 @@ func TestSSHCAVaultConfig_EffectiveMountAndRole(t *testing.T) {
 }
 
 func TestSSHCAVaultConfig_Validate(t *testing.T) {
+	t.Parallel()
 	t.Run("missing server", func(t *testing.T) {
+		t.Parallel()
 		cfg := &SSHCAVaultConfig{Role: "gateway"}
 		err := cfg.Validate()
 		require.Error(t, err)
@@ -789,6 +812,7 @@ func TestSSHCAVaultConfig_Validate(t *testing.T) {
 	})
 
 	t.Run("missing role (no override roles)", func(t *testing.T) {
+		t.Parallel()
 		cfg := &SSHCAVaultConfig{Address: "https://vault:8200"}
 		err := cfg.Validate()
 		require.Error(t, err)
@@ -796,11 +820,13 @@ func TestSSHCAVaultConfig_Validate(t *testing.T) {
 	})
 
 	t.Run("valid with top-level role", func(t *testing.T) {
+		t.Parallel()
 		cfg := &SSHCAVaultConfig{Address: "https://vault:8200", Role: "gateway"}
 		require.NoError(t, cfg.Validate())
 	})
 
 	t.Run("valid with per-CA roles only", func(t *testing.T) {
+		t.Parallel()
 		cfg := &SSHCAVaultConfig{
 			Address: "https://vault:8200",
 			GatewayHostCA: &SSHCAVaultCertConfig{
@@ -815,6 +841,7 @@ func TestSSHCAVaultConfig_Validate(t *testing.T) {
 }
 
 func TestValidateAddress(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		address     string
@@ -875,6 +902,7 @@ func TestValidateAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := validateAddress(tt.address)
 			if tt.wantErr {
 				require.Error(t, err)

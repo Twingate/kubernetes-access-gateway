@@ -17,6 +17,7 @@ import (
 )
 
 func TestGATTokenClaims_Validate(t *testing.T) {
+	t.Parallel()
 	privateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
 	var validClaims = GATClaims{
@@ -38,6 +39,7 @@ func TestGATTokenClaims_Validate(t *testing.T) {
 	}
 
 	t.Run("Valid claims", func(t *testing.T) {
+		t.Parallel()
 		err := validClaims.Validate()
 		require.NoError(t, err)
 	})
@@ -108,6 +110,7 @@ func TestGATTokenClaims_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			claims := validClaims
 			tt.setupFn(&claims)
 
@@ -120,7 +123,9 @@ func TestGATTokenClaims_Validate(t *testing.T) {
 }
 
 func TestPublicKey_MarshalJSON(t *testing.T) {
+	t.Parallel()
 	t.Run("Valid public key", func(t *testing.T) {
+		t.Parallel()
 		x, _ := new(big.Int).SetString("ccf05474241308bffdca1392dbb28fd98deeaf8ca15f04b3cf163c6da3b10c94", 16)
 		y, _ := new(big.Int).SetString("764efdffccbf662172d8256b7bf46c4d6bf1efd5a205fd12a162db4eb01a2216", 16)
 		pubKey := &PublicKey{
@@ -138,6 +143,7 @@ func TestPublicKey_MarshalJSON(t *testing.T) {
 	})
 
 	t.Run("Invalid public key", func(t *testing.T) {
+		t.Parallel()
 		pubKey := &PublicKey{
 			PublicKey: ecdsa.PublicKey{
 				Curve: elliptic.P256(),
@@ -153,7 +159,9 @@ func TestPublicKey_MarshalJSON(t *testing.T) {
 }
 
 func TestPublicKey_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
 	t.Run("Valid public key", func(t *testing.T) {
+		t.Parallel()
 		jsonBytes := []byte("\"LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFelBCVWRDUVRDTC85eWhPUzI3S1AyWTN1cjR5aApYd1N6enhZOGJhT3hESlIyVHYzL3pMOW1JWExZSld0NzlHeE5hL0h2MWFJRi9SS2hZdHRPc0JvaUZnPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==\"")
 
 		var publicKey PublicKey
@@ -207,6 +215,7 @@ func TestPublicKey_UnmarshalJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var publicKey PublicKey
 
 			err := publicKey.UnmarshalJSON(tt.json)

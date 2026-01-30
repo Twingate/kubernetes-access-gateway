@@ -17,6 +17,7 @@ import (
 )
 
 func TestRoundTripper(t *testing.T) {
+	t.Parallel()
 	testRegistry := prometheus.NewRegistry()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

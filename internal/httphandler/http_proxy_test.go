@@ -67,6 +67,7 @@ func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (connectInfo c
 }
 
 func TestProxy_ForwardRequest(t *testing.T) {
+	t.Parallel()
 	// create mock API server (upstream)
 	apiServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// proxy should provide the correct 'Impersonate-User' header
@@ -217,6 +218,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 }
 
 func TestShouldSkipWebSocketRequest(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		newRequestFn func() *http.Request
@@ -262,6 +264,7 @@ func TestShouldSkipWebSocketRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := shouldSkipWebSocketRequest(tt.newRequestFn())
 			assert.Equal(t, tt.expected, result)
 		})

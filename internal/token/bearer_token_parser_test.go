@@ -10,6 +10,7 @@ import (
 )
 
 func TestParseBearerTokenValid(t *testing.T) {
+	t.Parallel()
 	authHeader := "Bearer token"
 	actualToken, err := ParseBearerToken(authHeader)
 	assert.Equal(t, "token", actualToken)
@@ -17,6 +18,7 @@ func TestParseBearerTokenValid(t *testing.T) {
 }
 
 func TestParseBearerTokenCasing(t *testing.T) {
+	t.Parallel()
 	testToken := "BEARER TOKEN"
 	token, err := ParseBearerToken(testToken)
 
@@ -25,6 +27,7 @@ func TestParseBearerTokenCasing(t *testing.T) {
 }
 
 func TestParseBearerTokenInvalid(t *testing.T) {
+	t.Parallel()
 	authHeader := "BearerTOKEN"
 	token, err := ParseBearerToken(authHeader)
 
@@ -33,6 +36,7 @@ func TestParseBearerTokenInvalid(t *testing.T) {
 }
 
 func TestParseBearerTokenEmptyHeader(t *testing.T) {
+	t.Parallel()
 	token, err := ParseBearerToken("")
 
 	assert.Empty(t, token)
@@ -40,6 +44,7 @@ func TestParseBearerTokenEmptyHeader(t *testing.T) {
 }
 
 func TestParseBearerTokenWrongAuthScheme(t *testing.T) {
+	t.Parallel()
 	token, err := ParseBearerToken("Basic token")
 
 	assert.Empty(t, token)

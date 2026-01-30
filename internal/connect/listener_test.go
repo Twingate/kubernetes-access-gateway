@@ -102,6 +102,7 @@ var listenerClaims = &token.GATClaims{
 }
 
 func TestProxyListener_Serve_HTTPS(t *testing.T) {
+	t.Parallel()
 	listener, addr := createMockListener(t)
 
 	proxyListener := NewListener(listener, nil, nil, CreateProxyConnMetrics(prometheus.NewRegistry()), zap.L())
@@ -153,6 +154,7 @@ func TestProxyListener_Serve_HTTPS(t *testing.T) {
 }
 
 func TestProxyListener_Serve_SSH(t *testing.T) {
+	t.Parallel()
 	listener, addr := createMockListener(t)
 
 	proxyListener := NewListener(listener, nil, nil, CreateProxyConnMetrics(prometheus.NewRegistry()), zap.L())
@@ -204,6 +206,7 @@ func TestProxyListener_Serve_SSH(t *testing.T) {
 }
 
 func TestProxyListener_Serve_Healthz(t *testing.T) {
+	t.Parallel()
 	listener, addr := createMockListener(t)
 
 	proxyListener := NewListener(listener, nil, nil, CreateProxyConnMetrics(prometheus.NewRegistry()), zap.L())
@@ -267,6 +270,7 @@ func TestProxyListener_Serve_Healthz(t *testing.T) {
 }
 
 func TestProtocolListener(t *testing.T) {
+	t.Parallel()
 	listener, addr := createMockListener(t)
 
 	proxyListener := NewListener(listener, nil, nil, CreateProxyConnMetrics(prometheus.NewRegistry()), zap.L())

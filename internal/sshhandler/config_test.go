@@ -16,6 +16,7 @@ import (
 )
 
 func TestNewConfig_Success(t *testing.T) {
+	t.Parallel()
 	auditLog := &gatewayconfig.AuditLogConfig{
 		FlushInterval:      time.Minute * 5,
 		FlushSizeThreshold: 2000,
@@ -57,6 +58,7 @@ func TestNewConfig_Success(t *testing.T) {
 }
 
 func TestNewConfig_WithManualCA(t *testing.T) {
+	t.Parallel()
 	auditLog := &gatewayconfig.AuditLogConfig{}
 
 	sshConfig := &gatewayconfig.SSHConfig{
@@ -80,6 +82,7 @@ func TestNewConfig_WithManualCA(t *testing.T) {
 }
 
 func TestNewConfig_InvalidManualCA(t *testing.T) {
+	t.Parallel()
 	auditLog := &gatewayconfig.AuditLogConfig{}
 
 	sshConfig := &gatewayconfig.SSHConfig{
@@ -104,6 +107,7 @@ func TestNewConfig_InvalidManualCA(t *testing.T) {
 }
 
 func TestKeysEqual_SameKey(t *testing.T) {
+	t.Parallel()
 	key1, err := parsePublicKey(data.SSHCAPublicKey)
 	require.NoError(t, err)
 
@@ -114,6 +118,7 @@ func TestKeysEqual_SameKey(t *testing.T) {
 }
 
 func TestKeysEqual_DifferentKeys(t *testing.T) {
+	t.Parallel()
 	key1, err := parsePublicKey(data.SSHCAPublicKey)
 	require.NoError(t, err)
 
@@ -124,6 +129,7 @@ func TestKeysEqual_DifferentKeys(t *testing.T) {
 }
 
 func TestKeysEqual_NilKeys(t *testing.T) {
+	t.Parallel()
 	key, err := parsePublicKey(data.SSHCAPublicKey)
 	require.NoError(t, err)
 
@@ -134,6 +140,7 @@ func TestKeysEqual_NilKeys(t *testing.T) {
 }
 
 func TestTOFUHostKey_FirstConnection(t *testing.T) {
+	t.Parallel()
 	address := "10.0.0.1:22"
 	tofu := newTOFUHostKey(address)
 
@@ -147,6 +154,7 @@ func TestTOFUHostKey_FirstConnection(t *testing.T) {
 }
 
 func TestTOFUHostKey_SameKey(t *testing.T) {
+	t.Parallel()
 	address := "10.0.0.1:22"
 
 	key, err := parsePublicKey(data.SSHHostPublicKey)
@@ -162,6 +170,7 @@ func TestTOFUHostKey_SameKey(t *testing.T) {
 }
 
 func TestTOFUHostKey_DifferentKey(t *testing.T) {
+	t.Parallel()
 	address := "10.0.0.1:22"
 
 	key1, err := parsePublicKey(data.SSHHostPublicKey)
@@ -180,6 +189,7 @@ func TestTOFUHostKey_DifferentKey(t *testing.T) {
 }
 
 func TestTOFUHostKey_AddressMismatch(t *testing.T) {
+	t.Parallel()
 	tofu := newTOFUHostKey("10.0.0.1:22")
 
 	key, err := parsePublicKey(data.SSHHostPublicKey)

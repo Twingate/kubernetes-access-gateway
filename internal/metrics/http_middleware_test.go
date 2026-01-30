@@ -16,6 +16,7 @@ import (
 )
 
 func TestIsSpdyRequest(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		newRequestFn func() *http.Request
@@ -56,6 +57,7 @@ func TestIsSpdyRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := isSpdyRequest(tt.newRequestFn())
 			assert.Equal(t, tt.expected, result)
 		})
@@ -63,6 +65,7 @@ func TestIsSpdyRequest(t *testing.T) {
 }
 
 func TestWithRequestType(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name                string
 		setupRequest        func(*http.Request)
@@ -92,6 +95,7 @@ func TestWithRequestType(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			req, err := http.NewRequest(http.MethodGet, "/", nil)
 			require.NoError(t, err, "failed to create request")
 
@@ -107,6 +111,7 @@ func TestWithRequestType(t *testing.T) {
 }
 
 func TestHTTPMiddleware(t *testing.T) {
+	t.Parallel()
 	testRegistry := prometheus.NewRegistry()
 
 	server := httptest.NewServer(HTTPMiddleware(

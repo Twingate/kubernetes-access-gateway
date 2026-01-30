@@ -63,6 +63,7 @@ func createMockChannelChan(channels []ssh.NewChannel) <-chan ssh.NewChannel {
 }
 
 func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
+	t.Parallel()
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
 	upstreamConn := &mockSSHConn{user: "upstream-user"}
 
@@ -129,6 +130,7 @@ func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
 }
 
 func TestSSHConnPair_serve_RejectNonSessionChannel(t *testing.T) {
+	t.Parallel()
 	downstreamConn := &mockSSHConn{}
 	upstreamConn := &mockSSHConn{}
 
@@ -165,6 +167,7 @@ func TestSSHConnPair_serve_RejectNonSessionChannel(t *testing.T) {
 }
 
 func TestSSHConnPair_serve_UpstreamOpenChannelFailure(t *testing.T) {
+	t.Parallel()
 	downstreamConn := &mockSSHConn{}
 	upstreamConn := &mockSSHConn{}
 
@@ -202,6 +205,7 @@ func TestSSHConnPair_serve_UpstreamOpenChannelFailure(t *testing.T) {
 }
 
 func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
+	t.Parallel()
 	downstreamConn := &mockSSHConn{}
 	upstreamConn := &mockSSHConn{}
 
@@ -247,6 +251,7 @@ func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
 }
 
 func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
+	t.Parallel()
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
 	upstreamConn := &mockSSHConn{user: "upstream-user"}
 
@@ -346,6 +351,7 @@ func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 }
 
 func TestSSHConnPair_close(t *testing.T) {
+	t.Parallel()
 	downstreamConn := &mockSSHConn{}
 	upstreamConn := &mockSSHConn{}
 

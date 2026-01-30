@@ -83,6 +83,7 @@ func mockNewRecorder() sessionrecorder.Recorder {
 }
 
 func TestHijacker_New(t *testing.T) {
+	t.Parallel()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	user := "testuser"
@@ -96,6 +97,7 @@ func TestHijacker_New(t *testing.T) {
 }
 
 func TestHijacker_Hijack_Success(t *testing.T) {
+	t.Parallel()
 	mockConn := &mockHijackerConn{}
 	mockRW := bufio.NewReadWriter(bufio.NewReader(strings.NewReader("")), bufio.NewWriter(nil))
 	mockResp := &mockHijackerResponseWriter{
@@ -116,6 +118,7 @@ func TestHijacker_Hijack_Success(t *testing.T) {
 }
 
 func TestHijacker_Hijack_Failure(t *testing.T) {
+	t.Parallel()
 	mockResp := &mockHijackerResponseWriter{
 		conn: nil,
 		rw:   nil,
@@ -132,6 +135,7 @@ func TestHijacker_Hijack_Failure(t *testing.T) {
 }
 
 func TestHijacker_StartRecorder(t *testing.T) {
+	t.Parallel()
 	u, _ := url.Parse("/namespaces/default/pods/test-pod/exec?container=test-container&command=bash&tty=true")
 	req := &http.Request{
 		URL: u,
@@ -151,6 +155,7 @@ func TestHijacker_StartRecorder(t *testing.T) {
 }
 
 func TestHijacker_AsciicastHeaderCreation(t *testing.T) {
+	t.Parallel()
 	var capturedHeader sessionrecorder.AsciicastHeader
 
 	var capturedTty bool

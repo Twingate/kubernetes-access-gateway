@@ -12,6 +12,7 @@ import (
 )
 
 func TestInitMetricCollectors(t *testing.T) {
+	t.Parallel()
 	testRegistry := prometheus.NewRegistry()
 	registerCoreMetrics(testRegistry)
 

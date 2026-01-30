@@ -134,6 +134,7 @@ var controlPingMessage = WebSocketMessage{
 }
 
 func TestConn_Read(t *testing.T) {
+	t.Parallel()
 	var dataResizeMessage = WebSocketMessage{
 		Bytes: []byte{
 			// Data Message Frame: (0x82, 0x19, 0x4, 0x7b, ...)
@@ -295,6 +296,7 @@ func TestConn_Read(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mc := &mockConn{}
 			mr := &mockRecorder{}
 			c := NewConn(mc, mr, sessionrecorder.AsciicastHeader{}, true).(*conn)
@@ -340,6 +342,7 @@ func TestConn_Read(t *testing.T) {
 }
 
 func TestConn_Write(t *testing.T) {
+	t.Parallel()
 	var dataMessageNoFragmentStdOut = WebSocketMessage{
 		Bytes: []byte{
 			// Data Message Frame: (0x82, 0x23, 0x01, 0x7b, ...)
@@ -573,6 +576,7 @@ func TestConn_Write(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mc := &mockConn{}
 			mr := &mockRecorder{}
 			c := NewConn(mc, mr, tt.header, tt.hasTerminal).(*conn)
@@ -611,6 +615,7 @@ func TestConn_Write(t *testing.T) {
 }
 
 func TestConnRead_ErrorHandling(t *testing.T) {
+	t.Parallel()
 	mc := &mockConn{}
 	mr := &mockRecorder{}
 	c := NewConn(mc, mr, sessionrecorder.AsciicastHeader{}, true).(*conn)
@@ -625,6 +630,7 @@ func TestConnRead_ErrorHandling(t *testing.T) {
 }
 
 func TestConn_Close(t *testing.T) {
+	t.Parallel()
 	mc := &mockConn{}
 	mr := &mockRecorder{}
 	c := NewConn(mc, mr, sessionrecorder.AsciicastHeader{}, true).(*conn)
@@ -637,6 +643,7 @@ func TestConn_Close(t *testing.T) {
 }
 
 func TestConn_shouldRecordReadMessage(t *testing.T) {
+	t.Parallel()
 	c := &conn{}
 
 	tests := []struct {
@@ -678,6 +685,7 @@ func TestConn_shouldRecordReadMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			msg := &wsMessage{
 				k8sStreamID: tt.streamID,
 			}
@@ -689,6 +697,7 @@ func TestConn_shouldRecordReadMessage(t *testing.T) {
 }
 
 func TestConn_shouldRecordWriteMessage(t *testing.T) {
+	t.Parallel()
 	c := &conn{}
 
 	tests := []struct {
@@ -730,6 +739,7 @@ func TestConn_shouldRecordWriteMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			msg := &wsMessage{
 				k8sStreamID: tt.streamID,
 			}

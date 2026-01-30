@@ -68,6 +68,7 @@ func (m *mockSessionRecorderFactory) NewRecorder(logger *zap.Logger) sessionreco
 }
 
 func TestSSHChannelPair_serve_Success(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		// Create mock channels
 		downstreamChannel := NewMockChannel()
@@ -219,6 +220,7 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 }
 
 func TestSSHChannelPair_serve_NonShellCommand(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		// Create mock channels
 		downstreamChannel := NewMockChannel()
@@ -287,6 +289,7 @@ func TestSSHChannelPair_serve_NonShellCommand(t *testing.T) {
 }
 
 func TestSSHChannelPair_serve_SessionStartTimeout(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		// Create mock channels
 		downstreamChannel := NewMockChannel()

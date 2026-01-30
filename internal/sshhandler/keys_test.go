@@ -12,6 +12,7 @@ import (
 )
 
 func TestNewKeyConfigAndGenerate_ByKeyType(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		keyType    string
@@ -118,6 +119,7 @@ func TestNewKeyConfigAndGenerate_ByKeyType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			kc, err := newKeyConfig(tt.keyType, tt.keyBits)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectType, kc.typ)
@@ -136,6 +138,7 @@ func TestNewKeyConfigAndGenerate_ByKeyType(t *testing.T) {
 }
 
 func TestNewKeyConfig_InvalidInputs(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		keyType    string
@@ -150,6 +153,7 @@ func TestNewKeyConfig_InvalidInputs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			_, err := newKeyConfig(tt.keyType, tt.keyBits)
 			require.ErrorIs(t, err, tt.wantErr)
 			require.EqualError(t, err, tt.wantErrMsg)

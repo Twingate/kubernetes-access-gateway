@@ -16,6 +16,7 @@ import (
 )
 
 func TestProxyConnMetricsTracker(t *testing.T) {
+	t.Parallel()
 	testRegistry := prometheus.NewRegistry()
 	metrics := CreateProxyConnMetrics(testRegistry)
 

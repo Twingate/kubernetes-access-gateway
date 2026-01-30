@@ -70,6 +70,7 @@ func (c *CustomClaims) getHeaderType() string {
 }
 
 func TestParser_ParseWithClaims(t *testing.T) {
+	t.Parallel()
 	tokenService := newTokenService()
 	parser, _ := NewParser(ParserConfig{
 		Network: "acme",
@@ -78,6 +79,7 @@ func TestParser_ParseWithClaims(t *testing.T) {
 	})
 
 	t.Run("Valid token type", func(t *testing.T) {
+		t.Parallel()
 		claims := &CustomClaims{}
 		headers := map[string]any{"typ": "custom", "alg": "ES256"}
 		tokenStr, err := tokenService.signToken(jwt.MapClaims{}, headers)
@@ -109,6 +111,7 @@ func TestParser_ParseWithClaims(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			claims := &CustomClaims{}
 			headers := map[string]any{"alg": "ES256"}
 			maps.Copy(headers, tt.headers)
@@ -124,6 +127,7 @@ func TestParser_ParseWithClaims(t *testing.T) {
 }
 
 func TestNewParser(t *testing.T) {
+	t.Parallel()
 	tokenService := newTokenService()
 
 	parser, err := NewParser(ParserConfig{
@@ -135,6 +139,7 @@ func TestNewParser(t *testing.T) {
 	require.NotNil(t, parser)
 
 	t.Run("Valid token", func(t *testing.T) {
+		t.Parallel()
 		tokenStr, err := tokenService.signToken(jwt.MapClaims{}, nil)
 		require.NoError(t, err)
 
@@ -195,6 +200,7 @@ func TestNewParser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tokenStr, err := tokenService.signToken(tt.claims, tt.headers)
 			require.NoError(t, err)
 

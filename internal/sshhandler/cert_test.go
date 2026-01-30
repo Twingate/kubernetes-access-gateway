@@ -63,6 +63,7 @@ func (c *stubCA) calls() int {
 }
 
 func TestAutoRenewingCertSigner_RenewsAtExpectedTime(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		logger := zap.NewNop()
 
@@ -125,6 +126,7 @@ func TestAutoRenewingCertSigner_RenewsAtExpectedTime(t *testing.T) {
 }
 
 func TestAutoRenewingCertSigner_RetriesOnRenewError(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		logger := zap.NewNop()
 
@@ -176,6 +178,7 @@ func TestAutoRenewingCertSigner_RetriesOnRenewError(t *testing.T) {
 }
 
 func TestRenewTime(t *testing.T) {
+	t.Parallel()
 	cert := &ssh.Certificate{
 		ValidAfter:  0,
 		ValidBefore: 100,
@@ -187,6 +190,7 @@ func TestRenewTime(t *testing.T) {
 }
 
 func TestRenewTime_Infinity(t *testing.T) {
+	t.Parallel()
 	cert := &ssh.Certificate{ValidBefore: ssh.CertTimeInfinity}
 	require.True(t, renewTime(cert).IsZero())
 }

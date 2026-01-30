@@ -52,6 +52,7 @@ var fullConfig = gatewayconfig.Config{
 }
 
 func TestNewProxy_Success(t *testing.T) {
+	t.Parallel()
 	registry := prometheus.NewRegistry()
 	logger, err := log.NewLogger(log.DefaultName, false)
 	require.NoError(t, err)
@@ -72,6 +73,7 @@ func TestNewProxy_Success(t *testing.T) {
 }
 
 func TestNewProxy_KubernetesOnly(t *testing.T) {
+	t.Parallel()
 	config := fullConfig
 	config.SSH = nil
 
@@ -88,6 +90,7 @@ func TestNewProxy_KubernetesOnly(t *testing.T) {
 }
 
 func TestNewProxy_SSHOnly(t *testing.T) {
+	t.Parallel()
 	config := fullConfig
 	config.Kubernetes = nil
 
