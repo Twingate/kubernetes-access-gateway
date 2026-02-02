@@ -52,6 +52,7 @@ func setupSSHServer(logger *zap.Logger) error {
 	if _, err = testutil.RunCommand(exec.Command("docker", "run", "-d",
 		"-p", fmt.Sprintf("%d:2222", sshPort),
 		"--name", sshContainerName,
+		"--rm",
 		"--env", "PUID="+string(uid),
 		"--env", "PGID="+string(gid),
 		"--env", "USER_NAME="+sshUsername,
