@@ -131,7 +131,14 @@ type SSHCAVaultMountConfig struct {
 }
 
 type SSHCAVaultAuthConfig struct {
-	Token string `yaml:"token,omitempty"`
+	Token   string                   `yaml:"token,omitempty"`
+	AppRole *SSHCAVaultAppRoleConfig `yaml:"appRole,omitempty"`
+}
+
+type SSHCAVaultAppRoleConfig struct {
+	Mount        string `yaml:"mount,omitempty"`
+	RoleID       string `yaml:"roleID"`
+	SecretIDFile string `yaml:"secretIDFile"`
 }
 
 type SSHUpstream struct {
@@ -370,6 +377,10 @@ func (v *SSHCAVaultConfig) Validate() error {
 		return fmt.Errorf("%w: server", ErrRequired)
 	}
 
+	if err := v.Auth.Validate(); err != nil {
+		return fmt.Errorf("auth: %w", err)
+	}
+
 	// Validate that we can resolve Gateway host and user cert mounts/roles
 	if v.GetGatewayHostCAMount() == "" {
 		return fmt.Errorf("%w: mount is required (either at top level or in gatewayHostCA)", ErrRequired)
@@ -385,6 +396,45 @@ func (v *SSHCAVaultConfig) Validate() error {
 
 	if v.GetGatewayUserCARole() == "" {
 		return fmt.Errorf("%w: role is required (either at top level or in gatewayUserCA)", ErrRequired)
+	}
+
+	return nil
+}
+
+var ErrConflictingAuthConfig = errors.New("only one of 'token' or 'appRole' can be specified for Vault auth")
+
+func (a *SSHCAVaultAuthConfig) Validate() error {
+	if a.Token != "" && a.AppRole != nil {
+		return ErrConflictingAuthConfig
+	}
+
+	if a.AppRole != nil {
+		if err := a.AppRole.Validate(); err != nil {
+			return fmt.Errorf("appRole: %w", err)
+		}
+	}
+
+	return nil
+}
+
+const defaultAppRoleMount = "approle"
+
+// GetMount returns the appRole mount path, defaulting to "approle" if not specified.
+func (a *SSHCAVaultAppRoleConfig) GetMount() string {
+	if a.Mount != "" {
+		return a.Mount
+	}
+
+	return defaultAppRoleMount
+}
+
+func (a *SSHCAVaultAppRoleConfig) Validate() error {
+	if a.RoleID == "" {
+		return fmt.Errorf("%w: roleID is required", ErrRequired)
+	}
+
+	if a.SecretIDFile == "" {
+		return fmt.Errorf("%w: secretIDFile is required", ErrRequired)
 	}
 
 	return nil
