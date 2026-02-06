@@ -38,6 +38,7 @@ func (m *mockTapWriter) GetData() []byte {
 }
 
 func TestChannelCopyPair_copy_BasicCopy(t *testing.T) {
+	t.Parallel()
 	src := NewMockChannel()
 	dst := NewMockChannel()
 
@@ -83,6 +84,7 @@ func TestChannelCopyPair_copy_BasicCopy(t *testing.T) {
 }
 
 func TestChannelCopyPair_copy_WithTap(t *testing.T) {
+	t.Parallel()
 	src := NewMockChannel()
 	dst := NewMockChannel()
 	tap := &mockTapWriter{}
@@ -134,6 +136,7 @@ func TestChannelCopyPair_copy_WithTap(t *testing.T) {
 }
 
 func TestChannelCopyPair_copy_ShutdownTimeout(t *testing.T) {
+	// NOTE: Cannot use t.Parallel() because this test modifies global timeout variables
 	src := NewMockChannel()
 	dst := NewMockChannel()
 
@@ -183,6 +186,7 @@ func TestChannelCopyPair_copy_ShutdownTimeout(t *testing.T) {
 }
 
 func TestBidirectionalCopier_start(t *testing.T) {
+	t.Parallel()
 	// Create mock channels for both directions
 	downstreamSrc := NewMockChannel()
 	downstreamDst := NewMockChannel()

@@ -89,6 +89,7 @@ func createParserAndGATToken(t *testing.T, claims token.GATClaims) (*token.Parse
 }
 
 func TestConnectValidator_ParseConnect(t *testing.T) {
+	t.Parallel()
 	c := newClient()
 	gatClaims := newGATTokenClaims(c.getPublicKey())
 	parser, signedToken := createParserAndGATToken(t, gatClaims)
@@ -96,6 +97,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	sigData := "test-signature"
 
 	t.Run("Successful authentication", func(t *testing.T) {
+		t.Parallel()
 		validator := &MessageValidator{TokenParser: parser}
 
 		signature := c.sign(sigData)
@@ -113,6 +115,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	})
 
 	t.Run("Non-CONNECT method", func(t *testing.T) {
+		t.Parallel()
 		validator := &MessageValidator{TokenParser: parser}
 
 		// create request with GET method instead of CONNECT
@@ -130,6 +133,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	})
 
 	t.Run("Missing auth header", func(t *testing.T) {
+		t.Parallel()
 		validator := &MessageValidator{TokenParser: parser}
 
 		// create request without auth header
@@ -148,6 +152,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	})
 
 	t.Run("Invalid token", func(t *testing.T) {
+		t.Parallel()
 		parser, invalidToken := createParserAndGATToken(
 			t,
 			token.GATClaims{
@@ -177,6 +182,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	})
 
 	t.Run("Invalid signature format", func(t *testing.T) {
+		t.Parallel()
 		validator := &MessageValidator{TokenParser: parser}
 
 		// create request with invalid signature in header
@@ -198,6 +204,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	})
 
 	t.Run("Missing signature header", func(t *testing.T) {
+		t.Parallel()
 		validator := &MessageValidator{TokenParser: parser}
 
 		// create request without signature header
@@ -218,6 +225,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	})
 
 	t.Run("Invalid ASN.1 format", func(t *testing.T) {
+		t.Parallel()
 		validator := &MessageValidator{TokenParser: parser}
 
 		// create request with signature with valid base64 but invalid ASN.1
@@ -240,6 +248,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	})
 
 	t.Run("Signature verification failure", func(t *testing.T) {
+		t.Parallel()
 		validator := &MessageValidator{TokenParser: parser}
 
 		// create request with mismatched signature
@@ -264,6 +273,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	})
 
 	t.Run("Invalid destination (not in token)", func(t *testing.T) {
+		t.Parallel()
 		validator := &MessageValidator{TokenParser: parser}
 
 		// create request
@@ -288,6 +298,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 	})
 
 	t.Run("Invalid destination, missing", func(t *testing.T) {
+		t.Parallel()
 		validator := &MessageValidator{TokenParser: parser}
 
 		// create request
@@ -313,6 +324,7 @@ func TestConnectValidator_ParseConnect(t *testing.T) {
 }
 
 func TestHTTPError_Error(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		code    int
@@ -341,6 +353,7 @@ func TestHTTPError_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			e := &HTTPError{
 				Code:    tt.code,
 				Message: tt.message,

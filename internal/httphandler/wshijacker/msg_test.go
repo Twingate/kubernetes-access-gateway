@@ -13,6 +13,7 @@ import (
 )
 
 func TestMessage_Parse_SimpleMessage(t *testing.T) {
+	t.Parallel()
 	// Create a simple websocket message with FIN=1, binary frame (0x2), no masking
 	data := []byte{
 		0x82, // FIN=1, RSV1-3=0, opcode=2 (binary)
@@ -34,6 +35,7 @@ func TestMessage_Parse_SimpleMessage(t *testing.T) {
 }
 
 func TestMessage_Parse_MaskedMessage(t *testing.T) {
+	t.Parallel()
 	// Create a masked websocket message with binary frame (0x2)
 	data := []byte{
 		0x82,                   // FIN=1, RSV1-3=0, opcode=2 (binary)
@@ -56,6 +58,7 @@ func TestMessage_Parse_MaskedMessage(t *testing.T) {
 }
 
 func TestMessage_Parse_MediumLengthMessage(t *testing.T) {
+	t.Parallel()
 	// Create a message with 16-bit length field (126) and binary frame (0x2)
 	payload := make([]byte, 130)
 	payload[0] = 0x02 // K8s Stream ID
@@ -82,6 +85,7 @@ func TestMessage_Parse_MediumLengthMessage(t *testing.T) {
 }
 
 func TestMessage_Parse_LargeLengthMessage(t *testing.T) {
+	t.Parallel()
 	// Create a message with 64-bit length field (127) and binary frame (0x2)
 	payload := make([]byte, 260)
 	payload[0] = 0x03 // K8s Stream ID
@@ -108,6 +112,7 @@ func TestMessage_Parse_LargeLengthMessage(t *testing.T) {
 }
 
 func TestMessage_Parse_FragmentedMessage(t *testing.T) {
+	t.Parallel()
 	// First fragment with FIN=0, opcode=2 (binary)
 	data1 := []byte{
 		0x02, // FIN=0, RSV1-3=0, opcode=2 (binary)
@@ -143,6 +148,7 @@ func TestMessage_Parse_FragmentedMessage(t *testing.T) {
 }
 
 func TestMessage_Parse_MismatchedStreamID(t *testing.T) {
+	t.Parallel()
 	// First fragment with binary frame (0x2)
 	data1 := []byte{
 		0x02, // FIN=0, RSV1-3=0, opcode=2 (binary)
@@ -171,6 +177,7 @@ func TestMessage_Parse_MismatchedStreamID(t *testing.T) {
 }
 
 func TestMessage_Parse_IncompleteData(t *testing.T) {
+	t.Parallel()
 	// Create a message but truncate the payload, using binary frame (0x2)
 	data := []byte{
 		0x82, // FIN=1, RSV1-3=0, opcode=2 (binary)
@@ -188,6 +195,7 @@ func TestMessage_Parse_IncompleteData(t *testing.T) {
 }
 
 func TestMessage_Parse_EmptyPayload(t *testing.T) {
+	t.Parallel()
 	// Create a message with empty payload, using binary frame (0x2)
 	data := []byte{
 		0x82, // FIN=1, RSV1-3=0, opcode=2 (binary)
@@ -201,6 +209,7 @@ func TestMessage_Parse_EmptyPayload(t *testing.T) {
 }
 
 func TestMessage_Parse_TooLargePayload(t *testing.T) {
+	t.Parallel()
 	// Create a message with payload length exceeding the allowed maximum, using binary frame (0x2)
 	data := []byte{
 		0x82, // FIN=1, RSV1-3=0, opcode=2 (binary)
@@ -218,6 +227,7 @@ func TestMessage_Parse_TooLargePayload(t *testing.T) {
 }
 
 func TestMessage_Parse_ControlMessagePing(t *testing.T) {
+	t.Parallel()
 	// Create a WebSocket PING message with FIN=1, opcode=9 (PING), no masking, and a small payload
 	data := []byte{
 		0x89, // FIN=1, RSV1-3=0, opcode=9 (PING)
@@ -243,6 +253,7 @@ func TestMessage_Parse_ControlMessagePing(t *testing.T) {
 }
 
 func TestMessage_Parse_ControlMessageCloseMasked(t *testing.T) {
+	t.Parallel()
 	// For a WebSocket CLOSE frame, the payload typically consists of:
 	// 1. A 2-byte status code (required, unless the payload is empty).
 	// 2. An optional UTF-8 encoded application data that represents the reason for closing.
@@ -284,6 +295,7 @@ func TestMessage_Parse_ControlMessageCloseMasked(t *testing.T) {
 }
 
 func TestUnmask(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		mask     [4]byte
@@ -312,6 +324,7 @@ func TestUnmask(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			dataCopy := make([]byte, len(tc.data))
 			copy(dataCopy, tc.data)
 
@@ -323,6 +336,7 @@ func TestUnmask(t *testing.T) {
 }
 
 func TestIsDataFrame(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    []byte
@@ -382,6 +396,7 @@ func TestIsDataFrame(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := IsDataFrame(tt.input)
 			assert.Equal(t, tt.expected, got)
 		})
@@ -389,6 +404,7 @@ func TestIsDataFrame(t *testing.T) {
 }
 
 func TestIsK8sStreamFrame(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    []byte
@@ -448,6 +464,7 @@ func TestIsK8sStreamFrame(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := IsK8sStreamFrame(tt.input)
 			assert.Equal(t, tt.expected, got)
 		})

@@ -146,6 +146,7 @@ func newTestProxyConn(claims *token.GATClaims, address string) *mockProxyConn {
 }
 
 func TestSSHProxy_Start_AcceptError(t *testing.T) {
+	t.Parallel()
 	listener := &mockProtocolListener{
 		ProtocolListener: &connect.ProtocolListener{},
 	}
@@ -178,6 +179,7 @@ func TestSSHProxy_Start_AcceptError(t *testing.T) {
 }
 
 func TestSSHProxy_Start_Shutdown(t *testing.T) {
+	t.Parallel()
 	listener := &mockProtocolListener{
 		ProtocolListener: &connect.ProtocolListener{},
 	}
@@ -210,6 +212,7 @@ func TestSSHProxy_Start_Shutdown(t *testing.T) {
 }
 
 func TestSSHProxy_Start_Success(t *testing.T) {
+	t.Parallel()
 	listener := &mockProtocolListener{
 		ProtocolListener: &connect.ProtocolListener{},
 	}
@@ -285,6 +288,7 @@ func TestSSHProxy_Start_Success(t *testing.T) {
 }
 
 func TestSSHProxy_ServeConn_Success(t *testing.T) {
+	t.Parallel()
 	mockProxySSHFactory := &mockProxySSHConnFactory{}
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
@@ -386,6 +390,7 @@ func TestSSHProxy_ServeConn_Success(t *testing.T) {
 }
 
 func TestSSHProxy_ServeConn_UnknownUpstream(t *testing.T) {
+	t.Parallel()
 	mockProxySSHFactory := &mockProxySSHConnFactory{}
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
@@ -425,6 +430,7 @@ func TestSSHProxy_ServeConn_UnknownUpstream(t *testing.T) {
 }
 
 func TestSSHProxy_ServeConn_DownstreamHandshakeFailure(t *testing.T) {
+	t.Parallel()
 	mockProxySSHFactory := &mockProxySSHConnFactory{}
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
@@ -472,6 +478,7 @@ func TestSSHProxy_ServeConn_DownstreamHandshakeFailure(t *testing.T) {
 }
 
 func TestSSHProxy_ServeConn_UpstreamConnectionFailure(t *testing.T) {
+	t.Parallel()
 	mockProxySSHFactory := &mockProxySSHConnFactory{}
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
@@ -532,6 +539,7 @@ func TestSSHProxy_ServeConn_UpstreamConnectionFailure(t *testing.T) {
 }
 
 func TestSSHProxy_ServeConn_UpstreamSSHHandshakeFailure(t *testing.T) {
+	t.Parallel()
 	mockProxySSHFactory := &mockProxySSHConnFactory{}
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
@@ -605,6 +613,7 @@ func TestSSHProxy_ServeConn_UpstreamSSHHandshakeFailure(t *testing.T) {
 }
 
 func TestSSHProxy_Shutdown_WithActiveConnection(t *testing.T) {
+	t.Parallel()
 	mockProxySSHFactory := &mockProxySSHConnFactory{}
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}

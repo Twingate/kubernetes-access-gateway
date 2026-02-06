@@ -17,11 +17,13 @@ import (
 )
 
 func TestRecorder_NewRecorder(t *testing.T) {
+	t.Parallel()
 	r := NewRecorder(zap.NewNop()).(*asciicastRecorder)
 	assert.NotNil(t, r, "NewRecorder should return a non-nil recording")
 }
 
 func TestRecorder_WriteOutputEvent(t *testing.T) {
+	t.Parallel()
 	r := NewRecorder(zap.NewNop()).(*asciicastRecorder)
 
 	err := r.WriteOutputEvent([]byte("test output"))
@@ -47,6 +49,7 @@ func TestRecorder_WriteOutputEvent(t *testing.T) {
 }
 
 func TestRecorder_WriteResizeEvent(t *testing.T) {
+	t.Parallel()
 	r := NewRecorder(zap.NewNop()).(*asciicastRecorder)
 
 	err := r.WriteResizeEvent(80, 24)
@@ -72,6 +75,7 @@ func TestRecorder_WriteResizeEvent(t *testing.T) {
 }
 
 func TestRecorder_WriteHeader(t *testing.T) {
+	t.Parallel()
 	r := NewRecorder(zap.NewNop()).(*asciicastRecorder)
 
 	header := AsciicastHeader{
@@ -94,6 +98,7 @@ func TestRecorder_WriteHeader(t *testing.T) {
 }
 
 func TestRecorder_MultipleEvents(t *testing.T) {
+	t.Parallel()
 	r := NewRecorder(zap.NewNop()).(*asciicastRecorder)
 
 	header := AsciicastHeader{
@@ -339,6 +344,7 @@ func TestRecorder_WriteJSON_FlushLogsWhenExceedingSizeThreshold(t *testing.T) {
 }
 
 func TestRecorder_WriteJSON_Error(t *testing.T) {
+	t.Parallel()
 	r := NewRecorder(zap.NewNop()).(*asciicastRecorder)
 
 	// Create a value that cannot be marshaled to JSON, a function

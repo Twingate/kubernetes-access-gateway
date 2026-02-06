@@ -39,6 +39,7 @@ func (r *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 }
 
 func TestAuditMiddleware(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name               string
 		handlerFn          func(w http.ResponseWriter)
@@ -108,6 +109,7 @@ func TestAuditMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			mockHandler := &mockHandler{}
 			claims := &token.GATClaims{
 				User: token.User{
@@ -179,6 +181,7 @@ func TestAuditMiddleware(t *testing.T) {
 }
 
 func TestAuditMiddleware_FailedToRetrieveProxyConn(t *testing.T) {
+	t.Parallel()
 	mockHandler := &mockHandler{}
 
 	request := httptest.NewRequest(http.MethodGet, "/api", nil)

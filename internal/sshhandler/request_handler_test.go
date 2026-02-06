@@ -61,6 +61,7 @@ func createWindowChangeRequestPayload() []byte {
 }
 
 func TestSSHRequestHandler_handleRequests_PtyRequest(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 	sourceRequestChan := make(chan Request, 1)
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger)
@@ -118,6 +119,7 @@ func TestSSHRequestHandler_handleRequests_PtyRequest(t *testing.T) {
 }
 
 func TestSSHRequestHandler_handleRequests_ShellRequest(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 	sourceRequestChan := make(chan Request, 1)
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger)
@@ -168,6 +170,7 @@ func TestSSHRequestHandler_handleRequests_ShellRequest(t *testing.T) {
 }
 
 func TestSSHRequestHandler_handleRequests_ExecRequest(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 	sourceRequestChan := make(chan Request, 1)
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger)
@@ -217,6 +220,7 @@ func TestSSHRequestHandler_handleRequests_ExecRequest(t *testing.T) {
 }
 
 func TestSSHRequestHandler_handleRequests_SubsystemRequest(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 	sourceRequestChan := make(chan Request, 1)
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger)
@@ -266,6 +270,7 @@ func TestSSHRequestHandler_handleRequests_SubsystemRequest(t *testing.T) {
 }
 
 func TestSSHRequestHandler_handleRequests_WindowChangeRequest(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 	sourceRequestChan := make(chan Request, 1)
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger)
@@ -314,6 +319,7 @@ func TestSSHRequestHandler_handleRequests_WindowChangeRequest(t *testing.T) {
 }
 
 func TestSSHRequestHandler_handleRequests_FlushTrigger(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 	sourceRequestChan := make(chan Request, 3)
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
@@ -378,6 +384,7 @@ func TestSSHRequestHandler_handleRequests_FlushTrigger(t *testing.T) {
 }
 
 func TestSSHRequestHandler_handleRequests_ChannelClosed(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 	sourceRequestChan := make(chan Request)
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger)
@@ -403,6 +410,7 @@ func TestSSHRequestHandler_handleRequests_ChannelClosed(t *testing.T) {
 }
 
 func TestSSHRequestHandler_handleRequests_UnknownType(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 	sourceRequestChan := make(chan Request, 1)
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger)
@@ -445,6 +453,7 @@ func TestSSHRequestHandler_handleRequests_UnknownType(t *testing.T) {
 }
 
 func TestForwardRequest_Failure(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 
 	mockReq := &mockSSHRequest{
@@ -464,6 +473,7 @@ func TestForwardRequest_Failure(t *testing.T) {
 }
 
 func TestForwardRequest_Success(t *testing.T) {
+	t.Parallel()
 	mockChannel := NewMockChannel()
 
 	mockReq := &mockSSHRequest{
