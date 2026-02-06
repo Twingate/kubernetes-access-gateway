@@ -4,9 +4,8 @@
 package httphandler
 
 import (
-	"bufio"
+	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"io"
 	"net"
 	"net/http"
@@ -27,103 +26,41 @@ import (
 	"k8sgateway/test/data"
 )
 
-var errValidation = &connect.HTTPError{
-	Code:    http.StatusProxyAuthRequired,
-	Message: "failed to validate token",
-}
-
-type mockValidator struct {
-	shouldFail       bool
-	ProxyAuth        string
-	TokenSig         string
-	ConnID           string
-	apiServerAddress string
-}
-
-func (m *mockValidator) ParseConnect(req *http.Request, _ []byte) (connectInfo connect.Info, err error) {
-	if m.shouldFail {
-		return connect.Info{
-			Claims: nil,
-			ConnID: "",
-		}, errValidation
-	}
-
-	claims := &token.GATClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
-		},
-		User: token.User{
-			ID:       "user-1",
-			Username: "user@acme.com",
-			Groups:   []string{"Everyone", "Engineering"},
-		},
-		Resource: token.Resource{ID: "resource-1", Address: m.apiServerAddress},
-	}
-	m.ProxyAuth = req.Header.Get(connect.AuthHeaderKey)
-	m.TokenSig = req.Header.Get(connect.AuthSignatureHeaderKey)
-	m.ConnID = req.Header.Get(connect.ConnIDHeaderKey)
-
-	return connect.Info{Claims: claims, ConnID: m.ConnID}, nil
-}
-
 func TestProxy_ForwardRequest(t *testing.T) {
-	// create mock API server (upstream)
+	// Create mock upstream API server
 	apiServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// proxy should provide the correct 'Impersonate-User' header
+		// Verify proxy sets correct impersonation headers
 		assert.Equal(t, "user@acme.com", r.Header.Get("Impersonate-User"))
-		// proxy should provide the correct 'Impersonate-Groups' header
 		assert.Equal(t, []string{"Everyone", "Engineering"}, r.Header.Values("Impersonate-Group"))
-		// proxy should provide the correct token for the upstream server
+		// Verify proxy sets correct authorization token
 		assert.Equal(t, "Bearer mock-token", r.Header.Get("Authorization"))
-		// response
+		// Send response
 		_, err := io.WriteString(w, "Upstream API Server Response!")
 		assert.NoError(t, err)
 	}))
 
-	// load certs for mock API server
+	// Configure TLS for the mock API server
 	serverCert, err := tls.X509KeyPair(data.ServerCert, data.ServerKey)
 	require.NoError(t, err)
 
-	apiServerTLSConfig := &tls.Config{
+	apiServer.TLS = &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
 		MinVersion:   tls.VersionTLS13,
 	}
-	apiServer.TLS = apiServerTLSConfig
 
-	// start API server
 	apiServer.StartTLS()
 	defer apiServer.Close()
 
 	apiServerAddress := strings.TrimPrefix(apiServer.URL, "https://")
-	mockValidator := &mockValidator{
-		shouldFail:       false,
-		apiServerAddress: apiServerAddress,
-	}
 
-	// create TLS configuration for downstream
-	cert, _ := tls.LoadX509KeyPair("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key")
-	downstreamTLSConfig := &tls.Config{
-		MinVersion:   tls.VersionTLS13,
-		MaxVersion:   tls.VersionTLS13,
-		Certificates: []tls.Certificate{cert},
-	}
+	// Create channel and ProtocolListener (simulating connect package output)
+	ch := make(chan connect.Conn)
+	addr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0}
+	protocolListener := connect.NewProtocolListener(ch, addr)
 
-	listener, _ := net.Listen("tcp", "127.0.0.1:0")
-	addr := listener.Addr().String()
-
-	proxyListener := connect.NewListener(listener, downstreamTLSConfig, mockValidator, connect.CreateProxyConnMetrics(prometheus.NewRegistry()), zap.NewNop())
-
-	// Check that listeners are created properly
-	assert.Equal(t, addr, proxyListener.HTTPListener.Addr().String())
-	assert.Equal(t, addr, proxyListener.SSHListener.Addr().String())
-
-	go func() {
-		_ = proxyListener.Serve()
-	}()
-
-	// k8s proxy configuration
+	// Create HTTP proxy
 	cfg := Config{
-		ProtocolListener: proxyListener.HTTPListener,
+		ProtocolListener: protocolListener,
 		registry:         prometheus.NewRegistry(),
 		upstream: &config.KubernetesUpstream{
 			Address:     apiServerAddress,
@@ -133,7 +70,6 @@ func TestProxy_ForwardRequest(t *testing.T) {
 		logger: zap.NewNop(),
 	}
 
-	// create and start the proxy
 	httpProxy, err := NewProxy(cfg)
 	require.NoError(t, err)
 
@@ -141,78 +77,55 @@ func TestProxy_ForwardRequest(t *testing.T) {
 		_ = httpProxy.Start()
 	}()
 
-	// downstream proxy and client certs
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(data.ProxyCert)
+	// Create a pipe for communication (client <-> proxy)
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
 
-	tlsConfig := &tls.Config{
-		ServerName: "127.0.0.1",
-		RootCAs:    caCertPool,
-		MinVersion: tls.VersionTLS13,
+	// Create ProxyConn with Claims (simulating authenticated connection from connect package)
+	claims := &token.GATClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+		},
+		User: token.User{
+			ID:       "user-1",
+			Username: "user@acme.com",
+			Groups:   []string{"Everyone", "Engineering"},
+		},
+		Resource: token.Resource{ID: "resource-1", Address: apiServerAddress},
 	}
 
-	// manually create a TCP connection to be able to reuse for
-	// HTTPS CONNECT (downstream proxy) then HTTPS requests (client)
-	conn, err := net.Dial("tcp", addr)
-	require.NoError(t, err, "Failed to connect to proxy")
+	// Use NewProxyConn to properly initialize internal fields (tracker)
+	connMetrics := connect.CreateProxyConnMetrics(prometheus.NewRegistry())
+	proxyConn := connect.NewProxyConn(serverConn, nil, nil, zap.NewNop(), connMetrics)
+	proxyConn.Claims = claims
+	proxyConn.ID = "test-conn-id"
+	proxyConn.Address = apiServerAddress
 
-	defer conn.Close()
+	// Send the connection through the channel (this is what connect.Listener does)
+	go func() {
+		ch <- proxyConn
+	}()
 
-	// perform Proxy TLS handshake
-	proxyTLSConn := tls.Client(conn, tlsConfig)
-	require.NoError(t, proxyTLSConn.Handshake(), "TLS handshake failed(proxy)")
-
-	// setup CONNECT request with identity header (mock proxy's CONNECT request)
-	connectReq, err := http.NewRequest(http.MethodConnect, apiServer.URL, nil)
-	require.NoError(t, err, "Failed to create request")
-
-	connectReq.Header.Set("Proxy-Authorization", "token")
-	connectReq.Header.Set("X-Token-Signature", "signature")
-	connectReq.Header.Set("X-Connection-Id", "conn-id")
-
-	// send request
-	require.NoError(t, connectReq.Write(proxyTLSConn), "Failed to write CONNECT request")
-
-	// read response
-	connectResp, err := http.ReadResponse(bufio.NewReader(proxyTLSConn), connectReq)
-	require.NoError(t, err, "Failed to read CONNECT response")
-
-	defer connectResp.Body.Close()
-
-	// check 200 response
-	assert.Equal(t, http.StatusOK, connectResp.StatusCode)
-
-	// perform Client TLS handshake
-	tlsConn := tls.Client(proxyTLSConn, tlsConfig)
-	require.NoError(t, tlsConn.Handshake(), "TLS handshake failed(client)")
-
-	// create HTTP client that reuses the existing TLS connection (mock client)
+	// Client sends HTTP request through the pipe
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialTLS: func(_network, _addr string) (net.Conn, error) {
-				return tlsConn, nil // use existing TLS connection
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return clientConn, nil
 			},
 		},
 	}
 
-	// setup HTTPS GET request
-	getReq, err := http.NewRequest(http.MethodGet, "https://"+addr, nil)
-	require.NoError(t, err, "Failed to create request")
+	// Send GET request
+	resp, err := client.Get("http://proxy/api/v1/pods")
+	require.NoError(t, err)
 
-	// send request
-	getResp, err := client.Do(getReq)
-	require.NoError(t, err, "Failed to send request")
+	defer resp.Body.Close()
 
-	defer getResp.Body.Close()
+	// Verify response
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// check 200 response
-	assert.Equal(t, http.StatusOK, getResp.StatusCode)
-
-	// read response body
-	body, err := io.ReadAll(getResp.Body)
-	require.NoError(t, err, "Failed to read response body")
-
-	// check response
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
 	assert.Equal(t, "Upstream API Server Response!", string(body))
 }
 

@@ -64,9 +64,6 @@ func TestNewProxy_Success(t *testing.T) {
 	assert.Equal(t, registry, p.registry)
 	assert.Equal(t, logger, p.logger)
 
-	assert.NotNil(t, p.tokenParser)
-	assert.NotNil(t, p.certReloader)
-	assert.NotNil(t, p.tlsConfig)
 	assert.NotNil(t, p.httpConfig)
 	assert.NotNil(t, p.sshConfig)
 }
