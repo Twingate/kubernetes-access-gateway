@@ -21,6 +21,7 @@ linters:
     - noctx
     - nonamedreturns
     - paralleltest
+    - prealloc  # Not recommended without performance profiling
     - testpackage
     - varnamelen
     - wrapcheck
