@@ -4,73 +4,79 @@
 package connect
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+
+	"k8sgateway/internal/config"
+	"k8sgateway/internal/token"
 )
 
 type ProtocolListener struct {
-	parentListener *Listener
-	acceptChan     chan Conn
-	closed         chan struct{}
-	closeOnce      sync.Once
+	ch        <-chan Conn
+	addr      net.Addr
+	closed    chan struct{}
+	closeOnce sync.Once
 }
 
-func (s *ProtocolListener) Accept() (net.Conn, error) {
+func NewProtocolListener(ch <-chan Conn, addr net.Addr) *ProtocolListener {
+	return &ProtocolListener{
+		ch:     ch,
+		addr:   addr,
+		closed: make(chan struct{}),
+	}
+}
+
+func (l *ProtocolListener) Accept() (net.Conn, error) {
 	// Check closed first to ensure that
 	// Close() followed by Accept() will return ErrClosed
 	select {
-	case <-s.closed:
+	case <-l.closed:
 		return nil, net.ErrClosed
 	default:
 	}
 
-	// If not closed, wait for connection or close signal
 	select {
-	case conn := <-s.acceptChan:
+	case conn, ok := <-l.ch:
+		if !ok {
+			return nil, net.ErrClosed
+		}
+
 		return conn, nil
-	case <-s.closed:
+	case <-l.closed:
 		return nil, net.ErrClosed
 	}
 }
 
-func (s *ProtocolListener) Close() error {
-	s.closeOnce.Do(func() {
-		close(s.closed)
+func (l *ProtocolListener) Close() error {
+	l.closeOnce.Do(func() {
+		close(l.closed)
 	})
 
 	return nil
 }
 
-func (s *ProtocolListener) Addr() net.Addr {
-	return s.parentListener.innerListener.Addr()
+func (l *ProtocolListener) Addr() net.Addr {
+	return l.addr
 }
 
 type ConnFactory func(net.Conn, *tls.Config, Validator, *zap.Logger) Conn
 
-type ListenerService interface {
-	Serve() error
-	GetHTTPListener() *ProtocolListener
-	GetSSHListener() *ProtocolListener
-	Stop() error
-}
-
 type Listener struct {
-	innerListener net.Listener
+	channels map[TransportProtocol]chan<- Conn
 
-	TLSConfig        *tls.Config
-	ConnectValidator Validator
-	Logger           *zap.Logger
-
-	// Listener for SSH Connections
-	SSHListener *ProtocolListener
-
-	// Listener for HTTP Connections
-	HTTPListener *ProtocolListener
+	tokenParser      *token.Parser
+	certReloader     *CertReloader
+	tlsConfig        *tls.Config
+	connectValidator Validator
+	logger           *zap.Logger
 
 	// Factory method for creating ProxyConn
 	proxyConnFactory ConnFactory
@@ -79,55 +85,78 @@ type Listener struct {
 	metrics *ProxyConnMetrics
 }
 
-func NewListener(listener net.Listener, tlsConfig *tls.Config, connectValidator Validator, metrics *ProxyConnMetrics, logger *zap.Logger) *Listener {
-	pl := &Listener{
-		innerListener:    listener,
-		TLSConfig:        tlsConfig,
-		ConnectValidator: connectValidator,
-		Logger:           logger,
+func NewListener(
+	twingateConfig config.TwingateConfig,
+	tlsCfg config.TLSConfig,
+	channels map[TransportProtocol]chan<- Conn,
+	registry *prometheus.Registry,
+	logger *zap.Logger,
+) (*Listener, error) {
+	tokenParser, err := token.NewParser(token.ParserConfig{
+		Network: twingateConfig.Network,
+		Host:    twingateConfig.Host,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create token parser: %w", err)
+	}
+
+	certReloader := NewCertReloader(tlsCfg.CertificateFile, tlsCfg.PrivateKeyFile, logger)
+
+	tlsConfig := &tls.Config{
+		MinVersion:     tls.VersionTLS13,
+		MaxVersion:     tls.VersionTLS13,
+		GetCertificate: certReloader.GetCertificate,
+	}
+
+	connectValidator := &MessageValidator{
+		TokenParser: tokenParser,
+	}
+
+	metrics := CreateProxyConnMetrics(registry)
+
+	l := &Listener{
+		channels:         channels,
+		tokenParser:      tokenParser,
+		certReloader:     certReloader,
+		tlsConfig:        tlsConfig,
+		connectValidator: connectValidator,
+		logger:           logger,
 		metrics:          metrics,
 		proxyConnFactory: func(conn net.Conn, tlsConfig *tls.Config, connectValidator Validator, logger *zap.Logger) Conn {
-			return &ProxyConn{
-				Conn:             conn,
-				TLSConfig:        tlsConfig,
-				ConnectValidator: connectValidator,
-				Logger:           logger,
-				tracker:          NewProxyConnMetricsTracker(ConnCategoryUnknown, metrics),
-			}
+			return NewProxyConn(conn, tlsConfig, connectValidator, logger, metrics)
 		},
 	}
 
-	pl.SSHListener = &ProtocolListener{parentListener: pl, acceptChan: make(chan Conn), closed: make(chan struct{}, 1)}
-	pl.HTTPListener = &ProtocolListener{parentListener: pl, acceptChan: make(chan Conn), closed: make(chan struct{}, 1)}
-
-	return pl
+	return l, nil
 }
 
-func (l *Listener) GetHTTPListener() *ProtocolListener {
-	return l.HTTPListener
-}
+// Serve starts accepting connections and routing them to the appropriate channels.
+// The caller owns the listener and is responsible for closing it.
+func (l *Listener) Serve(ctx context.Context, listener net.Listener) error {
+	l.certReloader.Run(ctx)
 
-func (l *Listener) GetSSHListener() *ProtocolListener {
-	return l.SSHListener
-}
-
-func (l *Listener) Serve() error {
 	for {
-		conn, err := l.innerListener.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
-			l.Logger.Error("Failed to accept connection", zap.Error(err))
+			if errors.Is(err, net.ErrClosed) {
+				l.logger.Info("Listener closed")
+
+				return nil
+			}
+
+			l.logger.Error("Failed to accept connection", zap.Error(err))
 
 			return err
 		}
 
-		l.Logger.Debug("Accepted connection", zap.String("remote addr", conn.RemoteAddr().String()))
+		l.logger.Debug("Accepted connection", zap.String("remote addr", conn.RemoteAddr().String()))
 
 		go func() {
-			proxyConn := l.proxyConnFactory(conn, l.TLSConfig, l.ConnectValidator, l.Logger)
+			proxyConn := l.proxyConnFactory(conn, l.tlsConfig, l.connectValidator, l.logger)
 
 			if err := proxyConn.Authenticate(); err != nil {
 				if !errors.Is(err, io.EOF) {
-					l.Logger.Error("Failed to authenticate connection", zap.Error(err))
+					l.logger.Error("Failed to authenticate connection", zap.Error(err))
 				}
 
 				_ = proxyConn.Close()
@@ -135,48 +164,30 @@ func (l *Listener) Serve() error {
 				return
 			}
 
-			if proxyConn.TransportProtocol() == TransportSSH {
-				select {
-				case l.SSHListener.acceptChan <- proxyConn:
-					// Connection accepted
-				case <-l.SSHListener.closed:
-					// Listener is closed, close the connection
-					_ = proxyConn.Close()
-				}
-			} else {
+			tp := proxyConn.TransportProtocol()
+			channel, exists := l.channels[tp]
+
+			if !exists {
+				l.logger.Error("Unsupported transport protocol", zap.Int("transport", int(tp)))
+
+				_ = proxyConn.Close()
+
+				return
+			}
+
+			// For non-SSH protocols, upgrade to TLS
+			if tp != TransportSSH {
 				if err := proxyConn.UpgradeToTLS(); err != nil {
+					l.logger.Error("Failed to upgrade to TLS", zap.Error(err))
+
 					_ = proxyConn.Close()
 
 					return
 				}
-
-				select {
-				case l.HTTPListener.acceptChan <- proxyConn:
-					// Connection accepted
-				case <-l.HTTPListener.closed:
-					// Listener is closed, close the connection
-					_ = proxyConn.Close()
-				}
 			}
+
+			// Send to channel (blocking)
+			channel <- proxyConn
 		}()
 	}
-}
-
-func (l *Listener) Stop() error {
-	err := l.SSHListener.Close()
-	if err != nil {
-		l.Logger.Error("Failed to close SSH listener", zap.Error(err))
-	}
-
-	err = l.HTTPListener.Close()
-	if err != nil {
-		l.Logger.Error("Failed to close HTTPS listener", zap.Error(err))
-	}
-
-	err = l.innerListener.Close()
-	if err != nil {
-		l.Logger.Error("Failed to close listener", zap.Error(err))
-	}
-
-	return err
 }

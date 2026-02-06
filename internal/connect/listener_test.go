@@ -5,6 +5,7 @@ package connect
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"io"
 	"net"
@@ -101,12 +102,52 @@ var listenerClaims = &token.GATClaims{
 	Resource: token.Resource{ID: "resource-1", Type: token.ResourceTypeKubernetes, Address: "https://api.acme.com"},
 }
 
-func TestProxyListener_Serve_HTTPS(t *testing.T) {
-	listener, addr := createMockListener(t)
+type testListenerFixtures struct {
+	listener    *Listener
+	tcpListener net.Listener
+	httpChannel chan Conn
+	sshChannel  chan Conn
+	addr        string
+}
 
-	proxyListener := NewListener(listener, nil, nil, CreateProxyConnMetrics(prometheus.NewRegistry()), zap.L())
+func createTestListenerWithChannels(t *testing.T) *testListenerFixtures {
+	t.Helper()
 
-	proxyListener.proxyConnFactory = func(conn net.Conn, _ *tls.Config, _ Validator, _ *zap.Logger) Conn {
+	tcpListener, addr := createMockListener(t)
+
+	// Create channels for testing
+	httpChannel := make(chan Conn, 1)
+	sshChannel := make(chan Conn, 1)
+	channels := map[TransportProtocol]chan<- Conn{
+		TransportTLS: httpChannel,
+		TransportSSH: sshChannel,
+	}
+
+	registry := prometheus.NewRegistry()
+	logger := zap.NewNop()
+	certReloader := NewCertReloader("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key", logger)
+
+	// Create listener with minimal config (we'll override the factory)
+	listener := &Listener{
+		channels:     channels,
+		logger:       logger,
+		metrics:      CreateProxyConnMetrics(registry),
+		certReloader: certReloader,
+	}
+
+	return &testListenerFixtures{
+		listener:    listener,
+		tcpListener: tcpListener,
+		httpChannel: httpChannel,
+		sshChannel:  sshChannel,
+		addr:        addr,
+	}
+}
+
+func TestListener_Serve_HTTPS(t *testing.T) {
+	fixtures := createTestListenerWithChannels(t)
+
+	fixtures.listener.proxyConnFactory = func(conn net.Conn, _ *tls.Config, _ Validator, _ *zap.Logger) Conn {
 		return &mockProxyConn{
 			Conn:              conn,
 			transportProtocol: TransportTLS,
@@ -115,12 +156,12 @@ func TestProxyListener_Serve_HTTPS(t *testing.T) {
 	}
 
 	go func() {
-		_ = proxyListener.Serve()
+		_ = fixtures.listener.Serve(context.Background(), fixtures.tcpListener)
 	}()
 
 	// Open TCP connection to the mock listener
 	go func() {
-		_, err := net.Dial("tcp", addr)
+		_, err := net.Dial("tcp", fixtures.addr)
 		assert.NoError(t, err)
 	}()
 
@@ -128,36 +169,35 @@ func TestProxyListener_Serve_HTTPS(t *testing.T) {
 	waitGroup := sync.WaitGroup{}
 
 	waitGroup.Go(func() {
-		conn, err := proxyListener.SSHListener.Accept()
-		assert.Nil(t, conn)
-		assert.ErrorIs(t, err, net.ErrClosed)
+		select {
+		case conn := <-fixtures.sshChannel:
+			t.Errorf("unexpected SSH connection: %v", conn)
+		case <-time.After(100 * time.Millisecond):
+			// Expected - no SSH connection
+		}
 	})
 
-	// Accept the HTTP connection
-	conn, err := proxyListener.HTTPListener.Accept()
-	require.NoError(t, err)
-	require.False(t, conn.(*mockProxyConn).IsClosed())
-	require.Equal(t, TransportTLS, conn.(*mockProxyConn).TransportProtocol())
-	require.Equal(t, listenerClaims, conn.(*mockProxyConn).Claims)
+	// Accept the HTTP connection from channel
+	select {
+	case conn := <-fixtures.httpChannel:
+		require.False(t, conn.(*mockProxyConn).IsClosed())
+		require.Equal(t, TransportTLS, conn.TransportProtocol())
+		require.Equal(t, listenerClaims, conn.GATClaims())
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout waiting for HTTP connection")
+	}
 
 	// Close the listener
-	_ = proxyListener.Stop()
+	_ = fixtures.tcpListener.Close()
 
-	// Wait for the SSH listener to close without accepting any connections
+	// Wait for the SSH listener goroutine
 	waitGroup.Wait()
-
-	// Check that HTTP listener is closed too
-	conn, err = proxyListener.HTTPListener.Accept()
-	assert.Nil(t, conn)
-	assert.ErrorIs(t, err, net.ErrClosed)
 }
 
-func TestProxyListener_Serve_SSH(t *testing.T) {
-	listener, addr := createMockListener(t)
+func TestListener_Serve_SSH(t *testing.T) {
+	fixtures := createTestListenerWithChannels(t)
 
-	proxyListener := NewListener(listener, nil, nil, CreateProxyConnMetrics(prometheus.NewRegistry()), zap.L())
-
-	proxyListener.proxyConnFactory = func(conn net.Conn, _ *tls.Config, _ Validator, _ *zap.Logger) Conn {
+	fixtures.listener.proxyConnFactory = func(conn net.Conn, _ *tls.Config, _ Validator, _ *zap.Logger) Conn {
 		return &mockProxyConn{
 			Conn:              conn,
 			transportProtocol: TransportSSH,
@@ -166,12 +206,12 @@ func TestProxyListener_Serve_SSH(t *testing.T) {
 	}
 
 	go func() {
-		_ = proxyListener.Serve()
+		_ = fixtures.listener.Serve(context.Background(), fixtures.tcpListener)
 	}()
 
 	// Open TCP connection to the mock listener
 	go func() {
-		_, err := net.Dial("tcp", addr)
+		_, err := net.Dial("tcp", fixtures.addr)
 		assert.NoError(t, err)
 	}()
 
@@ -179,36 +219,35 @@ func TestProxyListener_Serve_SSH(t *testing.T) {
 	waitGroup := sync.WaitGroup{}
 
 	waitGroup.Go(func() {
-		conn, err := proxyListener.HTTPListener.Accept()
-		assert.Nil(t, conn)
-		assert.ErrorIs(t, err, net.ErrClosed)
+		select {
+		case conn := <-fixtures.httpChannel:
+			t.Errorf("unexpected HTTP connection: %v", conn)
+		case <-time.After(100 * time.Millisecond):
+			// Expected - no HTTP connection
+		}
 	})
 
-	// Accept the SSH connection
-	conn, err := proxyListener.SSHListener.Accept()
-	require.NoError(t, err)
-	require.False(t, conn.(*mockProxyConn).IsClosed())
-	require.Equal(t, TransportSSH, conn.(*mockProxyConn).TransportProtocol())
-	require.Equal(t, listenerClaims, conn.(*mockProxyConn).Claims)
+	// Accept the SSH connection from channel
+	select {
+	case conn := <-fixtures.sshChannel:
+		require.False(t, conn.(*mockProxyConn).IsClosed())
+		require.Equal(t, TransportSSH, conn.TransportProtocol())
+		require.Equal(t, listenerClaims, conn.GATClaims())
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout waiting for SSH connection")
+	}
 
 	// Close the listener
-	_ = proxyListener.Stop()
+	_ = fixtures.tcpListener.Close()
 
-	// Wait for the HTTP listener to close without accepting any connections
+	// Wait for the HTTP listener goroutine
 	waitGroup.Wait()
-
-	// Check that SSH listener is closed too
-	conn, err = proxyListener.SSHListener.Accept()
-	assert.Nil(t, conn)
-	assert.ErrorIs(t, err, net.ErrClosed)
 }
 
-func TestProxyListener_Serve_Healthz(t *testing.T) {
-	listener, addr := createMockListener(t)
+func TestListener_Serve_Healthz(t *testing.T) {
+	fixtures := createTestListenerWithChannels(t)
 
-	proxyListener := NewListener(listener, nil, nil, CreateProxyConnMetrics(prometheus.NewRegistry()), zap.L())
-
-	proxyListener.proxyConnFactory = func(conn net.Conn, _ *tls.Config, _ Validator, _ *zap.Logger) Conn {
+	fixtures.listener.proxyConnFactory = func(conn net.Conn, _ *tls.Config, _ Validator, _ *zap.Logger) Conn {
 		return &mockProxyConn{
 			Conn:      conn,
 			isHealthz: true,
@@ -216,14 +255,14 @@ func TestProxyListener_Serve_Healthz(t *testing.T) {
 	}
 
 	go func() {
-		_ = proxyListener.Serve()
+		_ = fixtures.listener.Serve(context.Background(), fixtures.tcpListener)
 	}()
 
 	// Open TCP connection to the mock listener
 	done := make(chan struct{})
 
 	go func() {
-		conn, err := net.Dial("tcp", addr)
+		conn, err := net.Dial("tcp", fixtures.addr)
 		assert.NoError(t, err)
 		// Read the health check response
 		buf := bufio.NewReader(conn)
@@ -237,73 +276,153 @@ func TestProxyListener_Serve_Healthz(t *testing.T) {
 		done <- struct{}{}
 	}()
 
-	// To wait for listeners to close
+	// To wait for listener checks
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(2)
-	// We should not accept any HTTP connections
+
+	// We should not receive any HTTP connections
 	go func() {
-		conn, err := proxyListener.HTTPListener.Accept()
-		assert.Nil(t, conn)
-		assert.ErrorIs(t, err, net.ErrClosed)
-		waitGroup.Done()
+		defer waitGroup.Done()
+
+		select {
+		case conn := <-fixtures.httpChannel:
+			t.Errorf("unexpected HTTP connection: %v", conn)
+		case <-time.After(100 * time.Millisecond):
+			// Expected - no HTTP connection
+		}
 	}()
 
-	// We should not accept any SSH connections
+	// We should not receive any SSH connections
 	go func() {
-		conn, err := proxyListener.SSHListener.Accept()
-		assert.Nil(t, conn)
-		assert.ErrorIs(t, err, net.ErrClosed)
-		waitGroup.Done()
+		defer waitGroup.Done()
+
+		select {
+		case conn := <-fixtures.sshChannel:
+			t.Errorf("unexpected SSH connection: %v", conn)
+		case <-time.After(100 * time.Millisecond):
+			// Expected - no SSH connection
+		}
 	}()
 
 	// Wait for health check connection to finish
 	<-done
 
 	// Close the listener
-	_ = proxyListener.Stop()
+	_ = fixtures.tcpListener.Close()
 
-	// Now wait for all listeners to close properly
+	// Now wait for all listener checks to complete
 	waitGroup.Wait()
 }
 
-func TestProtocolListener(t *testing.T) {
-	listener, addr := createMockListener(t)
+func TestListener_UnsupportedTransport(t *testing.T) {
+	tcpListener, addr := createMockListener(t)
 
-	proxyListener := NewListener(listener, nil, nil, CreateProxyConnMetrics(prometheus.NewRegistry()), zap.L())
-	proxyListener.proxyConnFactory = func(conn net.Conn, _ *tls.Config, _ Validator, _ *zap.Logger) Conn {
-		return &mockProxyConn{
-			Conn: conn,
-		}
+	// Create channels but omit one transport type
+	httpChannel := make(chan Conn, 1)
+	channels := map[TransportProtocol]chan<- Conn{
+		TransportTLS: httpChannel,
+		// SSH not included - unsupported
 	}
 
-	// Check that listeners are created properly
-	assert.Equal(t, addr, proxyListener.HTTPListener.Addr().String())
-	assert.Equal(t, addr, proxyListener.SSHListener.Addr().String())
+	registry := prometheus.NewRegistry()
+	logger := zap.NewNop()
+	certReloader := NewCertReloader("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key", logger)
+
+	listener := &Listener{
+		channels:     channels,
+		logger:       logger,
+		metrics:      CreateProxyConnMetrics(registry),
+		certReloader: certReloader,
+	}
+
+	// Use a channel to safely pass the connection from the factory
+	connCreated := make(chan *mockProxyConn, 1)
+	listener.proxyConnFactory = func(conn net.Conn, _ *tls.Config, _ Validator, _ *zap.Logger) Conn {
+		mockConn := &mockProxyConn{
+			Conn:              conn,
+			transportProtocol: TransportSSH, // This transport is not supported
+			Claims:            listenerClaims,
+		}
+		connCreated <- mockConn
+
+		return mockConn
+	}
 
 	go func() {
-		_ = proxyListener.Serve()
+		_ = listener.Serve(context.Background(), tcpListener)
 	}()
 
-	// Close HTTP listener, check that it is closed
-	_ = proxyListener.HTTPListener.Close()
-	conn, err := proxyListener.HTTPListener.Accept()
+	// Open TCP connection
+	go func() {
+		_, err := net.Dial("tcp", addr)
+		assert.NoError(t, err)
+	}()
+
+	// Wait for connection to be created
+	closedConn := <-connCreated
+
+	// Connection should be closed (unsupported transport)
+	require.Eventually(t, closedConn.IsClosed, time.Second, 10*time.Millisecond)
+
+	// Channel should be empty (connection was not routed)
+	require.Empty(t, httpChannel)
+
+	// Close the listener
+	_ = tcpListener.Close()
+}
+
+func TestProtocolListener(t *testing.T) {
+	_, addr := createMockListener(t)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	require.NoError(t, err)
+
+	// Create a ProtocolListener
+	ch := make(chan Conn, 1)
+	protocolListener := NewProtocolListener(ch, tcpAddr)
+
+	// Check that Addr() returns the correct address
+	assert.Equal(t, addr, protocolListener.Addr().String())
+
+	// Send a mock connection
+	mockConn := &mockProxyConn{
+		transportProtocol: TransportTLS,
+		Claims:            listenerClaims,
+	}
+	ch <- mockConn
+
+	// Accept should return the connection
+	conn, err := protocolListener.Accept()
+	require.NoError(t, err)
+	require.Equal(t, mockConn, conn)
+
+	// Close the listener
+	err = protocolListener.Close()
+	require.NoError(t, err)
+
+	// Accept should return error after close
+	conn, err = protocolListener.Accept()
 	assert.Nil(t, conn)
 	require.ErrorIs(t, err, net.ErrClosed)
 
-	// Close SSH listener, check that it is closed
-	_ = proxyListener.SSHListener.Close()
-	conn, err = proxyListener.SSHListener.Accept()
-	assert.Nil(t, conn)
-	require.ErrorIs(t, err, net.ErrClosed)
+	// Close again should not panic
+	err = protocolListener.Close()
+	require.NoError(t, err)
+}
 
-	// Close a listener again, should not panic
-	_ = proxyListener.HTTPListener.Close()
+func TestProtocolListener_ClosedChannel(t *testing.T) {
+	_, addr := createMockListener(t)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	require.NoError(t, err)
 
-	// Close the proxy listener now
-	_ = proxyListener.Stop()
+	// Create a ProtocolListener
+	ch := make(chan Conn)
+	protocolListener := NewProtocolListener(ch, tcpAddr)
 
-	// Check the inner listener is closed
-	conn, err = listener.Accept()
+	// Close the channel
+	close(ch)
+
+	// Accept should return error when channel is closed
+	conn, err := protocolListener.Accept()
 	assert.Nil(t, conn)
 	require.ErrorIs(t, err, net.ErrClosed)
 }
