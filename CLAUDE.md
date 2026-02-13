@@ -401,6 +401,42 @@ Key rules:
 - Copyright header enforcement (MPL-2.0)
 - Import ordering via gci formatter
 
+### Before Committing
+
+**IMPORTANT**: Always run appropriate linting and tests before committing changes.
+
+**After changing Go code** (`.go` files):
+
+```bash
+make lint    # Fix linting issues
+make test    # Run unit tests
+```
+
+**After changing Dockerfiles**:
+
+```bash
+make lint-dockerfile    # Lint Dockerfile
+```
+
+**After changing Markdown files** (`*.md`):
+
+```bash
+make lint-markdown    # Lint markdown files
+```
+
+**After changing Helm charts** (`deploy/gateway/`):
+
+```bash
+make test-helm    # Run Helm unit tests
+```
+
+**Best Practice**: Run the full CI suite locally before pushing:
+
+```bash
+make lint && make lint-dockerfile && make lint-markdown && \
+make test && make test-integration && make test-helm
+```
+
 ### Release Process
 
 **Development Pre-Release** (from `master` branch)
@@ -1184,7 +1220,9 @@ curl http://localhost:9090/metrics | grep gateway_http_request_duration_seconds
 | **Test (E2E)** | `make test-e2e` |
 | **Test (Helm)** | `make test-helm` |
 | **Coverage** | `make test-with-coverage` |
-| **Lint** | `make lint` |
+| **Lint Go** | `make lint` |
+| **Lint Dockerfile** | `make lint-dockerfile` |
+| **Lint Markdown** | `make lint-markdown` |
 | **Version** | `make version` |
 | **Cut Dev Release** | `make cut-release-dev` |
 | **Cut Prod Release** | `make cut-release-prod` |
@@ -1204,7 +1242,11 @@ curl http://localhost:9090/metrics | grep gateway_http_request_duration_seconds
 1. **Always use absolute paths** when referencing files in this project
 2. **Security is paramount**: Never bypass authentication, token validation, or certificate verification
 3. **Follow existing patterns**: Use table-driven tests, sentinel errors, struct validation
-4. **Lint before committing**: Run `make lint` to catch issues early
+4. **Run appropriate checks before committing**: See "Before Committing" section above
+   - Go code changes: `make lint && make test`
+   - Dockerfile changes: `make lint-dockerfile`
+   - Markdown changes: `make lint-markdown`
+   - Helm chart changes: `make test-helm`
 5. **Update tests**: Add/update tests for any code changes
 6. **Document config changes**: Update Helm values and this guide for new config options
 7. **Check backwards compatibility**: Avoid breaking changes to config schema or public APIs
