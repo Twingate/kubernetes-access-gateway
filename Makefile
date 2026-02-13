@@ -53,7 +53,13 @@ lint-dockerfile: ##@lint Lint Dockerfile
 .PHONY: lint-markdown
 lint-markdown: ##@lint Lint Markdown files
 	@echo "Linting Markdown files..."
-	docker run --rm -v "$$(pwd):/work" -w /work davidanson/markdownlint-cli2:latest CLAUDE.md README.md
+	@if npx --version >/dev/null 2>&1; then \
+		echo "Using npx markdownlint-cli2..."; \
+		npx --yes markdownlint-cli2 CLAUDE.md README.md; \
+	else \
+		echo "npx not available, using Docker..."; \
+		docker run --rm -v "$$(pwd):/work" -w /work davidanson/markdownlint-cli2:latest CLAUDE.md README.md; \
+	fi
 
 .PHONY: test-helm
 test-helm: ##@test Run helm-unittest
