@@ -14,6 +14,7 @@
       "Bash(make build:*)",
       "Bash(make test:*)",
       "Bash(make lint)",
+      "Bash(make lint-markdown)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",

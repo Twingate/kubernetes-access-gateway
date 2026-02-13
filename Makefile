@@ -50,6 +50,11 @@ lint-dockerfile: ##@lint Lint Dockerfile
 	docker run --rm -i hadolint/hadolint < Dockerfile.goreleaser
 	docker run --rm -i hadolint/hadolint < Dockerfile.goreleaser-debug
 
+.PHONY: lint-markdown
+lint-markdown: ##@lint Lint Markdown files
+	@echo "Linting Markdown files..."
+	docker run --rm -v "$$(pwd):/work" -w /work davidanson/markdownlint-cli2:latest CLAUDE.md README.md
+
 .PHONY: test-helm
 test-helm: ##@test Run helm-unittest
 	@echo "Running Helm unit tests..."
