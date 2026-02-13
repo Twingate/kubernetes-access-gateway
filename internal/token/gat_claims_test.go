@@ -148,7 +148,7 @@ func TestPublicKey_MarshalJSON(t *testing.T) {
 
 		_, err := pubKey.MarshalJSON()
 
-		require.ErrorContains(t, err, "x509: invalid elliptic curve public key")
+		require.ErrorContains(t, err, "P256 point not on curve")
 	})
 }
 
