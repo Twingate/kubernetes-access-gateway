@@ -60,7 +60,7 @@ jobs:
         with:
           node-version: '20'
       - name: Lint Markdown files
-        run: npx --yes markdownlint-cli2 CLAUDE.md README.md
+        run: make lint-markdown
 
   test-helm:
     runs-on: ubuntu-latest
