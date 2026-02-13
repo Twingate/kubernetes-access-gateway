@@ -4,12 +4,14 @@
 
 **Project Name**: Twingate Kubernetes Access Gateway
 **License**: MPL-2.0
-**Repository**: https://github.com/Twingate/kubernetes-access-gateway
+**Repository**: <https://github.com/Twingate/kubernetes-access-gateway>
 
 ### Purpose
+
 Zero-trust access gateway that bridges Twingate's secure access platform with Kubernetes clusters. Enables secure, authenticated access to Kubernetes API servers and SSH-enabled resources through Twingate's security policies without exposing cluster credentials.
 
 ### Key Capabilities
+
 - **HTTP/Kubernetes API Proxy**: Secure tunnel to Kubernetes API servers with user impersonation
 - **SSH Proxy**: Certificate-based SSH access to resources via gateway
 - **JWT Authentication**: Twingate Access Token (GAT) with Proof-of-Possession validation
@@ -18,6 +20,7 @@ Zero-trust access gateway that bridges Twingate's secure access platform with Ku
 - **Metrics & Monitoring**: Prometheus metrics, Grafana dashboards
 
 ### Technology Stack
+
 - **Language**: Go 1.26.0
 - **Core Dependencies**:
   - `k8s.io/client-go` (v0.35.x) - Kubernetes client
@@ -34,7 +37,8 @@ Zero-trust access gateway that bridges Twingate's secure access platform with Ku
 ## 2. Architecture Overview
 
 ### Startup Flow
-```
+
+```text
 main.go
   └─> cmd/root.go (Cobra CLI setup)
        └─> cmd/start.go (start command)
@@ -53,7 +57,9 @@ main.go
 ### Core Components
 
 #### Proxy Orchestrator (`internal/proxy/proxy.go`)
+
 Central coordinator that:
+
 - Initializes TLS configuration with cert auto-reloading
 - Creates JWT token parser for Twingate network
 - Launches protocol-specific handlers (HTTP/SSH) as goroutines
@@ -61,6 +67,7 @@ Central coordinator that:
 - Starts Prometheus metrics server on separate port
 
 #### Connection Handler (`internal/connect/`)
+
 - **`listener.go`**: Protocol multiplexer - accepts TLS connections and routes to HTTP or SSH based on initial handshake
 - **`connect.go`**: Validates CONNECT requests with JWT + Proof-of-Possession (EKM signature)
 - **`cert_reloader.go`**: Hot-reloads TLS certificates without restart
@@ -68,17 +75,20 @@ Central coordinator that:
 - **`metrics.go`**: Tracks connection lifecycle metrics
 
 #### HTTP Handler (`internal/httphandler/`)
+
 - **`http_proxy.go`**: Reverse proxy to Kubernetes API servers
 - **`config.go`**: Per-upstream K8s client configuration
 - **`audit_middleware.go`**: HTTP request/response logging to session recorder
 - **`wshijacker/`**: WebSocket upgrade handling for kubectl exec/logs
 
 Supports multiple upstreams with:
+
 - In-cluster mode (uses pod service account)
 - External cluster mode (custom bearer token + CA)
 - User impersonation (maps Twingate user to K8s identity)
 
 #### SSH Handler (`internal/sshhandler/`)
+
 - **`proxy.go`**: SSH server that accepts client connections
 - **`ca.go`**: Certificate authority management (auto-generated, manual, or Vault)
 - **`cert.go`**: SSH certificate generation (host + user certs)
@@ -87,6 +97,7 @@ Supports multiple upstreams with:
 - **`request_handler.go`**: SSH protocol request handling
 
 Architecture:
+
 1. Client connects to gateway SSH server
 2. Gateway validates client certificate from CA
 3. Gateway generates user certificate for upstream
@@ -94,24 +105,29 @@ Architecture:
 5. Channels are bidirectionally forwarded
 
 #### Token Parser (`internal/token/`)
+
 - **`parser.go`**: Fetches JWKS from Twingate and validates JWTs
 - **`gat_claims.go`**: Twingate Access Token claims structure
 - **`bearer_token_parser.go`**: Extracts bearer token from Proxy-Authorization header
 
 Claims include:
+
 - User identity (email, ID, name)
 - Resource info (address, name, protocols)
 - Client public key (for Proof-of-Possession)
 - Twingate network metadata
 
 #### Session Recorder (`internal/sessionrecorder/`)
+
 Records audit logs with configurable flush intervals and size thresholds. Logs are structured (JSON) and include:
+
 - User identity
 - Timestamp
 - Request/response details
 - Connection metadata
 
 #### Metrics (`internal/metrics/`)
+
 - **`metrics.go`**: Prometheus HTTP server
 - **`http_middleware.go`**: HTTP request metrics
 - **`round_tripper.go`**: K8s client metrics
@@ -120,12 +136,14 @@ Records audit logs with configurable flush intervals and size thresholds. Logs a
 ### Security Model
 
 #### Zero-Trust Architecture
+
 - No long-lived credentials stored in gateway
 - All access validated per-connection via Twingate tokens
 - TLS 1.3 mutual authentication
 - Certificate rotation without downtime
 
 #### Token Validation Flow
+
 1. Client sends CONNECT request with:
    - `Proxy-Authorization: Bearer <JWT>`
    - `X-Token-Signature: <base64(ECDSA_signature(TLS_EKM))>`
@@ -137,12 +155,14 @@ Records audit logs with configurable flush intervals and size thresholds. Logs a
 6. Connection is allowed and user identity is extracted
 
 #### Kubernetes Security
+
 - Gateway impersonates users via K8s impersonation headers
 - No K8s service account tokens exposed to clients
 - RBAC enforced at Kubernetes API server level
 - Audit logs capture all API requests with user context
 
 #### SSH Security
+
 - Certificate-based authentication (no passwords)
 - CA options: auto-generated, manual private key, or HashiCorp Vault
 - Host certificates prove gateway identity to clients
@@ -151,7 +171,7 @@ Records audit logs with configurable flush intervals and size thresholds. Logs a
 
 ## 3. Directory Structure
 
-```
+```text
 /Users/ekampf/workspace/twingate/kubernetes-access-gateway/
 ├── cmd/                          # CLI commands (Cobra)
 │   ├── root.go                   # Root command setup
@@ -231,6 +251,7 @@ Records audit logs with configurable flush intervals and size thresholds. Logs a
 All paths are absolute for precision.
 
 ### Core Flow
+
 - **`/Users/ekampf/workspace/twingate/kubernetes-access-gateway/main.go`**
   Entry point, invokes Cobra CLI
 
@@ -241,11 +262,13 @@ All paths are absolute for precision.
   Central orchestrator, lifecycle management, goroutine coordination
 
 ### Configuration
+
 - **`/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/config/config.go`**
   Configuration structs, validation logic, defaults, YAML parsing
   Key concepts: TwingateConfig, KubernetesUpstream, SSHConfig, SSHCAConfig
 
 ### Security & Authentication
+
 - **`/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/connect/connect.go`**
   CONNECT message validation, JWT parsing, Proof-of-Possession verification
   Validates: HTTP method, bearer token, signature, destination address
@@ -257,6 +280,7 @@ All paths are absolute for precision.
   Twingate Access Token claims structure (user, resource, client key)
 
 ### Protocol Handlers
+
 - **`/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/httphandler/http_proxy.go`**
   Kubernetes API reverse proxy, impersonation headers, upstream selection
   Key function: `Start()`, `ServeHTTP()`, impersonation header injection
@@ -266,6 +290,7 @@ All paths are absolute for precision.
   Key function: `Start()`, `handleConnection()`, certificate validation
 
 ### Connection Handling
+
 - **`/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/connect/listener.go`**
   Protocol multiplexing, routes connections to HTTP or SSH handlers
   Uses initial byte peek to differentiate protocols
@@ -274,6 +299,7 @@ All paths are absolute for precision.
   Hot-reloads TLS certificates via file watcher
 
 ### Deployment
+
 - **`/Users/ekampf/workspace/twingate/kubernetes-access-gateway/deploy/gateway/values.yaml`**
   Helm chart default values, configuration options
 
@@ -286,6 +312,7 @@ All paths are absolute for precision.
 ## 5. Development Workflows
 
 ### Environment Setup
+
 ```bash
 # Install Go 1.26.0 (via asdf)
 asdf install golang 1.26.0
@@ -304,6 +331,7 @@ go install sigs.k8s.io/kind@latest
 All versions are tracked in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/.tool-versions`.
 
 ### Build Commands
+
 ```bash
 # Build locally (all platforms via goreleaser)
 make build
@@ -318,6 +346,7 @@ go build -o dist/gateway .
 ### Testing Strategy
 
 **Unit Tests** (`./cmd/...`, `./internal/...`)
+
 ```bash
 make test                    # Run all unit tests
 make test-with-coverage      # With coverage report
@@ -325,32 +354,39 @@ go test -v ./internal/proxy  # Single package
 ```
 
 **Integration Tests** (`./test/integration/...`)
+
 - Requires kind cluster
 - Tests full protocol flows (K8s API, SSH)
 - Validates authentication, impersonation, session recording
+
 ```bash
 make test-integration
 make test-integration-with-coverage
 ```
 
 **E2E Tests** (`./test/e2e/...`)
+
 - Full deployment scenario
+
 ```bash
 make test-e2e
 ```
 
 **Helm Tests** (`deploy/gateway/tests/...`)
+
 ```bash
 make test-helm                          # Run snapshot tests
 make test-helm-and-update-snapshots     # Update test snapshots
 ```
 
 **Coverage Reporting**
+
 ```bash
 make test-with-coverage test-integration-with-coverage coverall
 ```
 
 ### Linting
+
 Configuration: `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/.golangci.yml`
 
 ```bash
@@ -359,6 +395,7 @@ golangci-lint run       # Check only
 ```
 
 Key rules:
+
 - All linters enabled by default
 - Revive with all rules (some disabled: cognitive-complexity, function-length)
 - Copyright header enforcement (MPL-2.0)
@@ -367,6 +404,7 @@ Key rules:
 ### Release Process
 
 **Development Pre-Release** (from `master` branch)
+
 ```bash
 make cut-release-dev
 # Creates tag: v1.2.3-dev-abc1234
@@ -374,6 +412,7 @@ make cut-release-dev
 ```
 
 **Production Release** (from `master` branch)
+
 ```bash
 make cut-release-prod
 # Creates tag: v1.2.4
@@ -383,9 +422,11 @@ make cut-release-prod
 Version calculation uses `svu` (semantic version util) based on conventional commits.
 
 ### CI/CD Pipeline
+
 Workflow: `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/.github/workflows/ci.yaml`
 
 On every push:
+
 1. Go linting (golangci-lint)
 2. Unit tests with coverage
 3. Integration tests with kind cluster
@@ -393,6 +434,7 @@ On every push:
 5. Coverage upload to Coveralls
 
 On tag push:
+
 1. All CI steps
 2. goreleaser multi-arch Docker build (linux/amd64, linux/arm64)
 3. Push to Docker Hub (twingate/kubernetes-gateway)
@@ -401,28 +443,35 @@ On tag push:
 ## 6. Code Patterns & Conventions
 
 ### Code Organization
+
 - **Internal packages**: All application code in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/` (not importable externally)
 - **Package naming**: Lowercase, singular nouns (e.g., `proxy`, `config`, not `proxies`, `configs`)
 - **Interfaces**: Defined in consumer packages, not provider packages
 - **Dependency injection**: Pass dependencies via constructors (`NewXxx()` functions)
 
 ### Error Handling
+
 - **Sentinel errors**: Use package-level variables for expected errors
+
   ```go
   var ErrRequired = errors.New("required field is missing")
   ```
+
 - **Error wrapping**: Use `fmt.Errorf("context: %w", err)` for stack context
 - **Error types**: Custom types (e.g., `HTTPError`) for protocol-specific errors
 - **No panic**: Avoid panic in production code; return errors
 
 ### Configuration
+
 - **YAML config**: Load via `config.Load(path)` in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/config/config.go`
 - **Validation**: `Validate()` methods on all config structs
 - **Defaults**: Set in `newDefaultConfig()`, not in struct tags
 - **Sentinel values**: Use pointers for optional fields (e.g., `*KubernetesConfig`)
 
 ### Testing
+
 - **Table-driven tests**: Use slice of test cases
+
   ```go
   tests := []struct {
       name    string
@@ -431,14 +480,17 @@ On tag push:
       wantErr error
   }{ /* cases */ }
   ```
+
 - **Testify**: Use `require` for assertions (fails fast)
 - **Mocks**: Generate via mockery, store in same package as interface
 - **Test helpers**: In `test/integration/testutil/` for integration tests
 
 ### Linting Configuration
+
 File: `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/.golangci.yml`
 
 Custom settings:
+
 - Timeout: 2 minutes
 - Disabled linters: cyclop, dupl, exhaustruct, funlen, varnamelen, wrapcheck
 - Revive: All rules enabled except cognitive-complexity, function-length, flag-parameter
@@ -446,8 +498,10 @@ Custom settings:
 - YAML tags: goCamel case
 
 ### Commit Messages
+
 Follow conventional commits:
-```
+
+```text
 feat: add SSH certificate rotation
 fix: resolve token validation race condition
 chore: upgrade golangci-lint to v2.9
@@ -460,15 +514,17 @@ Types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `perf`, `ci`
 ## 7. Security Model Deep Dive
 
 ### Zero-Trust Principles
+
 1. **No Trust in Network Location**: Even within K8s cluster, all connections authenticated
 2. **Verify Explicitly**: Every connection requires valid JWT + signature
 3. **Least Privilege**: Users get K8s permissions via RBAC, not gateway permissions
 4. **Assume Breach**: Session recording enables post-incident analysis
 
 ### Token Validation Flow (Detailed)
+
 Located in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/connect/connect.go`
 
-```
+```text
 Client                          Gateway                         Twingate API
   |                                |                                    |
   |-- TLS Handshake ------------->|                                    |
@@ -488,14 +544,17 @@ Client                          Gateway                         Twingate API
 ```
 
 **Proof-of-Possession (PoP)**:
+
 - TLS Exported Key Material (EKM) is unique per TLS session
 - Client signs EKM with private key corresponding to public key in JWT
 - Prevents token theft: stolen JWT is useless without private key
 
 ### Kubernetes Security (Detailed)
+
 Located in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/httphandler/http_proxy.go`
 
 **Impersonation Headers**:
+
 ```go
 // Gateway adds these headers before forwarding to K8s API
 req.Header.Set("Impersonate-User", claims.User.Email)
@@ -504,12 +563,14 @@ req.Header.Set("Impersonate-Group", "twingate:authenticated")
 ```
 
 **Benefits**:
+
 - K8s RBAC sees actual user identity, not gateway service account
 - Audit logs show real user, not "system:serviceaccount:gateway"
 - No need to distribute kubeconfig files to users
 - Gateway service account only needs impersonation permission
 
 **Configuration Example**:
+
 ```yaml
 # /Users/ekampf/workspace/twingate/kubernetes-access-gateway/deploy/gateway/values.yaml
 kubernetes:
@@ -524,9 +585,11 @@ kubernetes:
 ```
 
 ### SSH Security (Detailed)
+
 Located in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/sshhandler/`
 
 **Certificate Architecture**:
+
 1. **Gateway Host Certificate** (`ca.go:L100-L150`)
    - Signed by CA, presented to SSH clients
    - Proves gateway identity
@@ -541,6 +604,7 @@ Located in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/
    - Gateway verifies upstream server certificates against CA
 
 **CA Options**:
+
 - **Auto-generated**: Ephemeral CA created on startup (for testing)
 - **Manual**: Load private key from file (for persistent CA)
 - **Vault**: Integrate with HashiCorp Vault SSH secret engine
@@ -549,6 +613,7 @@ Located in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/
   - Centralized CA management
 
 **Vault Advanced Configuration**:
+
 ```yaml
 # /Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/config/config.go
 ssh:
@@ -574,6 +639,7 @@ ssh:
 ### Adding New Configuration Options
 
 **Step 1**: Define config struct in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/config/config.go`
+
 ```go
 type MyFeatureConfig struct {
     Enabled bool   `yaml:"enabled"`
@@ -582,6 +648,7 @@ type MyFeatureConfig struct {
 ```
 
 **Step 2**: Add field to parent config
+
 ```go
 type Config struct {
     // ... existing fields
@@ -590,6 +657,7 @@ type Config struct {
 ```
 
 **Step 3**: Add validation
+
 ```go
 func (c *Config) Validate() error {
     // ... existing validation
@@ -616,6 +684,7 @@ func (m *MyFeatureConfig) Validate() error {
 ### Adding New Metrics
 
 **Step 1**: Define metric in package that uses it (e.g., `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/mypackage/metrics.go`)
+
 ```go
 var (
     myCounter = prometheus.NewCounterVec(
@@ -637,6 +706,7 @@ func RegisterMetrics(registry *prometheus.Registry) {
 **Step 2**: Call `RegisterMetrics()` from `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/proxy/proxy.go`
 
 **Step 3**: Instrument code
+
 ```go
 myCounter.WithLabelValues("success").Inc()
 ```
@@ -648,6 +718,7 @@ myCounter.WithLabelValues("success").Inc()
 ### Adding New HTTP Handlers
 
 **Step 1**: Create handler in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/httphandler/`
+
 ```go
 func MyHandler(upstream *kubernetes.Clientset) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
@@ -657,11 +728,13 @@ func MyHandler(upstream *kubernetes.Clientset) http.HandlerFunc {
 ```
 
 **Step 2**: Register in `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/httphandler/http_proxy.go`
+
 ```go
 mux.HandleFunc("/my/path", MyHandler(upstream))
 ```
 
 **Step 3**: Add middleware if needed (audit, metrics)
+
 ```go
 handler = auditMiddleware(handler)
 handler = metricsMiddleware(handler)
@@ -672,6 +745,7 @@ handler = metricsMiddleware(handler)
 ### Debugging Connection Issues
 
 **Enable Debug Logging**:
+
 ```bash
 # Set log level to debug
 export LOG_LEVEL=debug
@@ -679,24 +753,28 @@ export LOG_LEVEL=debug
 ```
 
 **Check TLS Handshake**:
+
 ```bash
 # Test TLS connection
 openssl s_client -connect localhost:8443 -showcerts
 ```
 
 **Validate JWT Token**:
+
 ```bash
 # Decode JWT (without verification)
 echo "<token>" | cut -d. -f2 | base64 -d | jq .
 ```
 
 **Check Metrics**:
+
 ```bash
 # Query Prometheus endpoint
 curl http://localhost:9090/metrics | grep gateway_
 ```
 
 **Common Issues**:
+
 1. **401 Unauthorized**: JWT signature validation failed
    - Check token expiration
    - Verify JWKS endpoint is reachable
@@ -714,16 +792,19 @@ curl http://localhost:9090/metrics | grep gateway_
 ### Working with Tests
 
 **Run Specific Test**:
+
 ```bash
 go test -v ./internal/proxy -run TestProxyStart
 ```
 
 **Run with Race Detector**:
+
 ```bash
 go test -race ./...
 ```
 
 **Update Integration Test Expectations**:
+
 ```bash
 # Integration tests use golden files in test/integration/testdata/
 # Update after intentional changes:
@@ -731,6 +812,7 @@ go test ./test/integration -update
 ```
 
 **Debug Test with Delve**:
+
 ```bash
 dlv test ./internal/proxy -- -test.run TestProxyStart
 ```
@@ -738,6 +820,7 @@ dlv test ./internal/proxy -- -test.run TestProxyStart
 ## 9. Key Dependencies
 
 ### Core Dependencies
+
 - **`k8s.io/client-go@v0.35.1`**: Kubernetes API client
   - Used in: `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/httphandler/config.go`
   - Purpose: Create K8s clientsets, REST configs, impersonation
@@ -761,11 +844,13 @@ dlv test ./internal/proxy -- -test.run TestProxyStart
   - Used throughout for logging
 
 ### HashiCorp Vault Integration (Optional)
+
 - **`github.com/hashicorp/vault/api`**: Vault client
   - Used in: `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/internal/sshhandler/ca.go`
   - Purpose: Sign SSH certificates via Vault SSH secret engine
 
 ### Development Tools
+
 - **`github.com/stretchr/testify`**: Testing assertions and mocks
 - **`sigs.k8s.io/kind`**: Local Kubernetes clusters for testing
 - **`github.com/caarlos0/svu`**: Semantic version calculation
@@ -773,9 +858,11 @@ dlv test ./internal/proxy -- -test.run TestProxyStart
 ## 10. Deployment
 
 ### Helm Chart Overview
+
 Location: `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/deploy/gateway/`
 
 **Key Resources**:
+
 - Deployment: Gateway pods with configurable replicas
 - Service: ClusterIP/LoadBalancer for client connections
 - ServiceAccount: For K8s API access
@@ -784,6 +871,7 @@ Location: `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/deploy/gat
 - ConfigMap: Gateway configuration YAML
 
 **High Availability**:
+
 ```yaml
 # /Users/ekampf/workspace/twingate/kubernetes-access-gateway/deploy/gateway/values.yaml
 replicaCount: 3
@@ -801,6 +889,7 @@ affinity:
 ```
 
 **Resource Requests/Limits**:
+
 ```yaml
 resources:
   requests:
@@ -814,16 +903,19 @@ resources:
 ### Configuration Management
 
 **Secrets**:
+
 - TLS certificate and private key (auto-generated or provided)
 - SSH CA private key (if manual mode)
 - Vault token (if Vault CA mode)
 - Upstream K8s bearer tokens (if external clusters)
 
 **ConfigMaps**:
+
 - Gateway configuration YAML
 - Upstream CA certificates
 
 **Example ConfigMap**:
+
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -859,6 +951,7 @@ data:
 ### Monitoring
 
 **Prometheus Metrics**:
+
 - Endpoint: `:9090/metrics`
 - Namespace: `gateway_`
 - Key metrics:
@@ -868,10 +961,12 @@ data:
   - `gateway_session_recordings_total`: Session recording counts by status
 
 **Grafana Dashboard**:
+
 - Available in GitHub wiki or `docs/` directory
 - Panels: connection rate, request latency, error rate, active connections
 
 **Alerts** (Example Prometheus rules):
+
 ```yaml
 groups:
   - name: gateway
@@ -892,6 +987,7 @@ groups:
 **Symptoms**: Client cannot connect to gateway
 
 **Diagnosis**:
+
 ```bash
 # Check if gateway is listening
 netstat -tlnp | grep 8443
@@ -904,6 +1000,7 @@ kubectl get endpoints gateway
 ```
 
 **Solutions**:
+
 - Verify gateway pod is running and ready
 - Check service configuration (port, selector)
 - Verify network policies allow ingress
@@ -914,6 +1011,7 @@ kubectl get endpoints gateway
 **Symptoms**: 401 Unauthorized or 407 Proxy Authentication Required
 
 **Diagnosis**:
+
 ```bash
 # Check gateway logs for token validation errors
 kubectl logs deployment/gateway | grep "failed to parse token"
@@ -926,12 +1024,14 @@ echo "<token>" | cut -d. -f2 | base64 -d | jq .
 ```
 
 **Common Causes**:
+
 - Token expired (check `exp` claim)
 - Wrong Twingate network in config
 - JWKS endpoint unreachable (network policy, firewall)
 - Invalid Proof-of-Possession signature (TLS version mismatch)
 
 **Solutions**:
+
 - Request new token from Twingate client
 - Verify `twingate.network` in config matches token issuer
 - Allow egress to `*.twingate.com` on port 443
@@ -942,6 +1042,7 @@ echo "<token>" | cut -d. -f2 | base64 -d | jq .
 **Symptoms**: 403 Forbidden when accessing K8s resources
 
 **Diagnosis**:
+
 ```bash
 # Check gateway service account permissions
 kubectl auth can-i impersonate user/<email> --as=system:serviceaccount:<namespace>:gateway
@@ -954,12 +1055,15 @@ kubectl logs deployment/gateway | grep impersonate
 ```
 
 **Common Causes**:
+
 - Gateway service account lacks impersonation permission
 - User has no RBAC bindings in K8s cluster
 - Incorrect impersonation group/extra headers
 
 **Solutions**:
+
 - Grant impersonation permission:
+
   ```yaml
   apiVersion: rbac.authorization.k8s.io/v1
   kind: ClusterRole
@@ -970,7 +1074,9 @@ kubectl logs deployment/gateway | grep impersonate
       resources: ["users", "groups"]
       verbs: ["impersonate"]
   ```
+
 - Create RBAC bindings for Twingate users:
+
   ```yaml
   apiVersion: rbac.authorization.k8s.io/v1
   kind: RoleBinding
@@ -989,6 +1095,7 @@ kubectl logs deployment/gateway | grep impersonate
 **Symptoms**: SSH connection fails or hangs
 
 **Diagnosis**:
+
 ```bash
 # Enable verbose SSH client output
 ssh -vvv -o ProxyCommand='...' user@upstream
@@ -1001,12 +1108,14 @@ kubectl exec -it deployment/gateway -- nc -zv upstream.example.com 22
 ```
 
 **Common Causes**:
+
 - Certificate validation failure (client or upstream)
 - Upstream unreachable from gateway pod
 - SSH CA configuration mismatch
 - Certificate expired (TTL too short)
 
 **Solutions**:
+
 - Verify CA configuration matches client and upstream expectations
 - Check network connectivity to upstream
 - Increase certificate TTL if rotation is too frequent
@@ -1017,6 +1126,7 @@ kubectl exec -it deployment/gateway -- nc -zv upstream.example.com 22
 **Symptoms**: Slow response times, high latency
 
 **Diagnosis**:
+
 ```bash
 # Check resource usage
 kubectl top pod -l app=gateway
@@ -1029,12 +1139,14 @@ curl http://localhost:9090/metrics | grep gateway_http_request_duration_seconds
 ```
 
 **Common Causes**:
+
 - Insufficient CPU/memory resources
 - Too few gateway replicas
 - Slow upstream responses
 - Session recording overhead
 
 **Solutions**:
+
 - Increase resource requests/limits
 - Scale gateway replicas horizontally
 - Optimize upstream cluster (if K8s API is slow)
