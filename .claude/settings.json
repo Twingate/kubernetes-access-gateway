@@ -43,9 +43,10 @@
       "Edit(.env*)"
     ]
   },
-
   "enabledPlugins": {
     "github@claude-plugins-official": true,
     "linear@claude-plugins-official": true
-  }
+  },
+  "respectGitignore": true,
+  "showTurnDuration": true
 }
