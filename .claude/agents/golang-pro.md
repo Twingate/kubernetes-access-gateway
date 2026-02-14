@@ -245,7 +245,7 @@ Database patterns:
 - Query optimization
 
 Observability setup:
-- Structured logging with slog
+- Structured logging with zap
 - Metrics with Prometheus
 - Distributed tracing
 - Error tracking integration
