@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/vault/api/auth/approle"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
 	vault "github.com/hashicorp/vault/api"
-	approleauth "github.com/hashicorp/vault/api/auth/approle"
 
 	gatewayconfig "k8sgateway/internal/config"
 )
@@ -107,6 +107,41 @@ func newManualCA(privateKeyFile string, logger *zap.Logger) (*caConfig, error) {
 	}, nil
 }
 
+// tokenAuthMethod implements vault.AuthMethod for static token authentication.
+// Static tokens are set directly without a Vault API call and don't support renewal.
+type tokenAuthMethod struct {
+	token string
+}
+
+func (a *tokenAuthMethod) Login(_ context.Context, _ *vault.Client) (*vault.Secret, error) {
+	return &vault.Secret{
+		Auth: &vault.SecretAuth{
+			ClientToken: a.token,
+			Renewable:   false,
+		},
+	}, nil
+}
+
+//nolint:ireturn
+func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.AuthMethod, error) {
+	if authConfig.Token != "" {
+		return &tokenAuthMethod{token: authConfig.Token}, nil
+	}
+
+	if authConfig.AppRole != nil {
+		secretID := &approle.SecretID{FromFile: authConfig.AppRole.SecretIDFile}
+
+		return approle.NewAppRoleAuth(
+			authConfig.AppRole.RoleID,
+			secretID,
+			approle.WithMountPath(authConfig.AppRole.GetMount()),
+		)
+	}
+
+	// No auth method configured — Vault SDK falls back to VAULT_TOKEN environment variable
+	return nil, nil //nolint:nilnil
+}
+
 // newVaultCA creates Vault-backed CAs.
 // Vault config allows setting different CAs for Gateway host and user certificates, and upstream host authentication.
 func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) {
@@ -128,8 +163,15 @@ func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) 
 
 	client.SetNamespace(vaultConfig.Namespace)
 
-	if err := authenticateVaultClient(client, vaultConfig); err != nil {
-		return nil, fmt.Errorf("failed to authenticate to Vault: %w", err)
+	authMethod, err := newVaultAuthMethod(&vaultConfig.Auth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault auth method: %w", err)
+	}
+
+	if authMethod != nil {
+		if _, err := client.Auth().Login(context.Background(), authMethod); err != nil {
+			return nil, fmt.Errorf("failed to authenticate to Vault: %w", err)
+		}
 	}
 
 	gatewayHostCA := &vaultCA{
@@ -153,34 +195,6 @@ func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) 
 		GatewayUserCA:  gatewayUserCA,
 		UpstreamHostCA: upstreamHostCA,
 	}, nil
-}
-
-func authenticateVaultClient(client *vault.Client, config *gatewayconfig.SSHCAVaultConfig) error {
-	if config.Auth.Token != "" {
-		client.SetToken(config.Auth.Token)
-	} else if config.Auth.AppRole != nil {
-		appRoleCfg := config.Auth.AppRole
-		secretID := &approleauth.SecretID{FromFile: appRoleCfg.SecretIDFile}
-
-		appRoleAuth, err := approleauth.NewAppRoleAuth(
-			appRoleCfg.RoleID,
-			secretID,
-			approleauth.WithMountPath(appRoleCfg.GetMount()),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create appRole auth: %w", err)
-		}
-
-		// Token is automatically set on the client after successful login
-		_, err = client.Auth().Login(context.Background(), appRoleAuth)
-		if err != nil {
-			return fmt.Errorf("failed to login with appRole: %w", err)
-		}
-	}
-
-	// If no token is set explicitly or retrieved via authentication,
-	// Vault SDK will use VAULT_TOKEN environment variable
-	return nil
 }
 
 func (c *caConfig) upstreamHostKeyCallback(ctx context.Context, upstreamAddress string) (ssh.HostKeyCallback, error) {

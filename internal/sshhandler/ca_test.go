@@ -274,3 +274,39 @@ func TestMustUint64_PanicsOnNegativeTime(t *testing.T) {
 		mustUint64(time.Unix(-1, 0))
 	})
 }
+
+func TestNewVaultAuthMethod_Token(t *testing.T) {
+	cfg := &gatewayconfig.SSHCAVaultAuthConfig{
+		Token: "test-token",
+	}
+
+	authMethod, err := newVaultAuthMethod(cfg)
+	require.NoError(t, err)
+	require.NotNil(t, authMethod)
+
+	secret, err := authMethod.Login(context.Background(), nil)
+	require.NoError(t, err)
+	require.Equal(t, "test-token", secret.Auth.ClientToken)
+}
+
+func TestNewVaultAuthMethod_AppRole(t *testing.T) {
+	cfg := &gatewayconfig.SSHCAVaultAuthConfig{
+		AppRole: &gatewayconfig.SSHCAVaultAppRoleConfig{
+			RoleID:       "role-id",
+			SecretIDFile: "/path/to/secret-id",
+			Mount:        "custom-approle",
+		},
+	}
+
+	authMethod, err := newVaultAuthMethod(cfg)
+	require.NoError(t, err)
+	require.NotNil(t, authMethod)
+}
+
+func TestNewVaultAuthMethod_NoAuth(t *testing.T) {
+	cfg := &gatewayconfig.SSHCAVaultAuthConfig{}
+
+	authMethod, err := newVaultAuthMethod(cfg)
+	require.NoError(t, err)
+	require.Nil(t, authMethod)
+}
