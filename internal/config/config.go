@@ -430,11 +430,11 @@ func (a *SSHCAVaultAppRoleConfig) GetMount() string {
 
 func (a *SSHCAVaultAppRoleConfig) Validate() error {
 	if a.RoleID == "" {
-		return fmt.Errorf("%w: roleID is required", ErrRequired)
+		return fmt.Errorf("%w: roleID", ErrRequired)
 	}
 
 	if a.SecretIDFile == "" {
-		return fmt.Errorf("%w: secretIDFile is required", ErrRequired)
+		return fmt.Errorf("%w: secretIDFile", ErrRequired)
 	}
 
 	return nil
