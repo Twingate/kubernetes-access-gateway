@@ -126,7 +126,7 @@ func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) 
 		return nil, fmt.Errorf("failed to create vault client: %w", err)
 	}
 
-	if err := authVault(client, vaultConfig); err != nil {
+	if err := authenticateVaultClient(client, vaultConfig); err != nil {
 		return nil, fmt.Errorf("failed to authenticate to Vault: %w", err)
 	}
 
@@ -155,7 +155,7 @@ func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) 
 	}, nil
 }
 
-func authVault(client *vault.Client, config *gatewayconfig.SSHCAVaultConfig) error {
+func authenticateVaultClient(client *vault.Client, config *gatewayconfig.SSHCAVaultConfig) error {
 	if config.Auth.Token != "" {
 		client.SetToken(config.Auth.Token)
 	} else if config.Auth.AppRole != nil {
