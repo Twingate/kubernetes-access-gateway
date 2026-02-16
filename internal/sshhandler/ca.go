@@ -126,11 +126,11 @@ func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) 
 		return nil, fmt.Errorf("failed to create vault client: %w", err)
 	}
 
+	client.SetNamespace(vaultConfig.Namespace)
+
 	if err := authenticateVaultClient(client, vaultConfig); err != nil {
 		return nil, fmt.Errorf("failed to authenticate to Vault: %w", err)
 	}
-
-	client.SetNamespace(vaultConfig.Namespace)
 
 	gatewayHostCA := &vaultCA{
 		client: client,
