@@ -25,7 +25,6 @@ import (
 var (
 	errVaultCAFailed   = errors.New("failed to get CA from Vault")
 	errVaultSignFailed = errors.New("failed to sign certificate with Vault")
-	errVaultAuthFailed = errors.New("no auth info returned from login")
 )
 
 // ca signs SSH certificates.
@@ -127,11 +126,11 @@ func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) 
 		return nil, fmt.Errorf("failed to create vault client: %w", err)
 	}
 
-	client.SetNamespace(vaultConfig.Namespace)
-
 	if err := authVault(client, vaultConfig); err != nil {
 		return nil, fmt.Errorf("failed to authenticate to Vault: %w", err)
 	}
+
+	client.SetNamespace(vaultConfig.Namespace)
 
 	gatewayHostCA := &vaultCA{
 		client: client,
@@ -173,13 +172,9 @@ func authVault(client *vault.Client, config *gatewayconfig.SSHCAVaultConfig) err
 		}
 
 		// Token is automatically set on the client after successful login
-		authInfo, err := client.Auth().Login(context.Background(), appRoleAuth)
+		_, err = client.Auth().Login(context.Background(), appRoleAuth)
 		if err != nil {
 			return fmt.Errorf("failed to login with appRole: %w", err)
-		}
-
-		if authInfo == nil {
-			return errVaultAuthFailed
 		}
 	}
 
