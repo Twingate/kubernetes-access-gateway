@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/vault/api/auth/approle"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -282,11 +283,12 @@ func TestNewVaultAuthMethod_Token(t *testing.T) {
 
 	authMethod, err := newVaultAuthMethod(cfg)
 	require.NoError(t, err)
-	require.NotNil(t, authMethod)
+	require.IsType(t, &tokenAuthMethod{}, authMethod)
 
 	secret, err := authMethod.Login(context.Background(), nil)
 	require.NoError(t, err)
 	require.Equal(t, "test-token", secret.Auth.ClientToken)
+	require.False(t, secret.Auth.Renewable)
 }
 
 func TestNewVaultAuthMethod_AppRole(t *testing.T) {
@@ -300,7 +302,7 @@ func TestNewVaultAuthMethod_AppRole(t *testing.T) {
 
 	authMethod, err := newVaultAuthMethod(cfg)
 	require.NoError(t, err)
-	require.NotNil(t, authMethod)
+	require.IsType(t, &approle.AppRoleAuth{}, authMethod)
 }
 
 func TestNewVaultAuthMethod_NoAuth(t *testing.T) {
