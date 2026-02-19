@@ -114,6 +114,15 @@ func NewProxy(config Config) *SSHProxy {
 }
 
 func (p *SSHProxy) Start(ctx context.Context) error {
+	if p.config.VaultClient != nil && p.config.VaultClient.authMethod != nil {
+		secret, err := p.config.VaultClient.client.Auth().Login(ctx, p.config.VaultClient.authMethod)
+		if err != nil {
+			return fmt.Errorf("failed to login to Vault: %w", err)
+		}
+
+		go p.config.VaultClient.RunTokenRenewalLoop(ctx, secret)
+	}
+
 	downstreamConfig, err := p.config.GetDownstreamConfig(ctx)
 	if err != nil {
 		return err

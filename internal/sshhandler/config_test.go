@@ -36,7 +36,7 @@ func TestNewConfig_Success(t *testing.T) {
 		},
 	}
 
-	config, err := NewConfig(auditLog, sshConfig, zap.NewNop())
+	config, err := NewConfig(auditLog, sshConfig, nil, zap.NewNop())
 	require.NoError(t, err)
 	require.NotNil(t, config)
 
@@ -74,7 +74,7 @@ func TestNewConfig_WithManualCA(t *testing.T) {
 		Upstreams: []gatewayconfig.SSHUpstream{{Name: "test", Address: "localhost:22"}},
 	}
 
-	config, err := NewConfig(auditLog, sshConfig, zap.NewNop())
+	config, err := NewConfig(auditLog, sshConfig, nil, zap.NewNop())
 	require.NoError(t, err)
 	assert.NotNil(t, config)
 }
@@ -97,7 +97,7 @@ func TestNewConfig_InvalidManualCA(t *testing.T) {
 		Upstreams: []gatewayconfig.SSHUpstream{{Name: "test", Address: "localhost:22"}},
 	}
 
-	config, err := NewConfig(auditLog, sshConfig, zap.NewNop())
+	config, err := NewConfig(auditLog, sshConfig, nil, zap.NewNop())
 	require.Error(t, err)
 	assert.Nil(t, config)
 	assert.Contains(t, err.Error(), "failed to create ca")
