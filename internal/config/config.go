@@ -138,6 +138,7 @@ type SSHCAVaultAuthConfig struct {
 type SSHCAVaultAppRoleConfig struct {
 	Mount        string `yaml:"mount,omitempty"`
 	RoleID       string `yaml:"roleID"`
+	SecretID     string `yaml:"secretID"`
 	SecretIDFile string `yaml:"secretIDFile"`
 }
 
@@ -401,7 +402,10 @@ func (v *SSHCAVaultConfig) Validate() error {
 	return nil
 }
 
-var ErrConflictingAuthConfig = errors.New("only one of 'token' or 'appRole' can be specified for Vault auth")
+var (
+	ErrConflictingAuthConfig     = errors.New("only one of 'token' or 'appRole' can be specified for Vault auth")
+	ErrConflictingSecretIDConfig = errors.New("only one of 'secretID' or 'secretIDFile' can be specified")
+)
 
 func (a *SSHCAVaultAuthConfig) Validate() error {
 	if a.Token != "" && a.AppRole != nil {
@@ -433,8 +437,12 @@ func (a *SSHCAVaultAppRoleConfig) Validate() error {
 		return fmt.Errorf("%w: roleID", ErrRequired)
 	}
 
-	if a.SecretIDFile == "" {
-		return fmt.Errorf("%w: secretIDFile", ErrRequired)
+	if a.SecretID != "" && a.SecretIDFile != "" {
+		return ErrConflictingSecretIDConfig
+	}
+
+	if a.SecretID == "" && a.SecretIDFile == "" {
+		return fmt.Errorf("%w: either secretID or secretIDFile is required", ErrRequired)
 	}
 
 	return nil

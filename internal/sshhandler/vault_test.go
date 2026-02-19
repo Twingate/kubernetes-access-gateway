@@ -13,17 +13,33 @@ import (
 )
 
 func TestNewVaultAuthMethod_AppRole(t *testing.T) {
-	cfg := &gatewayconfig.SSHCAVaultAuthConfig{
-		AppRole: &gatewayconfig.SSHCAVaultAppRoleConfig{
-			RoleID:       "role-id",
-			SecretIDFile: "/path/to/secret-id",
-			Mount:        "custom-approle",
-		},
-	}
+	t.Run("with secretID", func(t *testing.T) {
+		cfg := &gatewayconfig.SSHCAVaultAuthConfig{
+			AppRole: &gatewayconfig.SSHCAVaultAppRoleConfig{
+				RoleID:   "role-id",
+				SecretID: "my-secret-id",
+				Mount:    "custom-approle",
+			},
+		}
 
-	authMethod, err := newVaultAuthMethod(cfg)
-	require.NoError(t, err)
-	require.IsType(t, &approle.AppRoleAuth{}, authMethod)
+		authMethod, err := newVaultAuthMethod(cfg)
+		require.NoError(t, err)
+		require.IsType(t, &approle.AppRoleAuth{}, authMethod)
+	})
+
+	t.Run("with secretIDFile", func(t *testing.T) {
+		cfg := &gatewayconfig.SSHCAVaultAuthConfig{
+			AppRole: &gatewayconfig.SSHCAVaultAppRoleConfig{
+				RoleID:       "role-id",
+				SecretIDFile: "/path/to/secret-id",
+				Mount:        "custom-approle",
+			},
+		}
+
+		authMethod, err := newVaultAuthMethod(cfg)
+		require.NoError(t, err)
+		require.IsType(t, &approle.AppRoleAuth{}, authMethod)
+	})
 }
 
 func TestNewVaultAuthMethod_NoAuth(t *testing.T) {

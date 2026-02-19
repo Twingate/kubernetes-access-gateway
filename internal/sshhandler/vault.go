@@ -20,7 +20,10 @@ var errVaultAuthMethodNotConfigured = errors.New("no Vault auth method configure
 //nolint:ireturn
 func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.AuthMethod, error) {
 	if authConfig.AppRole != nil {
-		secretID := &approle.SecretID{FromFile: authConfig.AppRole.SecretIDFile}
+		secretID := &approle.SecretID{
+			FromString: authConfig.AppRole.SecretID,
+			FromFile:   authConfig.AppRole.SecretIDFile,
+		}
 
 		return approle.NewAppRoleAuth(
 			authConfig.AppRole.RoleID,

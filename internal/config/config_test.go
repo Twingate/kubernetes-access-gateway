@@ -827,11 +827,21 @@ func TestSSHCAVaultAuthConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid with appRole",
+			name: "valid with appRole using secretIDFile",
 			cfg: SSHCAVaultAuthConfig{
 				AppRole: &SSHCAVaultAppRoleConfig{
 					RoleID:       "role-id",
 					SecretIDFile: "/path/to/secret-id",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid with appRole using secretID",
+			cfg: SSHCAVaultAuthConfig{
+				AppRole: &SSHCAVaultAppRoleConfig{
+					RoleID:   "role-id",
+					SecretID: "my-secret-id",
 				},
 			},
 			wantErr: false,
@@ -897,13 +907,39 @@ func TestSSHCAVaultAppRoleConfig_Validate(t *testing.T) {
 		assert.Contains(t, err.Error(), "roleID")
 	})
 
-	t.Run("missing secretIdFile", func(t *testing.T) {
+	t.Run("missing both secretID and secretIDFile", func(t *testing.T) {
 		cfg := &SSHCAVaultAppRoleConfig{
 			RoleID: "role-id",
 		}
 		err := cfg.Validate()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "secretIDFile")
+		assert.Contains(t, err.Error(), "either secretID or secretIDFile is required")
+	})
+
+	t.Run("valid with secretID", func(t *testing.T) {
+		cfg := &SSHCAVaultAppRoleConfig{
+			RoleID:   "role-id",
+			SecretID: "my-secret-id",
+		}
+		require.NoError(t, cfg.Validate())
+	})
+
+	t.Run("valid with secretIDFile", func(t *testing.T) {
+		cfg := &SSHCAVaultAppRoleConfig{
+			RoleID:       "role-id",
+			SecretIDFile: "/path/to/secret-id",
+		}
+		require.NoError(t, cfg.Validate())
+	})
+
+	t.Run("conflicting secretID and secretIDFile", func(t *testing.T) {
+		cfg := &SSHCAVaultAppRoleConfig{
+			RoleID:       "role-id",
+			SecretID:     "my-secret-id",
+			SecretIDFile: "/path/to/secret-id",
+		}
+		err := cfg.Validate()
+		require.ErrorIs(t, err, ErrConflictingSecretIDConfig)
 	})
 }
 
