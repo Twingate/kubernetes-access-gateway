@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	errVaultCAFailed   = errors.New("failed to get CA from Vault")
-	errVaultSignFailed = errors.New("failed to sign certificate with Vault")
+	errVaultCAFailed                = errors.New("failed to get CA from Vault")
+	errVaultSignFailed              = errors.New("failed to sign certificate with Vault")
+	errVaultAuthMethodNotConfigured = errors.New("no Vault auth method configured")
 )
 
 // ca signs SSH certificates.
@@ -139,7 +140,7 @@ func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.A
 	}
 
 	// No auth method configured — Vault SDK falls back to VAULT_TOKEN environment variable
-	return nil, nil //nolint:nilnil
+	return nil, errVaultAuthMethodNotConfigured
 }
 
 // newVaultCA creates Vault-backed CAs.
@@ -164,7 +165,7 @@ func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) 
 	client.SetNamespace(vaultConfig.Namespace)
 
 	authMethod, err := newVaultAuthMethod(&vaultConfig.Auth)
-	if err != nil {
+	if err != nil && !errors.Is(err, errVaultAuthMethodNotConfigured) {
 		return nil, fmt.Errorf("failed to create vault auth method: %w", err)
 	}
 

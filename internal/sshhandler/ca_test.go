@@ -309,6 +309,6 @@ func TestNewVaultAuthMethod_NoAuth(t *testing.T) {
 	cfg := &gatewayconfig.SSHCAVaultAuthConfig{}
 
 	authMethod, err := newVaultAuthMethod(cfg)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, errVaultAuthMethodNotConfigured)
 	require.Nil(t, authMethod)
 }
