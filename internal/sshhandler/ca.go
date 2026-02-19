@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/vault/api/auth/approle"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
@@ -23,9 +22,8 @@ import (
 )
 
 var (
-	errVaultCAFailed                = errors.New("failed to get CA from Vault")
-	errVaultSignFailed              = errors.New("failed to sign certificate with Vault")
-	errVaultAuthMethodNotConfigured = errors.New("no Vault auth method configured")
+	errVaultCAFailed   = errors.New("failed to get CA from Vault")
+	errVaultSignFailed = errors.New("failed to sign certificate with Vault")
 )
 
 // ca signs SSH certificates.
@@ -108,71 +106,12 @@ func newManualCA(privateKeyFile string, logger *zap.Logger) (*caConfig, error) {
 	}, nil
 }
 
-// tokenAuthMethod implements vault.AuthMethod for static token authentication.
-// Static tokens are set directly without a Vault API call and don't support renewal.
-type tokenAuthMethod struct {
-	token string
-}
-
-func (a *tokenAuthMethod) Login(_ context.Context, _ *vault.Client) (*vault.Secret, error) {
-	return &vault.Secret{
-		Auth: &vault.SecretAuth{
-			ClientToken: a.token,
-			Renewable:   false,
-		},
-	}, nil
-}
-
-//nolint:ireturn
-func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.AuthMethod, error) {
-	if authConfig.Token != "" {
-		return &tokenAuthMethod{token: authConfig.Token}, nil
-	}
-
-	if authConfig.AppRole != nil {
-		secretID := &approle.SecretID{FromFile: authConfig.AppRole.SecretIDFile}
-
-		return approle.NewAppRoleAuth(
-			authConfig.AppRole.RoleID,
-			secretID,
-			approle.WithMountPath(authConfig.AppRole.GetMount()),
-		)
-	}
-
-	// No auth method configured — Vault SDK falls back to VAULT_TOKEN environment variable
-	return nil, errVaultAuthMethodNotConfigured
-}
-
 // newVaultCA creates Vault-backed CAs.
 // Vault config allows setting different CAs for Gateway host and user certificates, and upstream host authentication.
 func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) {
-	config := vault.DefaultConfig()
-	config.Address = vaultConfig.Address
-
-	if vaultConfig.CABundleFile != "" {
-		if err := config.ConfigureTLS(&vault.TLSConfig{
-			CACert: vaultConfig.CABundleFile,
-		}); err != nil {
-			return nil, fmt.Errorf("failed to configure TLS: %w", err)
-		}
-	}
-
-	client, err := vault.NewClient(config)
+	client, err := newVaultClient(vaultConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vault client: %w", err)
-	}
-
-	client.SetNamespace(vaultConfig.Namespace)
-
-	authMethod, err := newVaultAuthMethod(&vaultConfig.Auth)
-	if err != nil && !errors.Is(err, errVaultAuthMethodNotConfigured) {
-		return nil, fmt.Errorf("failed to create vault auth method: %w", err)
-	}
-
-	if authMethod != nil {
-		if _, err := client.Auth().Login(context.Background(), authMethod); err != nil {
-			return nil, fmt.Errorf("failed to authenticate to Vault: %w", err)
-		}
+		return nil, fmt.Errorf("failed to create Vault client: %w", err)
 	}
 
 	gatewayHostCA := &vaultCA{

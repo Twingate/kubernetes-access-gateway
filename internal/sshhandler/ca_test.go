@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/vault/api/auth/approle"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -274,41 +273,4 @@ func TestMustUint64_PanicsOnNegativeTime(t *testing.T) {
 	require.Panics(t, func() {
 		mustUint64(time.Unix(-1, 0))
 	})
-}
-
-func TestNewVaultAuthMethod_Token(t *testing.T) {
-	cfg := &gatewayconfig.SSHCAVaultAuthConfig{
-		Token: "test-token",
-	}
-
-	authMethod, err := newVaultAuthMethod(cfg)
-	require.NoError(t, err)
-	require.IsType(t, &tokenAuthMethod{}, authMethod)
-
-	secret, err := authMethod.Login(context.Background(), nil)
-	require.NoError(t, err)
-	require.Equal(t, "test-token", secret.Auth.ClientToken)
-	require.False(t, secret.Auth.Renewable)
-}
-
-func TestNewVaultAuthMethod_AppRole(t *testing.T) {
-	cfg := &gatewayconfig.SSHCAVaultAuthConfig{
-		AppRole: &gatewayconfig.SSHCAVaultAppRoleConfig{
-			RoleID:       "role-id",
-			SecretIDFile: "/path/to/secret-id",
-			Mount:        "custom-approle",
-		},
-	}
-
-	authMethod, err := newVaultAuthMethod(cfg)
-	require.NoError(t, err)
-	require.IsType(t, &approle.AppRoleAuth{}, authMethod)
-}
-
-func TestNewVaultAuthMethod_NoAuth(t *testing.T) {
-	cfg := &gatewayconfig.SSHCAVaultAuthConfig{}
-
-	authMethod, err := newVaultAuthMethod(cfg)
-	require.ErrorIs(t, err, errVaultAuthMethodNotConfigured)
-	require.Nil(t, authMethod)
 }
