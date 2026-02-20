@@ -154,6 +154,20 @@ tests:
               secretKeyRef:
                 name: my-vault-token-secret
                 key: token
+  - it: should not include VAULT_TOKEN env var when AppRole is used
+    set:
+      ssh:
+        ca:
+          vault:
+            auth:
+              appRole:
+                roleId: "my-role-id"
+                secretId: "my-secret-id"
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VAULT_TOKEN
   - it: should support Vault CA bundle when CA bundle is specified
     set:
       ssh:
@@ -233,3 +247,41 @@ tests:
             name: vault-ca-bundle
             secret:
               secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-ca-bundle
+  - it: should include vault-approle-secret-id volume and volumeMount
+    set:
+      ssh:
+        ca:
+          vault:
+            auth:
+              appRole:
+                roleId: "my-role-id"
+                secretId: "my-secret-id"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: vault-approle-secret-id
+            mountPath: /etc/gateway/vault/approle
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vault-approle-secret-id
+            secret:
+              secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-approle-secret-id
+  - it: should use existing secret name when existingSecretIdSecret is specified
+    set:
+      ssh:
+        ca:
+          vault:
+            auth:
+              appRole:
+                roleId: "my-role-id"
+                existingSecretIdSecret: "my-existing-secret"
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vault-approle-secret-id
+            secret:
+              secretName: my-existing-secret

@@ -63,6 +63,13 @@ data:
           {{- with .ca.vault.namespace }}
           namespace: {{ . | quote }}
           {{- end }}
+          {{- if and .ca.vault.auth .ca.vault.auth.appRole }}
+          auth:
+            appRole:
+              mount: {{ default "approle" .ca.vault.auth.appRole.mount | quote }}
+              roleID: {{ .ca.vault.auth.appRole.roleId | quote }}
+              secretIDFile: "/etc/gateway/vault/approle/secretId"
+          {{- end }}
           mount: {{ default "ssh" .ca.vault.mount | quote }}
           role: {{ .ca.vault.role | quote }}
           {{- with .ca.vault.gatewayHostCA }}

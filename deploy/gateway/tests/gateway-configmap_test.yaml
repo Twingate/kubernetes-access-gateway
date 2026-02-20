@@ -309,6 +309,60 @@ tests:
               upstreams:
                 - address: 10.0.0.1:22
                   name: ssh-server
+  - it: should include SSH with Vault CA and AppRole auth
+    set:
+      ssh:
+        ca:
+          vault:
+            address: "https://vault.example.com:8200"
+            auth:
+              appRole:
+                roleId: "my-role-id"
+                secretId: "my-secret-id"
+            mount: "ssh-gateway"
+            role: "gateway"
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            ssh:
+              gateway:
+                username: "gateway"
+                key:
+                  type: "ed25519"
+                hostCertificate:
+                  ttl: "24h"
+                userCertificate:
+                  ttl: "5m"
+
+              ca:
+                vault:
+                  address: "https://vault.example.com:8200"
+                  auth:
+                    appRole:
+                      mount: "approle"
+                      roleID: "my-role-id"
+                      secretIDFile: "/etc/gateway/vault/approle/secretId"
+                  mount: "ssh-gateway"
+                  role: "gateway"
+              upstreams:
+                - address: 10.0.0.1:22
+                  name: ssh-server
   - it: should error when SSH Gateway username is empty
     set:
       ssh:
