@@ -43,7 +43,7 @@ spec:
           env:
             - name: TWINGATE_CONFIG
               value: /etc/gateway/config.yaml
-            {{- if and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.vault (not $vaultAppRoleEnabled) }}
+            {{- if and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.vault (or .Values.ssh.ca.vault.auth.token .Values.ssh.ca.vault.auth.existingTokenSecret) }}
             - name: VAULT_TOKEN
               valueFrom:
                 secretKeyRef:

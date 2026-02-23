@@ -309,7 +309,7 @@ tests:
               upstreams:
                 - address: 10.0.0.1:22
                   name: ssh-server
-  - it: should include SSH with Vault CA and AppRole auth
+  - it: should include SSH with Vault AppRole auth
     set:
       ssh:
         ca:
