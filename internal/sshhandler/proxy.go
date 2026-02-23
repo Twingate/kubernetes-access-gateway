@@ -114,13 +114,8 @@ func NewProxy(config Config) *SSHProxy {
 }
 
 func (p *SSHProxy) Start(ctx context.Context) error {
-	if p.config.VaultClient != nil && p.config.VaultClient.authMethod != nil {
-		secret, err := p.config.VaultClient.client.Auth().Login(ctx, p.config.VaultClient.authMethod)
-		if err != nil {
-			return fmt.Errorf("failed to login to Vault: %w", err)
-		}
-
-		go p.config.VaultClient.RunTokenRenewalLoop(ctx, secret)
+	if err := p.initializeVaultAuthentication(ctx); err != nil {
+		return err
 	}
 
 	downstreamConfig, err := p.config.GetDownstreamConfig(ctx)
@@ -300,6 +295,21 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 	p.mu.Unlock()
 
 	p.wg.Done()
+
+	return nil
+}
+
+func (p *SSHProxy) initializeVaultAuthentication(ctx context.Context) error {
+	if p.config.VaultClient == nil || p.config.VaultClient.authMethod == nil {
+		return nil
+	}
+
+	secret, err := p.config.VaultClient.client.Auth().Login(ctx, p.config.VaultClient.authMethod)
+	if err != nil {
+		return fmt.Errorf("failed to login to Vault: %w", err)
+	}
+
+	go p.config.VaultClient.RunTokenRenewalLoop(ctx, secret)
 
 	return nil
 }

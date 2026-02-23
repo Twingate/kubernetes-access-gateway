@@ -123,6 +123,8 @@ func (vc *VaultClient) watchTokenLifecycle(ctx context.Context, secret *vault.Se
 
 	for {
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
 		case err := <-watcher.DoneCh():
 			if err != nil {
 				vc.logger.Error("Failed to renew Vault token, re-attempting login", zap.Error(err))
@@ -135,8 +137,6 @@ func (vc *VaultClient) watchTokenLifecycle(ctx context.Context, secret *vault.Se
 			return nil
 		case info := <-watcher.RenewCh():
 			vc.logger.Info("Successfully renewed Vault token", zap.Time("renewed_at", info.RenewedAt))
-		case <-ctx.Done():
-			return ctx.Err()
 		}
 	}
 }
