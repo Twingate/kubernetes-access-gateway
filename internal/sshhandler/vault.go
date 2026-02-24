@@ -7,8 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/vault/api/auth/approle"
+	"github.com/hashicorp/vault/api/auth/gcp"
 
 	vault "github.com/hashicorp/vault/api"
 
@@ -30,6 +32,19 @@ func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.A
 			secretID,
 			approle.WithMountPath(authConfig.AppRole.GetMount()),
 		)
+	}
+
+	if authConfig.GCP != nil {
+		// Default auth method type is GCE
+		opts := []gcp.LoginOption{
+			gcp.WithMountPath(authConfig.GCP.GetMount()),
+		}
+
+		if strings.EqualFold(authConfig.GCP.Type, "iam") {
+			opts = append(opts, gcp.WithIAMAuth(authConfig.GCP.ServiceAccountEmail))
+		}
+
+		return gcp.NewGCPAuth(authConfig.GCP.Role, opts...)
 	}
 
 	return nil, errVaultAuthMethodNotConfigured

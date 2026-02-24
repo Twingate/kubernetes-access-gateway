@@ -837,6 +837,16 @@ func TestSSHCAVaultAuthConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "valid GCP",
+			cfg: SSHCAVaultAuthConfig{
+				GCP: &SSHCAVaultGCPConfig{
+					Role: "my-role",
+					Type: "gce",
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name:    "valid with empty token (uses VAULT_TOKEN env)",
 			cfg:     SSHCAVaultAuthConfig{},
 			wantErr: false,
@@ -851,7 +861,19 @@ func TestSSHCAVaultAuthConfig_Validate(t *testing.T) {
 				},
 			},
 			wantErr:     true,
-			errContains: "only one of 'token' or 'appRole'",
+			errContains: "only one of 'token', 'appRole', or 'gcp'",
+		},
+		{
+			name: "conflicting config - both token and gcp",
+			cfg: SSHCAVaultAuthConfig{
+				Token: "token",
+				GCP: &SSHCAVaultGCPConfig{
+					Role: "my-role",
+					Type: "gce",
+				},
+			},
+			wantErr:     true,
+			errContains: "only one of 'token', 'appRole', or 'gcp'",
 		},
 	}
 
@@ -931,6 +953,86 @@ func TestSSHCAVaultAppRoleConfig_Validate(t *testing.T) {
 		err := cfg.Validate()
 		require.ErrorIs(t, err, ErrConflictingSecretIDConfig)
 	})
+}
+
+func TestSSHCAVaultGCPConfig_GetMount(t *testing.T) {
+	t.Run("default mount", func(t *testing.T) {
+		cfg := &SSHCAVaultGCPConfig{
+			Role: "my-role",
+			Type: "gce",
+		}
+		assert.Equal(t, "gcp", cfg.GetMount())
+	})
+
+	t.Run("custom mount", func(t *testing.T) {
+		cfg := &SSHCAVaultGCPConfig{
+			Mount: "custom-gcp",
+			Role:  "my-role",
+			Type:  "gce",
+		}
+		assert.Equal(t, "custom-gcp", cfg.GetMount())
+	})
+}
+
+func TestSSHCAVaultGCPConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         *SSHCAVaultGCPConfig
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:    "valid GCE",
+			cfg:     &SSHCAVaultGCPConfig{Role: "my-role", Type: "gce"},
+			wantErr: false,
+		},
+		{
+			name:    "valid IAM",
+			cfg:     &SSHCAVaultGCPConfig{Role: "my-role", Type: "iam", ServiceAccountEmail: "gateway-sa@project.iam.gserviceaccount.com"},
+			wantErr: false,
+		},
+		{
+			name:    "valid GCP type case insensitive",
+			cfg:     &SSHCAVaultGCPConfig{Role: "my-role", Type: "GCE"},
+			wantErr: false,
+		},
+		{
+			name:        "missing role",
+			cfg:         &SSHCAVaultGCPConfig{Type: "gce"},
+			wantErr:     true,
+			errContains: "role",
+		},
+		{
+			name:        "missing type",
+			cfg:         &SSHCAVaultGCPConfig{Role: "my-role"},
+			wantErr:     true,
+			errContains: "type",
+		},
+		{
+			name:        "invalid type",
+			cfg:         &SSHCAVaultGCPConfig{Role: "my-role", Type: "invalid"},
+			wantErr:     true,
+			errContains: "gcp type must be 'gce' or 'iam'",
+		},
+		{
+			name:        "IAM type missing serviceAccountEmail",
+			cfg:         &SSHCAVaultGCPConfig{Role: "my-role", Type: "iam"},
+			wantErr:     true,
+			errContains: "serviceAccountEmail is required for iam type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 func TestValidateAddress(t *testing.T) {
