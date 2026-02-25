@@ -162,7 +162,7 @@ tolerations: []
 
 affinity: {}
 
-priorityClassName: ''
+priorityClassName: ""
 
 # Extra environment variables to add to the container.
 #
