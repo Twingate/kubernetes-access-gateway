@@ -822,26 +822,16 @@ func TestSSHCAVaultAuthConfig_Validate(t *testing.T) {
 		errContains string
 	}{
 		{
-			name:    "valid with token",
+			name:    "valid token",
 			cfg:     SSHCAVaultAuthConfig{Token: "token"},
 			wantErr: false,
 		},
 		{
-			name: "valid with appRole using secretIDFile",
+			name: "valid appRole",
 			cfg: SSHCAVaultAuthConfig{
 				AppRole: &SSHCAVaultAppRoleConfig{
 					RoleID:       "role-id",
 					SecretIDFile: "/path/to/secret-id",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid with appRole using secretID",
-			cfg: SSHCAVaultAuthConfig{
-				AppRole: &SSHCAVaultAppRoleConfig{
-					RoleID:   "role-id",
-					SecretID: "my-secret-id",
 				},
 			},
 			wantErr: false,

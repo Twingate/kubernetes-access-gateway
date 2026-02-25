@@ -29,3 +29,4 @@ bin/*
 # Added by goreleaser init:
 dist/
 /.envrc.local
+/.claude/settings.local.json
