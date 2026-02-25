@@ -35,7 +35,7 @@ func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.A
 	}
 
 	if authConfig.GCP != nil {
-		// Default auth method type is GCE
+		// GCE is the default in the Vault GCP auth SDK
 		opts := []gcp.LoginOption{
 			gcp.WithMountPath(authConfig.GCP.GetMount()),
 		}
