@@ -109,29 +109,10 @@ func newManualCA(privateKeyFile string, logger *zap.Logger) (*caConfig, error) {
 // newVaultCA creates Vault-backed CAs.
 // Vault config allows setting different CAs for Gateway host and user certificates, and upstream host authentication.
 func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig) (*caConfig, error) {
-	config := vault.DefaultConfig()
-	config.Address = vaultConfig.Address
-
-	if vaultConfig.CABundleFile != "" {
-		if err := config.ConfigureTLS(&vault.TLSConfig{
-			CACert: vaultConfig.CABundleFile,
-		}); err != nil {
-			return nil, fmt.Errorf("failed to configure TLS: %w", err)
-		}
-	}
-
-	client, err := vault.NewClient(config)
+	client, err := newVaultClient(vaultConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create vault client: %w", err)
+		return nil, fmt.Errorf("failed to create Vault client: %w", err)
 	}
-
-	// Only set token if explicitly provided in config
-	// Otherwise, Vault SDK will use VAULT_TOKEN environment variable
-	if vaultConfig.Auth.Token != "" {
-		client.SetToken(vaultConfig.Auth.Token)
-	}
-
-	client.SetNamespace(vaultConfig.Namespace)
 
 	gatewayHostCA := &vaultCA{
 		client: client,
