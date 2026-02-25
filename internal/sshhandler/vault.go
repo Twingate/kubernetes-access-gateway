@@ -20,7 +20,7 @@ import (
 var errVaultAuthMethodNotConfigured = errors.New("no Vault auth method configured")
 
 const (
-	loginRetryInterval = 1 * time.Minute
+	loginRetryInterval = time.Minute
 )
 
 // VaultClient manages a Vault API client and handles automatic token renewal.
