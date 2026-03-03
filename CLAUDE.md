@@ -144,6 +144,8 @@ Versions tracked in `.tool-versions`.
 - **Unit**: `./cmd/...`, `./internal/...` - table-driven tests with testify
 - **Integration**: `./test/integration/...` - requires kind cluster, tests full flows
 - **E2E**: `./test/e2e/...` - full deployment scenario
+  - **Prerequisite**: Caddy must be running (`caddy run` or `caddy start`)
+  - Acts as reverse proxy for `acme.test` domain to simulate Twingate controller
 - **Helm**: `deploy/gateway/tests/...` - snapshot tests
 
 ### Release Process
