@@ -82,6 +82,9 @@ jobs:
         with:
           go-version: ${{ env.GOLANG_VERSION }}
 
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
       - name: Run Tests
         run: make test-with-coverage
 
@@ -123,6 +126,24 @@ jobs:
           name: integration-tests
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
+          verbose: true
+
+      - name: Upload unit test results to CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./junit-unit.xml
+          report_type: test_results
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+
+      - name: Upload integration test results to CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./junit-integration.xml
+          report_type: test_results
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
 
   build:
