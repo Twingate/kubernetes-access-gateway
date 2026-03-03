@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/vault/api/auth/gcp"
 
 	vault "github.com/hashicorp/vault/api"
+	aws "github.com/hashicorp/vault/api/auth/aws"
 
 	gatewayconfig "k8sgateway/internal/config"
 )
@@ -22,32 +23,84 @@ var errVaultAuthMethodNotConfigured = errors.New("no Vault auth method configure
 //nolint:ireturn
 func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.AuthMethod, error) {
 	if authConfig.AppRole != nil {
-		secretID := &approle.SecretID{
-			FromString: authConfig.AppRole.SecretID,
-			FromFile:   authConfig.AppRole.SecretIDFile,
-		}
-
-		return approle.NewAppRoleAuth(
-			authConfig.AppRole.RoleID,
-			secretID,
-			approle.WithMountPath(authConfig.AppRole.GetMount()),
-		)
+		return newAppRoleAuthMethod(authConfig.AppRole)
 	}
 
 	if authConfig.GCP != nil {
-		// GCE is the default in the Vault GCP auth SDK
-		opts := []gcp.LoginOption{
-			gcp.WithMountPath(authConfig.GCP.GetMount()),
-		}
+		return newGCPAuthMethod(authConfig.GCP)
+	}
 
-		if strings.EqualFold(authConfig.GCP.Type, "iam") {
-			opts = append(opts, gcp.WithIAMAuth(authConfig.GCP.ServiceAccountEmail))
-		}
-
-		return gcp.NewGCPAuth(authConfig.GCP.Role, opts...)
+	if authConfig.AWS != nil {
+		return newAWSAuthMethod(authConfig.AWS)
 	}
 
 	return nil, errVaultAuthMethodNotConfigured
+}
+
+func newAppRoleAuthMethod(appRoleConfig *gatewayconfig.SSHCAVaultAppRoleConfig) (vault.AuthMethod, error) {
+	secretID := &approle.SecretID{
+		FromString: appRoleConfig.SecretID,
+		FromFile:   appRoleConfig.SecretIDFile,
+	}
+
+	return approle.NewAppRoleAuth(
+		appRoleConfig.RoleID,
+		secretID,
+		approle.WithMountPath(appRoleConfig.GetMount()),
+	)
+}
+
+func newGCPAuthMethod(gcpConfig *gatewayconfig.SSHCAVaultGCPConfig) (vault.AuthMethod, error) {
+	opts := []gcp.LoginOption{
+		gcp.WithMountPath(gcpConfig.GetMount()),
+	}
+
+	// GCE is the default in the Vault GCP auth SDK
+	if strings.EqualFold(gcpConfig.Type, "iam") {
+		opts = append(opts, gcp.WithIAMAuth(gcpConfig.ServiceAccountEmail))
+	}
+
+	return gcp.NewGCPAuth(gcpConfig.Role, opts...)
+}
+
+func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (vault.AuthMethod, error) {
+	opts := []aws.LoginOption{
+		aws.WithRole(awsConfig.Role),
+		aws.WithMountPath(awsConfig.GetMount()),
+	}
+
+	if awsConfig.Region != "" {
+		opts = append(opts, aws.WithRegion(awsConfig.Region))
+	}
+
+	if awsConfig.IAMServerIDHeader != "" {
+		opts = append(opts, aws.WithIAMServerIDHeader(awsConfig.IAMServerIDHeader))
+	}
+
+	if strings.EqualFold(awsConfig.Type, "iam") {
+		opts = append(opts, aws.WithIAMAuth())
+
+		return aws.NewAWSAuth(opts...)
+	}
+
+	// EC2 auth
+	opts = append(opts, aws.WithEC2Auth())
+
+	if awsConfig.Nonce != "" {
+		opts = append(opts, aws.WithNonce(awsConfig.Nonce))
+	}
+
+	// Apply signature type if specified. Default is set to pkcs7 in the Vault SDK
+	switch strings.ToLower(awsConfig.SignatureType) {
+	case "identity":
+		opts = append(opts, aws.WithIdentitySignature())
+	case "rsa2048":
+		opts = append(opts, aws.WithRSA2048Signature())
+	case "pkcs7":
+		opts = append(opts, aws.WithPKCS7Signature())
+	}
+
+	return aws.NewAWSAuth(opts...)
 }
 
 // newVaultClient returns an authenticated Vault client.

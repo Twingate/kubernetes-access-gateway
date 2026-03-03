@@ -847,6 +847,16 @@ func TestSSHCAVaultAuthConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "valid aws",
+			cfg: SSHCAVaultAuthConfig{
+				AWS: &SSHCAVaultAWSConfig{
+					Role: "my-role",
+					Type: "iam",
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name:    "valid with empty token (uses VAULT_TOKEN env)",
 			cfg:     SSHCAVaultAuthConfig{},
 			wantErr: false,
@@ -861,7 +871,7 @@ func TestSSHCAVaultAuthConfig_Validate(t *testing.T) {
 				},
 			},
 			wantErr:     true,
-			errContains: "only one of 'token', 'appRole', or 'gcp'",
+			errContains: "only one of 'token', 'appRole', 'gcp', or 'aws'",
 		},
 		{
 			name: "conflicting config - both token and gcp",
@@ -873,7 +883,22 @@ func TestSSHCAVaultAuthConfig_Validate(t *testing.T) {
 				},
 			},
 			wantErr:     true,
-			errContains: "only one of 'token', 'appRole', or 'gcp'",
+			errContains: "only one of 'token', 'appRole', 'gcp', or 'aws'",
+		},
+		{
+			name: "conflicting config - both aws and gcp",
+			cfg: SSHCAVaultAuthConfig{
+				AWS: &SSHCAVaultAWSConfig{
+					Role: "my-role",
+					Type: "iam",
+				},
+				GCP: &SSHCAVaultGCPConfig{
+					Role: "my-role",
+					Type: "gce",
+				},
+			},
+			wantErr:     true,
+			errContains: "only one of 'token', 'appRole', 'gcp', or 'aws'",
 		},
 	}
 
@@ -1019,6 +1044,91 @@ func TestSSHCAVaultGCPConfig_Validate(t *testing.T) {
 			cfg:         &SSHCAVaultGCPConfig{Role: "my-role", Type: "iam"},
 			wantErr:     true,
 			errContains: "serviceAccountEmail is required for iam type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestSSHCAVaultAWSConfig_GetMount(t *testing.T) {
+	t.Run("default mount", func(t *testing.T) {
+		cfg := &SSHCAVaultAWSConfig{
+			Role: "my-role",
+			Type: "iam",
+		}
+		assert.Equal(t, "aws", cfg.GetMount())
+	})
+
+	t.Run("custom mount", func(t *testing.T) {
+		cfg := &SSHCAVaultAWSConfig{
+			Mount: "custom-aws",
+			Role:  "my-role",
+			Type:  "iam",
+		}
+		assert.Equal(t, "custom-aws", cfg.GetMount())
+	})
+}
+
+func TestSSHCAVaultAWSConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         *SSHCAVaultAWSConfig
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:    "valid IAM",
+			cfg:     &SSHCAVaultAWSConfig{Role: "my-role", Type: "iam"},
+			wantErr: false,
+		},
+		{
+			name:    "valid EC2",
+			cfg:     &SSHCAVaultAWSConfig{Role: "my-role", Type: "ec2"},
+			wantErr: false,
+		},
+		{
+			name:    "valid EC2 with signatureType and nounce",
+			cfg:     &SSHCAVaultAWSConfig{Role: "my-role", Type: "ec2", SignatureType: "identity", Nonce: "my-nonce"},
+			wantErr: false,
+		},
+		{
+			name:    "Valid IAM case insensitive type",
+			cfg:     &SSHCAVaultAWSConfig{Role: "my-role", Type: "IAM"},
+			wantErr: false,
+		},
+		{
+			name:        "missing role",
+			cfg:         &SSHCAVaultAWSConfig{Type: "iam"},
+			wantErr:     true,
+			errContains: "role",
+		},
+		{
+			name:        "missing type",
+			cfg:         &SSHCAVaultAWSConfig{Role: "my-role"},
+			wantErr:     true,
+			errContains: "type",
+		},
+		{
+			name:        "invalid type",
+			cfg:         &SSHCAVaultAWSConfig{Role: "my-role", Type: "invalid"},
+			wantErr:     true,
+			errContains: "aws type must be 'iam' or 'ec2'",
+		},
+		{
+			name:        "invalid signatureType",
+			cfg:         &SSHCAVaultAWSConfig{Role: "my-role", Type: "ec2", SignatureType: "invalid"},
+			wantErr:     true,
+			errContains: "aws signatureType must be 'identity', 'pkcs7', or 'rsa2048'",
 		},
 	}
 

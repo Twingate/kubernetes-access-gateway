@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/vault/api/auth/gcp"
 	"github.com/stretchr/testify/require"
 
+	aws "github.com/hashicorp/vault/api/auth/aws"
+
 	gatewayconfig "k8sgateway/internal/config"
 )
 
@@ -56,6 +58,39 @@ func TestNewVaultAuthMethod_GCP(t *testing.T) {
 	authMethod, err := newVaultAuthMethod(cfg)
 	require.NoError(t, err)
 	require.IsType(t, &gcp.GCPAuth{}, authMethod)
+}
+
+func TestNewVaultAuthMethod_AWS(t *testing.T) {
+	t.Run("IAM", func(t *testing.T) {
+		cfg := &gatewayconfig.SSHCAVaultAuthConfig{
+			AWS: &gatewayconfig.SSHCAVaultAWSConfig{
+				Mount:  "custom-aws",
+				Role:   "my-role",
+				Type:   "iam",
+				Region: "us-west-2",
+			},
+		}
+
+		authMethod, err := newVaultAuthMethod(cfg)
+		require.NoError(t, err)
+		require.IsType(t, &aws.AWSAuth{}, authMethod)
+	})
+
+	t.Run("EC2", func(t *testing.T) {
+		cfg := &gatewayconfig.SSHCAVaultAuthConfig{
+			AWS: &gatewayconfig.SSHCAVaultAWSConfig{
+				Mount:         "custom-aws",
+				Role:          "my-role",
+				Type:          "ec2",
+				SignatureType: "identity",
+				Nonce:         "my-nonce",
+			},
+		}
+
+		authMethod, err := newVaultAuthMethod(cfg)
+		require.NoError(t, err)
+		require.IsType(t, &aws.AWSAuth{}, authMethod)
+	})
 }
 
 func TestNewVaultAuthMethod_NoAuth(t *testing.T) {
