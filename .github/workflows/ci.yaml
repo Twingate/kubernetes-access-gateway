@@ -76,7 +76,7 @@ jobs:
 
       # Integration tests
       - name: Setup Docker
-        uses: docker/setup-docker-action@v4
+        uses: docker/setup-docker-action@v5
       - name: Install Caddy
         run: |
           curl -fsSL https://github.com/caddyserver/caddy/releases/download/v${{ env.CADDY_VERSION }}/caddy_${{ env.CADDY_VERSION }}_linux_amd64.tar.gz | tar -xzv
@@ -161,7 +161,7 @@ jobs:
         go-version: ${{ env.GOLANG_VERSION }}
 
     - name: Setup Docker
-      uses: docker/setup-docker-action@v4
+      uses: docker/setup-docker-action@v5
 
     - name: Download docker images
       uses: actions/download-artifact@v8
