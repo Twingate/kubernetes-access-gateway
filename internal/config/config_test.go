@@ -1097,7 +1097,7 @@ func TestSSHCAVaultAWSConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "valid EC2 with signatureType and nounce",
+			name:    "valid EC2 with signatureType and nonce",
 			cfg:     &SSHCAVaultAWSConfig{Role: "my-role", Type: "ec2", SignatureType: "identity", Nonce: "my-nonce"},
 			wantErr: false,
 		},
