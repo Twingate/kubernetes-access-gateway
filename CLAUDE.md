@@ -74,7 +74,7 @@ main.go → cmd/start.go → proxy.NewProxy() → proxy.Start()
 ## Directory Structure
 
 ```text
-/Users/ekampf/workspace/twingate/kubernetes-access-gateway/
+.
 ├── cmd/                    # CLI (Cobra)
 ├── internal/
 │   ├── config/             # YAML config + validation
@@ -232,7 +232,7 @@ Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, 
 | Listener | `internal/connect/listener.go` |
 | Helm | `deploy/gateway/` |
 
-All paths relative to `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/`
+All paths relative to project root.
 
 ## Deployment
 
@@ -291,7 +291,7 @@ go test -race ./...                                        # Race detector
 
 ## Notes for AI Assistants
 
-1. **Use absolute paths**: `/Users/ekampf/workspace/twingate/kubernetes-access-gateway/...`
+1. **Use relative paths**: All paths relative to project root (e.g., `./internal/proxy/proxy.go`)
 2. **Security critical**: Never bypass auth, token validation, or cert verification
 3. **Run checks before committing**: See "Before Committing" section
 4. **Update tests**: Add/update tests for any code changes
@@ -301,3 +301,4 @@ go test -race ./...                                        # Race detector
 8. **Multi-protocol**: Changes may affect both HTTP and SSH handlers
 9. **Security review**: Auth/authz changes require careful review
 10. **Follow patterns**: Table-driven tests, sentinel errors, struct validation
+11. **PR Creation**: Titles must follow conventional commits (feat:, fix:, chore:, etc.). Descriptions should follow `.github/pull_request_template.md` structure (Related Tickets, Changes, Notes)
