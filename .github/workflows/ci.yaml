@@ -104,13 +104,26 @@ jobs:
       - name: Run Integration Tests
         run: make test-integration-with-coverage
 
-      # Combined code coverage
-      - name: Send coverage to Coveralls
-        env:
-          COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
-        run: |
-          go install github.com/mattn/goveralls@latest
-          make coverall
+      # Upload coverage to CodeCov
+      - name: Upload unit test coverage to CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./covprofile-unit
+          flags: unit
+          name: unit-tests
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true
+
+      - name: Upload integration test coverage to CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./covprofile-integration
+          flags: integration
+          name: integration-tests
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true
 
   build:
     runs-on: ubuntu-latest

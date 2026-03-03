@@ -96,11 +96,11 @@ test-e2e: ##@test Run e2e tests
 	@echo "Running e2e tests..."
 	go test -race -v $(E2E_TEST_PACKAGES)
 
-.PHONY: coverall
-coverall: ##@test Send code coverage to Coveralls
-	@echo "Sending coverage to Coveralls..."
-	go install github.com/mattn/goveralls@latest
-	goveralls -coverprofile="$(COVPROFILE_UNIT),$(COVPROFILE_INTEGRATION)" -service=github
+.PHONY: upload-coverage
+upload-coverage: ##@test Upload code coverage to CodeCov (requires CI environment)
+	@echo "Note: Coverage upload is handled by GitHub Actions in CI"
+	@echo "To upload manually, use codecov/codecov-action or codecov CLI"
+	@echo "Coverage files ready: $(COVPROFILE_UNIT), $(COVPROFILE_INTEGRATION)"
 
 
 .PHONY: prepare-buildx
