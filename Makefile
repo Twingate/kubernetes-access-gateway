@@ -55,10 +55,10 @@ lint-markdown: ##@lint Lint Markdown files
 	@echo "Linting Markdown files..."
 	@if npx --version >/dev/null 2>&1; then \
 		echo "Using npx markdownlint-cli2..."; \
-		npx --yes markdownlint-cli2 CLAUDE.md README.md; \
+		npx --yes markdownlint-cli2 "**/*.md"; \
 	else \
 		echo "npx not available, using Docker..."; \
-		docker run --rm -v "$$(pwd):/work" -w /work davidanson/markdownlint-cli2:latest CLAUDE.md README.md; \
+		docker run --rm -v "$$(pwd):/work" -w /work davidanson/markdownlint-cli2:latest "**/*.md"; \
 	fi
 
 .PHONY: test-helm
