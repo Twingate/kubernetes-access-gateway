@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/hashicorp/vault/api/auth/approle"
+	"github.com/hashicorp/vault/api/auth/aws"
 	"github.com/hashicorp/vault/api/auth/gcp"
 
 	vault "github.com/hashicorp/vault/api"
-	aws "github.com/hashicorp/vault/api/auth/aws"
 
 	gatewayconfig "k8sgateway/internal/config"
 )
@@ -37,6 +37,7 @@ func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.A
 	return nil, errVaultAuthMethodNotConfigured
 }
 
+//nolint:ireturn
 func newAppRoleAuthMethod(appRoleConfig *gatewayconfig.SSHCAVaultAppRoleConfig) (vault.AuthMethod, error) {
 	secretID := &approle.SecretID{
 		FromString: appRoleConfig.SecretID,
@@ -50,6 +51,7 @@ func newAppRoleAuthMethod(appRoleConfig *gatewayconfig.SSHCAVaultAppRoleConfig) 
 	)
 }
 
+//nolint:ireturn
 func newGCPAuthMethod(gcpConfig *gatewayconfig.SSHCAVaultGCPConfig) (vault.AuthMethod, error) {
 	opts := []gcp.LoginOption{
 		gcp.WithMountPath(gcpConfig.GetMount()),
@@ -63,6 +65,7 @@ func newGCPAuthMethod(gcpConfig *gatewayconfig.SSHCAVaultGCPConfig) (vault.AuthM
 	return gcp.NewGCPAuth(gcpConfig.Role, opts...)
 }
 
+//nolint:ireturn
 func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (vault.AuthMethod, error) {
 	opts := []aws.LoginOption{
 		aws.WithRole(awsConfig.Role),
@@ -90,7 +93,7 @@ func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (vault.AuthM
 		opts = append(opts, aws.WithNonce(awsConfig.Nonce))
 	}
 
-	// Apply signature type if specified. Default is set to pkcs7 in the Vault SDK
+	// Apply signature type if specified. Default is pkcs7 in the Vault SDK.
 	switch strings.ToLower(awsConfig.SignatureType) {
 	case "identity":
 		opts = append(opts, aws.WithIdentitySignature())
@@ -98,6 +101,8 @@ func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (vault.AuthM
 		opts = append(opts, aws.WithRSA2048Signature())
 	case "pkcs7":
 		opts = append(opts, aws.WithPKCS7Signature())
+	default:
+		// Use SDK default (pkcs7)
 	}
 
 	return aws.NewAWSAuth(opts...)

@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/vault/api/auth/approle"
+	"github.com/hashicorp/vault/api/auth/aws"
 	"github.com/hashicorp/vault/api/auth/gcp"
 	"github.com/stretchr/testify/require"
-
-	aws "github.com/hashicorp/vault/api/auth/aws"
 
 	gatewayconfig "k8sgateway/internal/config"
 )

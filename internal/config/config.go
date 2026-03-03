@@ -157,7 +157,7 @@ type SSHCAVaultAWSConfig struct {
 	Role              string `yaml:"role"`
 	Type              string `yaml:"type"`
 	Region            string `yaml:"region,omitempty"`
-	IAMServerIDHeader string `yaml:"iamServerIdHeader,omitempty"`
+	IAMServerIDHeader string `yaml:"iamServerIDHeader,omitempty"`
 	// EC2-only options
 	SignatureType string `yaml:"signatureType,omitempty"`
 	Nonce         string `yaml:"nonce,omitempty"`
