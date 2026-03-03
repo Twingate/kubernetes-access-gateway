@@ -166,7 +166,7 @@ Pipeline (`.github/workflows/ci.yaml`):
 3. Integration tests (kind cluster)
 4. Helm tests
 5. E2E tests
-6. Coveralls upload
+6. CodeCov upload (unit and integration coverage with flags)
 
 On tag: goreleaser builds multi-arch images (amd64/arm64) → Docker Hub
 

@@ -23,6 +23,8 @@ bin/*
 
 # Test results
 /test/out
+covprofile-*
+junit-*.xml
 .idea
 .vscode
 
