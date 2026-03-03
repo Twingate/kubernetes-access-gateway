@@ -992,7 +992,7 @@ func TestSSHCAVaultGCPConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "valid GCP type case insensitive",
+			name:    "valid GCE type case insensitive",
 			cfg:     &SSHCAVaultGCPConfig{Role: "my-role", Type: "GCE"},
 			wantErr: false,
 		},
