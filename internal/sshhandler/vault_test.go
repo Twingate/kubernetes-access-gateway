@@ -63,10 +63,11 @@ func TestNewVaultAuthMethod_AWS(t *testing.T) {
 	t.Run("IAM", func(t *testing.T) {
 		cfg := &gatewayconfig.SSHCAVaultAuthConfig{
 			AWS: &gatewayconfig.SSHCAVaultAWSConfig{
-				Mount:  "custom-aws",
-				Role:   "my-role",
-				Type:   "iam",
-				Region: "us-west-2",
+				Mount:             "custom-aws",
+				Role:              "my-role",
+				Type:              "iam",
+				Region:            "us-west-2",
+				IAMServerIDHeader: "my-header-value",
 			},
 		}
 

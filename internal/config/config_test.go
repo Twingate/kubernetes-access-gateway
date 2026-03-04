@@ -847,7 +847,7 @@ func TestSSHCAVaultAuthConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid aws",
+			name: "valid AWS",
 			cfg: SSHCAVaultAuthConfig{
 				AWS: &SSHCAVaultAWSConfig{
 					Role: "my-role",
