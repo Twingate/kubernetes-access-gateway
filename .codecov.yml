@@ -1,0 +1,40 @@
+# CodeCov configuration for Kubernetes Access Gateway
+coverage:
+  status:
+    project:
+      default:
+        target: auto      # Maintain current coverage
+        threshold: 1%
+        informational: false
+    patch:
+      default:
+        target: 80%       # New code must have 80% coverage
+        threshold: 5%
+        informational: false
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+
+flags:
+  unit:
+    paths:
+      - cmd/
+      - internal/
+    carryforward: false
+  integration:
+    paths:
+      - cmd/
+      - internal/
+    carryforward: false
+
+flag_management:
+  default_rules:
+    carryforward: false
+    statuses:
+      - type: project
+        target: auto
+        threshold: 1%
+      - type: patch
+        target: 75%
