@@ -156,7 +156,7 @@ func TestListener_Serve_HTTPS(t *testing.T) {
 	}
 
 	go func() {
-		_ = fixtures.listener.Serve(context.Background(), fixtures.tcpListener)
+		_ = fixtures.listener.Serve(t.Context(), fixtures.tcpListener)
 	}()
 
 	// Open TCP connection to the mock listener
@@ -206,7 +206,7 @@ func TestListener_Serve_SSH(t *testing.T) {
 	}
 
 	go func() {
-		_ = fixtures.listener.Serve(context.Background(), fixtures.tcpListener)
+		_ = fixtures.listener.Serve(t.Context(), fixtures.tcpListener)
 	}()
 
 	// Open TCP connection to the mock listener
@@ -255,7 +255,7 @@ func TestListener_Serve_Healthz(t *testing.T) {
 	}
 
 	go func() {
-		_ = fixtures.listener.Serve(context.Background(), fixtures.tcpListener)
+		_ = fixtures.listener.Serve(t.Context(), fixtures.tcpListener)
 	}()
 
 	// Open TCP connection to the mock listener
@@ -349,7 +349,7 @@ func TestListener_UnsupportedTransport(t *testing.T) {
 	}
 
 	go func() {
-		_ = listener.Serve(context.Background(), tcpListener)
+		_ = listener.Serve(t.Context(), tcpListener)
 	}()
 
 	// Open TCP connection
