@@ -7,9 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/vault/api/auth/approle"
+	"github.com/hashicorp/vault/api/auth/aws"
+	"github.com/hashicorp/vault/api/auth/gcp"
 	"go.uber.org/zap"
 
 	vault "github.com/hashicorp/vault/api"
@@ -33,19 +36,85 @@ type VaultClient struct {
 //nolint:ireturn
 func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.AuthMethod, error) {
 	if authConfig.AppRole != nil {
-		secretID := &approle.SecretID{
-			FromString: authConfig.AppRole.SecretID,
-			FromFile:   authConfig.AppRole.SecretIDFile,
-		}
+		return newAppRoleAuthMethod(authConfig.AppRole)
+	}
 
-		return approle.NewAppRoleAuth(
-			authConfig.AppRole.RoleID,
-			secretID,
-			approle.WithMountPath(authConfig.AppRole.GetMount()),
-		)
+	if authConfig.GCP != nil {
+		return newGCPAuthMethod(authConfig.GCP)
+	}
+
+	if authConfig.AWS != nil {
+		return newAWSAuthMethod(authConfig.AWS)
 	}
 
 	return nil, errVaultAuthMethodNotConfigured
+}
+
+func newAppRoleAuthMethod(appRoleConfig *gatewayconfig.SSHCAVaultAppRoleConfig) (*approle.AppRoleAuth, error) {
+	secretID := &approle.SecretID{
+		FromString: appRoleConfig.SecretID,
+		FromFile:   appRoleConfig.SecretIDFile,
+	}
+
+	return approle.NewAppRoleAuth(
+		appRoleConfig.RoleID,
+		secretID,
+		approle.WithMountPath(appRoleConfig.GetMount()),
+	)
+}
+
+func newGCPAuthMethod(gcpConfig *gatewayconfig.SSHCAVaultGCPConfig) (*gcp.GCPAuth, error) {
+	opts := []gcp.LoginOption{
+		gcp.WithMountPath(gcpConfig.GetMount()),
+	}
+
+	// GCE is the default in the Vault GCP auth SDK
+	if strings.EqualFold(gcpConfig.Type, "iam") {
+		opts = append(opts, gcp.WithIAMAuth(gcpConfig.ServiceAccountEmail))
+	}
+
+	return gcp.NewGCPAuth(gcpConfig.Role, opts...)
+}
+
+func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (*aws.AWSAuth, error) {
+	opts := []aws.LoginOption{
+		aws.WithRole(awsConfig.Role),
+		aws.WithMountPath(awsConfig.GetMount()),
+	}
+
+	if awsConfig.Region != "" {
+		opts = append(opts, aws.WithRegion(awsConfig.Region))
+	}
+
+	if awsConfig.IAMServerIDHeader != "" {
+		opts = append(opts, aws.WithIAMServerIDHeader(awsConfig.IAMServerIDHeader))
+	}
+
+	if strings.EqualFold(awsConfig.Type, "iam") {
+		opts = append(opts, aws.WithIAMAuth())
+
+		return aws.NewAWSAuth(opts...)
+	}
+
+	opts = append(opts, aws.WithEC2Auth())
+
+	if awsConfig.Nonce != "" {
+		opts = append(opts, aws.WithNonce(awsConfig.Nonce))
+	}
+
+	// Apply signature type if specified
+	switch strings.ToLower(awsConfig.SignatureType) {
+	case "identity":
+		opts = append(opts, aws.WithIdentitySignature())
+	case "rsa2048":
+		opts = append(opts, aws.WithRSA2048Signature())
+	case "pkcs7":
+		opts = append(opts, aws.WithPKCS7Signature())
+	default:
+		// Use Vault SDK default (pkcs7)
+	}
+
+	return aws.NewAWSAuth(opts...)
 }
 
 func newVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (*VaultClient, error) {
