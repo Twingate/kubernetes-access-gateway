@@ -81,7 +81,7 @@ ssh:
     #       mount: "approle"
     #       roleId: ""
     #       secretId: ""
-    #       existingSecretIdSecret: ""  # Name of existing Secret containing the appRole secretId (key name: secretId)
+    #       existingSecretIdSecret: ""  # Name of existing secret containing the AppRole SecretID (key name: secretId)
     #
     #   # Default mount/role (can be overridden per-CA)
     #   mount: "ssh"
