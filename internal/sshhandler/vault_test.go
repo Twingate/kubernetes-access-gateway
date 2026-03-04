@@ -110,7 +110,7 @@ func TestRunTokenRenewalLoop_LoginAfterTokenExpires(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		go vc.RunTokenRenewalLoop(ctx, secret)
+		go vc.runTokenRenewalLoop(ctx, secret)
 
 		// Advance time past the token's max TTL to exit the watcher and trigger re-login
 		time.Sleep(30 * time.Second)
@@ -133,7 +133,7 @@ func TestRunTokenRenewalLoop_LoginFailsThenSucceeds(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		go vc.RunTokenRenewalLoop(ctx, secret)
+		go vc.runTokenRenewalLoop(ctx, secret)
 
 		// Wait for the watcher to exit and the first login attempt to fail
 		time.Sleep(30 * time.Second)
@@ -167,7 +167,7 @@ func TestRunTokenRenewalLoop_ContextCanceled(t *testing.T) {
 		done := make(chan struct{})
 
 		go func() {
-			vc.RunTokenRenewalLoop(ctx, secret)
+			vc.runTokenRenewalLoop(ctx, secret)
 			close(done)
 		}()
 

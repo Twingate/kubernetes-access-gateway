@@ -48,7 +48,7 @@ func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.A
 	return nil, errVaultAuthMethodNotConfigured
 }
 
-func NewVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (*VaultClient, error) {
+func newVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (*VaultClient, error) {
 	config := vault.DefaultConfig()
 	config.Address = vaultConfig.Address
 
@@ -90,10 +90,10 @@ func NewVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Log
 	return vc, nil
 }
 
-// RunTokenRenewalLoop runs the token lifecycle watcher and login loop until context is canceled.
+// runTokenRenewalLoop runs the token lifecycle watcher and login loop until context is canceled.
 // Whenever the token expires or renewal fails, it re-logins using the configured auth method and
 // start the token lifecycle watcher again with the new token. If login fails, it retries after a delay.
-func (vc *VaultClient) RunTokenRenewalLoop(ctx context.Context, secret *vault.Secret) {
+func (vc *VaultClient) runTokenRenewalLoop(ctx context.Context, secret *vault.Secret) {
 	for {
 		select {
 		case <-ctx.Done():

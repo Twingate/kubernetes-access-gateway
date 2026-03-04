@@ -150,7 +150,7 @@ func TestSSHProxy_Start_AcceptError(t *testing.T) {
 		ProtocolListener: &connect.ProtocolListener{},
 	}
 
-	config, err := NewConfig(nil, sshConfig, nil, zap.NewNop())
+	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
 	config.ProtocolListener = listener
@@ -182,7 +182,7 @@ func TestSSHProxy_Start_Shutdown(t *testing.T) {
 		ProtocolListener: &connect.ProtocolListener{},
 	}
 
-	config, err := NewConfig(nil, sshConfig, nil, zap.NewNop())
+	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
 	config.ProtocolListener = listener
@@ -214,7 +214,7 @@ func TestSSHProxy_Start_Success(t *testing.T) {
 		ProtocolListener: &connect.ProtocolListener{},
 	}
 
-	config, err := NewConfig(nil, sshConfig, nil, zap.NewNop())
+	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
 	config.ProtocolListener = listener
@@ -289,7 +289,7 @@ func TestSSHProxy_ServeConn_Success(t *testing.T) {
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
 
-	config, err := NewConfig(nil, sshConfig, nil, zap.NewNop())
+	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
 	downstreamConfig, err := config.GetDownstreamConfig(t.Context())
@@ -390,7 +390,7 @@ func TestSSHProxy_ServeConn_UnknownUpstream(t *testing.T) {
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
 
-	config, err := NewConfig(nil, sshConfig, nil, zap.NewNop())
+	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
 	downstreamConfig, err := config.GetDownstreamConfig(t.Context())
@@ -429,7 +429,7 @@ func TestSSHProxy_ServeConn_DownstreamHandshakeFailure(t *testing.T) {
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
 
-	config, err := NewConfig(nil, sshConfig, nil, zap.NewNop())
+	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
 	downstreamConfig, err := config.GetDownstreamConfig(t.Context())
@@ -476,7 +476,7 @@ func TestSSHProxy_ServeConn_UpstreamConnectionFailure(t *testing.T) {
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
 
-	config, err := NewConfig(nil, sshConfig, nil, zap.NewNop())
+	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
 	downstreamConfig, err := config.GetDownstreamConfig(t.Context())
@@ -536,7 +536,7 @@ func TestSSHProxy_ServeConn_UpstreamSSHHandshakeFailure(t *testing.T) {
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
 
-	config, err := NewConfig(nil, sshConfig, nil, zap.NewNop())
+	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
 	downstreamConfig, err := config.GetDownstreamConfig(t.Context())
@@ -609,7 +609,7 @@ func TestSSHProxy_Shutdown_WithActiveConnection(t *testing.T) {
 	mockProxyDialer := &mockProxyNetDialer{}
 	mockProxyConnPairFactory := &mockProxySSHConnPairFactory{}
 
-	config, err := NewConfig(nil, sshConfig, nil, zap.NewNop())
+	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
 	downstreamConfig, err := config.GetDownstreamConfig(t.Context())

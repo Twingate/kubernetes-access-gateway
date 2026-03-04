@@ -60,17 +60,8 @@ func NewProxy(config *gatewayconfig.Config, registry *prometheus.Registry, logge
 	}
 
 	var sshConfig *sshhandler.Config
-
 	if config.SSH != nil {
-		var vaultClient *sshhandler.VaultClient
-		if config.SSH.CA.Vault != nil {
-			vaultClient, err = sshhandler.NewVaultClient(config.SSH.CA.Vault, logger)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create Vault client: %w", err)
-			}
-		}
-
-		sshConfig, err = sshhandler.NewConfig(&config.AuditLog, config.SSH, vaultClient, logger)
+		sshConfig, err = sshhandler.NewConfig(&config.AuditLog, config.SSH, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create SSH config %w", err)
 		}

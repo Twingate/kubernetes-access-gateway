@@ -140,7 +140,7 @@ func TestNewManualCA_PrivateKeyFileNotFound(t *testing.T) {
 }
 
 func TestNewCAFromConfig_NilConfig(t *testing.T) {
-	caConfig, err := newCAFromConfig(nil, nil, zap.NewNop())
+	caConfig, err := newCAFromConfig(nil, zap.NewNop())
 	require.NoError(t, err)
 
 	require.IsType(t, &embeddedCA{}, caConfig.GatewayHostCA)
@@ -151,7 +151,7 @@ func TestNewCAFromConfig_NilConfig(t *testing.T) {
 func TestNewCAFromConfig_EmptyConfig(t *testing.T) {
 	config := &gatewayconfig.SSHCAConfig{}
 
-	caConfig, err := newCAFromConfig(config, nil, zap.NewNop())
+	caConfig, err := newCAFromConfig(config, zap.NewNop())
 	require.NoError(t, err)
 
 	require.IsType(t, &embeddedCA{}, caConfig.GatewayHostCA)
@@ -166,7 +166,7 @@ func TestNewCAFromConfig_ManualConfig(t *testing.T) {
 		},
 	}
 
-	caConfig, err := newCAFromConfig(config, nil, zap.NewNop())
+	caConfig, err := newCAFromConfig(config, zap.NewNop())
 	require.NoError(t, err)
 
 	require.IsType(t, &embeddedCA{}, caConfig.GatewayHostCA)

@@ -55,7 +55,6 @@ type upstream struct {
 
 type Config struct {
 	ProtocolListener net.Listener
-	VaultClient      *VaultClient
 
 	caConfig           *caConfig
 	gatewaySigner      ssh.Signer
@@ -69,8 +68,8 @@ type Config struct {
 }
 
 // NewConfig creates an SSH handler config from the config package types.
-func NewConfig(auditLogConfig *config.AuditLogConfig, sshCfg *config.SSHConfig, vaultClient *VaultClient, logger *zap.Logger) (*Config, error) {
-	caConfig, err := newCAFromConfig(&sshCfg.CA, vaultClient, logger)
+func NewConfig(auditLogConfig *config.AuditLogConfig, sshCfg *config.SSHConfig, logger *zap.Logger) (*Config, error) {
+	caConfig, err := newCAFromConfig(&sshCfg.CA, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ca: %w", err)
 	}
@@ -115,7 +114,6 @@ func NewConfig(auditLogConfig *config.AuditLogConfig, sshCfg *config.SSHConfig, 
 	}
 
 	return &Config{
-		VaultClient:        vaultClient,
 		caConfig:           caConfig,
 		gatewaySigner:      gatewaySigner,
 		gatewayPublicKey:   gatewayPublicKey,
