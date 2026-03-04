@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/vault/api/auth/approle"
+	"github.com/hashicorp/vault/api/auth/gcp"
 	"github.com/stretchr/testify/require"
 
 	gatewayconfig "k8sgateway/internal/config"
@@ -40,6 +41,21 @@ func TestNewVaultAuthMethod_AppRole(t *testing.T) {
 		require.NoError(t, err)
 		require.IsType(t, &approle.AppRoleAuth{}, authMethod)
 	})
+}
+
+func TestNewVaultAuthMethod_GCP(t *testing.T) {
+	cfg := &gatewayconfig.SSHCAVaultAuthConfig{
+		GCP: &gatewayconfig.SSHCAVaultGCPConfig{
+			Mount:               "custom-gcp",
+			Role:                "my-role",
+			Type:                "iam",
+			ServiceAccountEmail: "gateway-sa@project.iam.gserviceaccount.com",
+		},
+	}
+
+	authMethod, err := newVaultAuthMethod(cfg)
+	require.NoError(t, err)
+	require.IsType(t, &gcp.GCPAuth{}, authMethod)
 }
 
 func TestNewVaultAuthMethod_NoAuth(t *testing.T) {

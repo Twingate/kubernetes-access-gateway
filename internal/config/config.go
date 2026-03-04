@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"go.yaml.in/yaml/v4"
@@ -133,6 +134,7 @@ type SSHCAVaultMountConfig struct {
 type SSHCAVaultAuthConfig struct {
 	Token   string                   `yaml:"token,omitempty"`
 	AppRole *SSHCAVaultAppRoleConfig `yaml:"appRole,omitempty"`
+	GCP     *SSHCAVaultGCPConfig     `yaml:"gcp,omitempty"`
 }
 
 type SSHCAVaultAppRoleConfig struct {
@@ -140,6 +142,13 @@ type SSHCAVaultAppRoleConfig struct {
 	RoleID       string `yaml:"roleID"`
 	SecretID     string `yaml:"secretID"`
 	SecretIDFile string `yaml:"secretIDFile"`
+}
+
+type SSHCAVaultGCPConfig struct {
+	Mount               string `yaml:"mount,omitempty"`
+	Role                string `yaml:"role"`
+	Type                string `yaml:"type"`
+	ServiceAccountEmail string `yaml:"serviceAccountEmail,omitempty"` // Required for iam type
 }
 
 type SSHUpstream struct {
@@ -403,18 +412,40 @@ func (v *SSHCAVaultConfig) Validate() error {
 }
 
 var (
-	ErrConflictingAuthConfig     = errors.New("only one of 'token' or 'appRole' can be specified for Vault auth")
+	ErrConflictingAuthConfig     = errors.New("only one of 'token', 'appRole', or 'gcp' can be specified for Vault auth")
 	ErrConflictingSecretIDConfig = errors.New("only one of 'secretID' or 'secretIDFile' can be specified")
+	ErrInvalidGCPType            = errors.New("gcp type must be 'gce' or 'iam'")
 )
 
 func (a *SSHCAVaultAuthConfig) Validate() error {
-	if a.Token != "" && a.AppRole != nil {
+	// Count configured Vault auth methods to ensure only one is specified
+	configuredMethods := 0
+
+	if a.Token != "" {
+		configuredMethods++
+	}
+
+	if a.AppRole != nil {
+		configuredMethods++
+	}
+
+	if a.GCP != nil {
+		configuredMethods++
+	}
+
+	if configuredMethods > 1 {
 		return ErrConflictingAuthConfig
 	}
 
 	if a.AppRole != nil {
 		if err := a.AppRole.Validate(); err != nil {
 			return fmt.Errorf("appRole: %w", err)
+		}
+	}
+
+	if a.GCP != nil {
+		if err := a.GCP.Validate(); err != nil {
+			return fmt.Errorf("gcp: %w", err)
 		}
 	}
 
@@ -446,6 +477,42 @@ func (a *SSHCAVaultAppRoleConfig) Validate() error {
 	}
 
 	return nil
+}
+
+const defaultGCPMount = "gcp"
+
+// GetMount returns the GCP auth mount path, defaulting to "gcp" if not specified.
+func (g *SSHCAVaultGCPConfig) GetMount() string {
+	if g.Mount != "" {
+		return g.Mount
+	}
+
+	return defaultGCPMount
+}
+
+func (g *SSHCAVaultGCPConfig) Validate() error {
+	if g.Role == "" {
+		return fmt.Errorf("%w: role", ErrRequired)
+	}
+
+	if g.Type == "" {
+		return fmt.Errorf("%w: type", ErrRequired)
+	}
+
+	gcpType := strings.ToLower(g.Type)
+
+	switch gcpType {
+	case "gce":
+		return nil
+	case "iam":
+		if g.ServiceAccountEmail == "" {
+			return fmt.Errorf("%w: serviceAccountEmail is required for iam type", ErrRequired)
+		}
+
+		return nil
+	default:
+		return ErrInvalidGCPType
+	}
 }
 
 const defaultVaultSSHMount = "ssh"
