@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Zero-trust access gateway bridging Twingate with Kubernetes clusters. Provides secure HTTP/Kubernetes API and SSH proxy access with JWT + Proof-of-Possession authentication.
+Zero-trust access gateway bridging Twingate with L7 resources such as Kubernetes API servers, HTTP services, and SSH servers. Authentication uses JWT + Proof-of-Possession.
 
 - **License**: MPL-2.0
 - **Repository**: <https://github.com/Twingate/kubernetes-access-gateway>
@@ -106,8 +106,6 @@ main.go → cmd/start.go → proxy.NewProxy() → proxy.Start()
 ```bash
 asdf install golang 1.26.0
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.9.0
-go install github.com/caarlos0/svu@latest
-go install sigs.k8s.io/kind@latest
 ```
 
 Versions tracked in `.tool-versions`.
@@ -284,9 +282,6 @@ Resources: Deployment, Service, ServiceAccount, ClusterRole/Binding, Secret (TLS
 
 ```bash
 export LOG_LEVEL=debug                                    # Enable debug logs
-openssl s_client -connect localhost:8443 -showcerts       # Test TLS
-kubectl logs -f deployment/gateway                        # View logs
-curl http://localhost:9090/metrics | grep gateway_        # Check metrics
 go test -v ./internal/proxy -run TestProxyStart          # Run specific test
 go test -race ./...                                        # Race detector
 ```
