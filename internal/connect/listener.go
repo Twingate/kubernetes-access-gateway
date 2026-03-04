@@ -186,8 +186,13 @@ func (l *Listener) Serve(ctx context.Context, listener net.Listener) error {
 				}
 			}
 
-			// Send to channel (blocking)
-			channel <- proxyConn
+			select {
+			case channel <- proxyConn:
+				// delivered successfully
+			case <-ctx.Done():
+				l.logger.Debug("Context canceled before routing connection to backend")
+				_ = proxyConn.Close()
+			}
 		}()
 	}
 }
