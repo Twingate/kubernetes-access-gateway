@@ -3,6 +3,7 @@
 {{- end -}}
 {{- $manualCAEnabled := and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.manual -}}
 {{- $vaultCABundleEnabled := and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.vault (or .Values.ssh.ca.vault.caBundle .Values.ssh.ca.vault.existingCABundleSecret) -}}
+{{- $vaultAppRoleEnabled := and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.vault .Values.ssh.ca.vault.auth .Values.ssh.ca.vault.auth.appRole -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -42,16 +43,16 @@ spec:
           env:
             - name: TWINGATE_CONFIG
               value: /etc/gateway/config.yaml
-            {{- if and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.vault }}
+            {{- if and .Values.ssh.enabled .Values.ssh.ca .Values.ssh.ca.vault (or .Values.ssh.ca.vault.auth.token .Values.ssh.ca.vault.auth.existingTokenSecret) }}
             - name: VAULT_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "gateway.sshVaultTokenSecretName" . }}
                   key: token
+            {{- end }}
             {{- if $vaultCABundleEnabled }}
             - name: VAULT_CACERT
               value: /etc/gateway/vault/ca.crt
-            {{- end }}
             {{- end }}
             {{- with .Values.extraEnvVars }}
             {{- toYaml . | nindent 12 }}
@@ -87,6 +88,11 @@ spec:
               mountPath: /etc/gateway/vault
               readOnly: true
             {{- end }}
+            {{- if $vaultAppRoleEnabled }}
+            - name: vault-approle-secret-id
+              mountPath: /etc/gateway/vault/approle
+              readOnly: true
+            {{- end }}
             {{- end }}
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -108,6 +114,11 @@ spec:
         - name: vault-ca-bundle
           secret:
             secretName: {{ include "gateway.sshVaultCABundleSecretName" . }}
+        {{- end }}
+        {{- if $vaultAppRoleEnabled }}
+        - name: vault-approle-secret-id
+          secret:
+            secretName: {{ include "gateway.sshVaultAppRoleSecretIdSecretName" . }}
         {{- end }}
         {{- end }}
       {{- with .Values.volumes }}
