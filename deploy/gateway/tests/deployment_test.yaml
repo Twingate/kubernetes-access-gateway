@@ -44,6 +44,13 @@ tests:
             name: tls-certs
             secret:
               secretName: my-tls-secret
+  - it: should set priorityClassName when specified
+    set:
+      priorityClassName: "myPriorityClass"
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: "myPriorityClass"
   - it: should add extra environment variables
     set:
       extraEnvVars:
@@ -233,3 +240,54 @@ tests:
             name: vault-ca-bundle
             secret:
               secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-ca-bundle
+  - it: should include Vault AppRole Secret ID volume and volumeMount
+    set:
+      ssh:
+        ca:
+          vault:
+            auth:
+              appRole:
+                roleId: "my-role-id"
+                secretId: "my-secret-id"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: vault-approle-secret-id
+            mountPath: /etc/gateway/vault/approle
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vault-approle-secret-id
+            secret:
+              secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-approle-secret-id
+  - it: should use existing Vault AppRole Secret ID secret name when specified
+    set:
+      ssh:
+        ca:
+          vault:
+            auth:
+              appRole:
+                roleId: "my-role-id"
+                existingSecretIdSecret: "my-existing-approle-secret"
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: vault-approle-secret-id
+            secret:
+              secretName: my-existing-approle-secret
+  - it: should error when both token and appRole are specified
+    set:
+      ssh:
+        ca:
+          vault:
+            auth:
+              token: "my-token"
+              appRole:
+                roleId: "my-role-id"
+                secretId: "my-secret-id"
+    asserts:
+      - failedTemplate:
+          errorPattern: "at '/ssh/ca/vault/auth': 'oneOf' failed, subschemas 1, 2 matched"
