@@ -51,6 +51,17 @@ jobs:
         version: v2.9
         only-new-issues: true
 
+  lint-markdown:
+    runs-on: ubuntu-latest
+    name: Markdown lint
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '25'
+      - name: Lint Markdown files
+        run: make lint-markdown
+
   test-helm:
     runs-on: ubuntu-latest
     steps:
@@ -71,12 +82,15 @@ jobs:
         with:
           go-version: ${{ env.GOLANG_VERSION }}
 
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
       - name: Run Tests
         run: make test-with-coverage
 
       # Integration tests
       - name: Setup Docker
-        uses: docker/setup-docker-action@v4
+        uses: docker/setup-docker-action@v5
       - name: Install Caddy
         run: |
           curl -fsSL https://github.com/caddyserver/caddy/releases/download/v${{ env.CADDY_VERSION }}/caddy_${{ env.CADDY_VERSION }}_linux_amd64.tar.gz | tar -xzv
@@ -93,17 +107,48 @@ jobs:
       - name: Run Integration Tests
         run: make test-integration-with-coverage
 
-      # Combined code coverage
-      - name: Send coverage to Coveralls
-        env:
-          COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
-        run: |
-          go install github.com/mattn/goveralls@latest
-          make coverall
+      # Upload coverage to CodeCov
+      - name: Upload unit test coverage to CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./covprofile-unit
+          flags: unit
+          name: unit-tests
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true
+
+      - name: Upload integration test coverage to CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./covprofile-integration
+          flags: integration
+          name: integration-tests
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true
+
+      - name: Upload unit test results to CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./junit-unit.xml
+          report_type: test_results
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+
+      - name: Upload integration test results to CodeCov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./junit-integration.xml
+          report_type: test_results
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
 
   build:
     runs-on: ubuntu-latest
-    needs: [lint-docker, lint-go, test, test-helm]
+    needs: [lint-docker, lint-go, lint-markdown, test, test-helm]
     env:
       REGISTRY: ghcr.io/twingate
       DOCKER_BUILDX_CACHE: --cache-to type=gha,mode=max --cache-from type=gha
@@ -121,7 +166,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Expose GitHub Runtime (ACTION_* env vars required for docker caching)
-      uses: crazy-max/ghaction-github-runtime@v3
+      uses: crazy-max/ghaction-github-runtime@v4
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -146,7 +191,7 @@ jobs:
         docker save -o kubernetes-access-gateway-images.tar $(docker images --filter=reference='twingate/kubernetes-access-gateway:*' --format '{{.Repository}}:{{.Tag}}')
 
     - name: Upload docker images
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: docker-images
         path: kubernetes-access-gateway-images.tar
@@ -161,10 +206,10 @@ jobs:
         go-version: ${{ env.GOLANG_VERSION }}
 
     - name: Setup Docker
-      uses: docker/setup-docker-action@v4
+      uses: docker/setup-docker-action@v5
 
     - name: Download docker images
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: docker-images
 

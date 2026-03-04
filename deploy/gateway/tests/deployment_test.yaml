@@ -44,6 +44,13 @@ tests:
             name: tls-certs
             secret:
               secretName: my-tls-secret
+  - it: should set priorityClassName when specified
+    set:
+      priorityClassName: "myPriorityClass"
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: "myPriorityClass"
   - it: should add extra environment variables
     set:
       extraEnvVars:
