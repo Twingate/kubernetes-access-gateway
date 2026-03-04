@@ -72,8 +72,16 @@ ssh:
     #
     #   # Auth configuration
     #   auth:
+    #     # Option 1: Token auth
     #     existingTokenSecret: ""  # Name of existing secret containing the token (key name: token)
     #     token: ""  # Token value
+    #
+    #     # Option 2: AppRole auth
+    #     appRole:
+    #       mount: "approle"
+    #       roleId: ""
+    #       secretId: ""
+    #       existingSecretIdSecret: ""  # Name of existing secret containing the AppRole SecretID (key name: secretId)
     #
     #   # Default mount/role (can be overridden per-CA)
     #   mount: "ssh"
@@ -161,6 +169,8 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+priorityClassName: ""
 
 # Extra environment variables to add to the container.
 #
