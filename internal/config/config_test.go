@@ -1061,22 +1061,35 @@ func TestSSHCAVaultGCPConfig_Validate(t *testing.T) {
 }
 
 func TestSSHCAVaultAWSConfig_GetMount(t *testing.T) {
-	t.Run("default mount", func(t *testing.T) {
-		cfg := &SSHCAVaultAWSConfig{
-			Role: "my-role",
-			Type: "iam",
-		}
-		assert.Equal(t, "aws", cfg.GetMount())
-	})
+	tests := []struct {
+		name     string
+		cfg      *SSHCAVaultAWSConfig
+		expected string
+	}{
+		{
+			name: "default mount",
+			cfg: &SSHCAVaultAWSConfig{
+				Role: "my-role",
+				Type: "iam",
+			},
+			expected: "aws",
+		},
+		{
+			name: "custom mount",
+			cfg: &SSHCAVaultAWSConfig{
+				Mount: "custom-aws",
+				Role:  "my-role",
+				Type:  "iam",
+			},
+			expected: "custom-aws",
+		},
+	}
 
-	t.Run("custom mount", func(t *testing.T) {
-		cfg := &SSHCAVaultAWSConfig{
-			Mount: "custom-aws",
-			Role:  "my-role",
-			Type:  "iam",
-		}
-		assert.Equal(t, "custom-aws", cfg.GetMount())
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.cfg.GetMount())
+		})
+	}
 }
 
 func TestSSHCAVaultAWSConfig_Validate(t *testing.T) {

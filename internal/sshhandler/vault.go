@@ -37,8 +37,7 @@ func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.A
 	return nil, errVaultAuthMethodNotConfigured
 }
 
-//nolint:ireturn
-func newAppRoleAuthMethod(appRoleConfig *gatewayconfig.SSHCAVaultAppRoleConfig) (vault.AuthMethod, error) {
+func newAppRoleAuthMethod(appRoleConfig *gatewayconfig.SSHCAVaultAppRoleConfig) (*approle.AppRoleAuth, error) {
 	secretID := &approle.SecretID{
 		FromString: appRoleConfig.SecretID,
 		FromFile:   appRoleConfig.SecretIDFile,
@@ -51,8 +50,7 @@ func newAppRoleAuthMethod(appRoleConfig *gatewayconfig.SSHCAVaultAppRoleConfig) 
 	)
 }
 
-//nolint:ireturn
-func newGCPAuthMethod(gcpConfig *gatewayconfig.SSHCAVaultGCPConfig) (vault.AuthMethod, error) {
+func newGCPAuthMethod(gcpConfig *gatewayconfig.SSHCAVaultGCPConfig) (*gcp.GCPAuth, error) {
 	opts := []gcp.LoginOption{
 		gcp.WithMountPath(gcpConfig.GetMount()),
 	}
@@ -65,8 +63,7 @@ func newGCPAuthMethod(gcpConfig *gatewayconfig.SSHCAVaultGCPConfig) (vault.AuthM
 	return gcp.NewGCPAuth(gcpConfig.Role, opts...)
 }
 
-//nolint:ireturn
-func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (vault.AuthMethod, error) {
+func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (*aws.AWSAuth, error) {
 	opts := []aws.LoginOption{
 		aws.WithRole(awsConfig.Role),
 		aws.WithMountPath(awsConfig.GetMount()),
@@ -86,14 +83,13 @@ func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (vault.AuthM
 		return aws.NewAWSAuth(opts...)
 	}
 
-	// EC2 auth
 	opts = append(opts, aws.WithEC2Auth())
 
 	if awsConfig.Nonce != "" {
 		opts = append(opts, aws.WithNonce(awsConfig.Nonce))
 	}
 
-	// Apply signature type if specified. Default is pkcs7 in the Vault SDK.
+	// Apply signature type if specified
 	switch strings.ToLower(awsConfig.SignatureType) {
 	case "identity":
 		opts = append(opts, aws.WithIdentitySignature())
@@ -102,7 +98,7 @@ func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (vault.AuthM
 	case "pkcs7":
 		opts = append(opts, aws.WithPKCS7Signature())
 	default:
-		// Use SDK default (pkcs7)
+		// Use Vault SDK default (pkcs7)
 	}
 
 	return aws.NewAWSAuth(opts...)
