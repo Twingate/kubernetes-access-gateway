@@ -161,19 +161,20 @@ func newVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Log
 
 // runTokenRenewalLoop runs the token lifecycle watcher and login loop until context is canceled.
 // Whenever the token expires or renewal fails, it re-logins using the configured auth method and
-// start the token lifecycle watcher again with the new token. If login fails, it retries after a delay.
+// starts the token lifecycle watcher again with the new token. If login fails, it retries after a delay.
 func (vc *Vault) runTokenRenewalLoop(ctx context.Context, secret *vault.Secret) {
 	for {
+		if err := vc.watchTokenLifecycle(ctx, secret); err != nil {
+			vc.logger.Error("Failed to watch Vault token lifecycle, will retry later", zap.Error(err))
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			if err := vc.watchTokenLifecycle(ctx, secret); err != nil {
-				vc.logger.Error("Failed to watch Vault token lifecycle, will retry later", zap.Error(err))
-			}
-
-			secret = vc.loginWithRetry(ctx)
 		}
+
+		secret = vc.loginWithRetry(ctx)
 	}
 }
 
@@ -193,7 +194,7 @@ func (vc *Vault) watchTokenLifecycle(ctx context.Context, secret *vault.Secret) 
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil
 		case err := <-watcher.DoneCh():
 			if err != nil {
 				vc.logger.Error("Failed to renew Vault token, re-attempting login", zap.Error(err))
