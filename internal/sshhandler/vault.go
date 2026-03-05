@@ -134,60 +134,60 @@ func newVault(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (
 		return nil, fmt.Errorf("failed to create vault client: %w", err)
 	}
 
-	vc := &Vault{client: client, logger: logger}
+	v := &Vault{client: client, logger: logger}
 
 	client.SetNamespace(vaultConfig.Namespace)
 
 	if vaultConfig.Auth.Token != "" {
 		client.SetToken(vaultConfig.Auth.Token)
 
-		return vc, nil
+		return v, nil
 	}
 
 	authMethod, err := newVaultAuthMethod(&vaultConfig.Auth)
 	// No auth method configured — Vault SDK falls back to VAULT_TOKEN environment variable
 	if errors.Is(err, errVaultAuthMethodNotConfigured) {
-		return vc, nil
+		return v, nil
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Vault auth method: %w", err)
 	}
 
-	vc.authMethod = authMethod
+	v.authMethod = authMethod
 
-	return vc, nil
+	return v, nil
 }
 
 // runTokenRenewalLoop runs the token lifecycle watcher and login loop until context is canceled.
 // Whenever the token expires or renewal fails, it re-logins using the configured auth method and
 // starts the token lifecycle watcher again with the new token. If login fails, it retries after a delay.
-func (vc *Vault) runTokenRenewalLoop(ctx context.Context, secret *vault.Secret) {
+func (v *Vault) runTokenRenewalLoop(ctx context.Context, secret *vault.Secret) {
 	for {
-		if err := vc.watchTokenLifecycle(ctx, secret); err != nil {
+		if err := v.watchTokenLifecycle(ctx, secret); err != nil {
 			if ctx.Err() != nil {
 				return
 			}
 
-			vc.logger.Error("Failed to watch Vault token lifecycle, will retry later", zap.Error(err))
+			v.logger.Error("Failed to watch Vault token lifecycle, will retry later", zap.Error(err))
 		}
 
-		secret = vc.loginWithRetry(ctx)
+		secret = v.loginWithRetry(ctx)
 		if ctx.Err() != nil {
 			return
 		}
 	}
 }
 
-func (vc *Vault) watchTokenLifecycle(ctx context.Context, secret *vault.Secret) error {
-	watcher, err := vc.client.NewLifetimeWatcher(&vault.LifetimeWatcherInput{
+func (v *Vault) watchTokenLifecycle(ctx context.Context, secret *vault.Secret) error {
+	watcher, err := v.client.NewLifetimeWatcher(&vault.LifetimeWatcherInput{
 		Secret: secret,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create Vault token lifetime watcher: %w", err)
 	}
 
-	vc.logger.Info("Start Vault token lifetime watcher")
+	v.logger.Info("Start Vault token lifetime watcher")
 
 	go watcher.Start()
 	defer watcher.Stop()
@@ -198,30 +198,30 @@ func (vc *Vault) watchTokenLifecycle(ctx context.Context, secret *vault.Secret) 
 			return nil
 		case err := <-watcher.DoneCh():
 			if err != nil {
-				vc.logger.Error("Failed to renew Vault token, re-attempting login", zap.Error(err))
+				v.logger.Error("Failed to renew Vault token, re-attempting login", zap.Error(err))
 
 				return nil
 			}
 
-			vc.logger.Info("Vault token can no longer be renewed, re-attempting login")
+			v.logger.Info("Vault token can no longer be renewed, re-attempting login")
 
 			return nil
 		case info := <-watcher.RenewCh():
-			vc.logger.Info("Successfully renewed Vault token", zap.Time("renewed_at", info.RenewedAt))
+			v.logger.Info("Successfully renewed Vault token", zap.Time("renewed_at", info.RenewedAt))
 		}
 	}
 }
 
-func (vc *Vault) loginWithRetry(ctx context.Context) *vault.Secret {
+func (v *Vault) loginWithRetry(ctx context.Context) *vault.Secret {
 	for {
-		secret, err := vc.client.Auth().Login(ctx, vc.authMethod)
+		secret, err := v.client.Auth().Login(ctx, v.authMethod)
 		if err == nil {
-			vc.logger.Info("Successfully login to Vault")
+			v.logger.Info("Successfully login to Vault")
 
 			return secret
 		}
 
-		vc.logger.Error("Failed to login to Vault, will retry later", zap.Error(err))
+		v.logger.Error("Failed to login to Vault, will retry later", zap.Error(err))
 
 		select {
 		case <-ctx.Done():

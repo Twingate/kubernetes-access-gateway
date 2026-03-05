@@ -126,7 +126,7 @@ func (m *mockAuthMethod) Login(ctx context.Context, _ *vault.Client) (*vault.Sec
 	return m.secret, m.err
 }
 
-func newTestVaultClient(t *testing.T, authMethod vault.AuthMethod) *Vault {
+func newTestVault(t *testing.T, authMethod vault.AuthMethod) *Vault {
 	t.Helper()
 
 	client, err := vault.NewClient(vault.DefaultConfig())
@@ -154,20 +154,20 @@ func vaultAuthSecret(clientToken string, leaseDuration int) *vault.Secret {
 func TestRunTokenRenewalLoop_LoginAfterTokenExpires(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		secret := vaultAuthSecret("renewed-token", 30)
-		vc := newTestVaultClient(t, &mockAuthMethod{
+		v := newTestVault(t, &mockAuthMethod{
 			secret: secret,
 		})
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		go vc.runTokenRenewalLoop(ctx, secret)
+		go v.runTokenRenewalLoop(ctx, secret)
 
 		// Advance time past the token's max TTL to exit the watcher and trigger re-login
 		time.Sleep(30 * time.Second)
 		synctest.Wait()
 
-		require.Equal(t, "renewed-token", vc.client.Token())
+		require.Equal(t, "renewed-token", v.client.Token())
 	})
 }
 
@@ -179,18 +179,18 @@ func TestRunTokenRenewalLoop_LoginFailsThenSucceeds(t *testing.T) {
 			err:    errors.New("login failed"),
 		}
 
-		vc := newTestVaultClient(t, auth)
+		v := newTestVault(t, auth)
 
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
-		go vc.runTokenRenewalLoop(ctx, secret)
+		go v.runTokenRenewalLoop(ctx, secret)
 
 		// Wait for the watcher to exit and the first login attempt to fail
 		time.Sleep(30 * time.Second)
 		synctest.Wait()
 
-		require.Equal(t, "initial-token", vc.client.Token())
+		require.Equal(t, "initial-token", v.client.Token())
 
 		// Update mock to succeed on the next attempt
 		auth.mu.Lock()
@@ -201,14 +201,14 @@ func TestRunTokenRenewalLoop_LoginFailsThenSucceeds(t *testing.T) {
 		time.Sleep(loginRetryInterval)
 		synctest.Wait()
 
-		require.Equal(t, "renewed-token", vc.client.Token())
+		require.Equal(t, "renewed-token", v.client.Token())
 	})
 }
 
 func TestRunTokenRenewalLoop_ContextCanceled(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		secret := vaultAuthSecret("renewed-token", 30)
-		vc := newTestVaultClient(t, &mockAuthMethod{
+		v := newTestVault(t, &mockAuthMethod{
 			secret: secret,
 		})
 
@@ -218,7 +218,7 @@ func TestRunTokenRenewalLoop_ContextCanceled(t *testing.T) {
 		done := make(chan struct{})
 
 		go func() {
-			vc.runTokenRenewalLoop(ctx, secret)
+			v.runTokenRenewalLoop(ctx, secret)
 			close(done)
 		}()
 
@@ -232,6 +232,6 @@ func TestRunTokenRenewalLoop_ContextCanceled(t *testing.T) {
 		// Wait token renewal goroutine to exit
 		<-done
 
-		require.Equal(t, "initial-token", vc.client.Token())
+		require.Equal(t, "initial-token", v.client.Token())
 	})
 }

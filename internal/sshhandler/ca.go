@@ -41,22 +41,22 @@ type caConfig struct {
 	GatewayUserCA  ca // Signs Gateway's user certificates (presented to upstreams)
 	UpstreamHostCA ca // Verifies upstream host certificates (only publicKey is used). If nil, defaults to TOFU verification with upstream's public key.
 
-	vaultClient *Vault // Vault client for token lifecycle management (nil for non-Vault CAs)
+	vault *Vault // Vault client for token lifecycle management (nil for non-Vault CAs)
 }
 
 // Start performs initial Vault authentication and starts the token renewal loop.
 // For non-Vault CAs, this is a no-op.
 func (c *caConfig) Start(ctx context.Context) error {
-	if c.vaultClient == nil || c.vaultClient.authMethod == nil {
+	if c.vault == nil || c.vault.authMethod == nil {
 		return nil
 	}
 
-	secret, err := c.vaultClient.client.Auth().Login(ctx, c.vaultClient.authMethod)
+	secret, err := c.vault.client.Auth().Login(ctx, c.vault.authMethod)
 	if err != nil {
 		return fmt.Errorf("failed to login to Vault: %w", err)
 	}
 
-	go c.vaultClient.runTokenRenewalLoop(ctx, secret)
+	go c.vault.runTokenRenewalLoop(ctx, secret)
 
 	return nil
 }
@@ -128,23 +128,23 @@ func newManualCA(privateKeyFile string, logger *zap.Logger) (*caConfig, error) {
 // newVaultCA creates Vault-backed CAs.
 // Vault config allows setting different CAs for Gateway host and user certificates, and upstream host authentication.
 func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (*caConfig, error) {
-	vc, err := newVault(vaultConfig, logger)
+	v, err := newVault(vaultConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Vault client: %w", err)
 	}
 
 	gatewayHostCA := &vaultCA{
-		client: vc.client,
+		client: v.client,
 		mount:  vaultConfig.GetGatewayHostCAMount(),
 		role:   vaultConfig.GetGatewayHostCARole(),
 	}
 	gatewayUserCA := &vaultCA{
-		client: vc.client,
+		client: v.client,
 		mount:  vaultConfig.GetGatewayUserCAMount(),
 		role:   vaultConfig.GetGatewayUserCARole(),
 	}
 	upstreamHostCA := &vaultCA{
-		client: vc.client,
+		client: v.client,
 		mount:  vaultConfig.GetUpstreamHostCAMount(),
 		role:   "", // No role needed - only used for publicKey retrieval
 	}
@@ -153,7 +153,7 @@ func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger)
 		GatewayHostCA:  gatewayHostCA,
 		GatewayUserCA:  gatewayUserCA,
 		UpstreamHostCA: upstreamHostCA,
-		vaultClient:    vc,
+		vault:          v,
 	}, nil
 }
 
