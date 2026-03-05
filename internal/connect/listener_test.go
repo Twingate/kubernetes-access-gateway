@@ -5,7 +5,6 @@ package connect
 
 import (
 	"bufio"
-	"context"
 	"crypto/tls"
 	"io"
 	"net"
@@ -170,8 +169,10 @@ func TestListener_Serve_HTTPS(t *testing.T) {
 
 	waitGroup.Go(func() {
 		select {
-		case conn := <-fixtures.sshChannel:
-			t.Errorf("unexpected SSH connection: %v", conn)
+		case conn, ok := <-fixtures.sshChannel:
+			if ok {
+				t.Errorf("unexpected SSH connection: %v", conn)
+			}
 		case <-time.After(100 * time.Millisecond):
 			// Expected - no SSH connection
 		}
@@ -220,8 +221,10 @@ func TestListener_Serve_SSH(t *testing.T) {
 
 	waitGroup.Go(func() {
 		select {
-		case conn := <-fixtures.httpChannel:
-			t.Errorf("unexpected HTTP connection: %v", conn)
+		case conn, ok := <-fixtures.httpChannel:
+			if ok {
+				t.Errorf("unexpected HTTP connection: %v", conn)
+			}
 		case <-time.After(100 * time.Millisecond):
 			// Expected - no HTTP connection
 		}
@@ -285,8 +288,10 @@ func TestListener_Serve_Healthz(t *testing.T) {
 		defer waitGroup.Done()
 
 		select {
-		case conn := <-fixtures.httpChannel:
-			t.Errorf("unexpected HTTP connection: %v", conn)
+		case conn, ok := <-fixtures.httpChannel:
+			if ok {
+				t.Errorf("unexpected HTTP connection: %v", conn)
+			}
 		case <-time.After(100 * time.Millisecond):
 			// Expected - no HTTP connection
 		}
@@ -297,8 +302,10 @@ func TestListener_Serve_Healthz(t *testing.T) {
 		defer waitGroup.Done()
 
 		select {
-		case conn := <-fixtures.sshChannel:
-			t.Errorf("unexpected SSH connection: %v", conn)
+		case conn, ok := <-fixtures.sshChannel:
+			if ok {
+				t.Errorf("unexpected SSH connection: %v", conn)
+			}
 		case <-time.After(100 * time.Millisecond):
 			// Expected - no SSH connection
 		}
@@ -369,6 +376,70 @@ func TestListener_UnsupportedTransport(t *testing.T) {
 
 	// Close the listener
 	_ = tcpListener.Close()
+}
+
+func TestListener_Serve_GracefulShutdown(t *testing.T) {
+	tcpListener, addr := createMockListener(t)
+
+	// Use unbuffered channel so the goroutine inside Serve blocks on send
+	httpChannel := make(chan Conn)
+	channels := map[TransportProtocol]chan<- Conn{
+		TransportTLS: httpChannel,
+	}
+
+	logger := zap.NewNop()
+
+	listener := &Listener{
+		channels:     channels,
+		logger:       logger,
+		metrics:      CreateProxyConnMetrics(prometheus.NewRegistry()),
+		certReloader: NewCertReloader("../../test/data/proxy/tls.crt", "../../test/data/proxy/tls.key", logger),
+	}
+
+	listener.proxyConnFactory = func(conn net.Conn, _ *tls.Config, _ Validator, _ *zap.Logger) Conn {
+		return &mockProxyConn{
+			Conn:              conn,
+			transportProtocol: TransportTLS,
+			Claims:            listenerClaims,
+		}
+	}
+
+	serveDone := make(chan struct{})
+
+	go func() {
+		_ = listener.Serve(t.Context(), tcpListener)
+		close(serveDone)
+	}()
+
+	// Open TCP connection then close the listener
+	go func() {
+		_, err := net.Dial("tcp", addr)
+		assert.NoError(t, err)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	_ = tcpListener.Close()
+
+	// Serve should be blocked: the connection goroutine is waiting on unbuffered channel send
+	select {
+	case <-serveDone:
+		t.Fatal("Serve returned before connection goroutine completed")
+	case <-time.After(100 * time.Millisecond):
+		// Expected - Serve is waiting for the goroutine
+	}
+
+	// Drain channel to unblock the goroutine
+	conn := <-httpChannel
+	require.NotNil(t, conn)
+
+	// Serve should now return and channels should be closed
+	select {
+	case <-serveDone:
+		_, ok := <-httpChannel
+		require.False(t, ok, "channel should be closed after Serve returns")
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for Serve to return")
+	}
 }
 
 func TestProtocolListener(t *testing.T) {

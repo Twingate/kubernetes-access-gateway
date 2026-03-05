@@ -135,6 +135,13 @@ func NewListener(
 func (l *Listener) Serve(ctx context.Context, listener net.Listener) error {
 	l.certReloader.Run(ctx)
 
+	var wg sync.WaitGroup
+
+	defer func() {
+		wg.Wait()
+		l.closeChannels()
+	}()
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -151,7 +158,7 @@ func (l *Listener) Serve(ctx context.Context, listener net.Listener) error {
 
 		l.logger.Debug("Accepted connection", zap.String("remote addr", conn.RemoteAddr().String()))
 
-		go func() {
+		wg.Go(func() {
 			proxyConn := l.proxyConnFactory(conn, l.tlsConfig, l.connectValidator, l.logger)
 
 			if err := proxyConn.Authenticate(); err != nil {
@@ -193,6 +200,12 @@ func (l *Listener) Serve(ctx context.Context, listener net.Listener) error {
 				l.logger.Debug("Context canceled before routing connection to backend")
 				_ = proxyConn.Close()
 			}
-		}()
+		})
+	}
+}
+
+func (l *Listener) closeChannels() {
+	for _, ch := range l.channels {
+		close(ch)
 	}
 }
