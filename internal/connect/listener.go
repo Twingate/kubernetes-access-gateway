@@ -198,6 +198,7 @@ func (l *Listener) Serve(ctx context.Context, listener net.Listener) error {
 				// delivered successfully
 			case <-ctx.Done():
 				l.logger.Debug("Context canceled before routing connection to backend")
+
 				_ = proxyConn.Close()
 			}
 		})

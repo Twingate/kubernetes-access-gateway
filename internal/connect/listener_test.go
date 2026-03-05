@@ -408,6 +408,7 @@ func TestListener_Serve_GracefulShutdown(t *testing.T) {
 
 	go func() {
 		_ = listener.Serve(t.Context(), tcpListener)
+
 		close(serveDone)
 	}()
 
@@ -418,6 +419,7 @@ func TestListener_Serve_GracefulShutdown(t *testing.T) {
 	}()
 
 	time.Sleep(50 * time.Millisecond)
+
 	_ = tcpListener.Close()
 
 	// Serve should be blocked: the connection goroutine is waiting on unbuffered channel send
