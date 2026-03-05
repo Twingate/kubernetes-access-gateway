@@ -117,7 +117,7 @@ type Vault struct {
 	logger     *zap.Logger
 }
 
-func newVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (*Vault, error) {
+func newVault(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (*Vault, error) {
 	config := vault.DefaultConfig()
 	config.Address = vaultConfig.Address
 
@@ -165,16 +165,17 @@ func newVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Log
 func (vc *Vault) runTokenRenewalLoop(ctx context.Context, secret *vault.Secret) {
 	for {
 		if err := vc.watchTokenLifecycle(ctx, secret); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+
 			vc.logger.Error("Failed to watch Vault token lifecycle, will retry later", zap.Error(err))
 		}
 
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
 		secret = vc.loginWithRetry(ctx)
+		if ctx.Err() != nil {
+			return
+		}
 	}
 }
 

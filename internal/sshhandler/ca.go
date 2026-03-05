@@ -128,7 +128,7 @@ func newManualCA(privateKeyFile string, logger *zap.Logger) (*caConfig, error) {
 // newVaultCA creates Vault-backed CAs.
 // Vault config allows setting different CAs for Gateway host and user certificates, and upstream host authentication.
 func newVaultCA(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (*caConfig, error) {
-	vc, err := newVaultClient(vaultConfig, logger)
+	vc, err := newVault(vaultConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Vault client: %w", err)
 	}
