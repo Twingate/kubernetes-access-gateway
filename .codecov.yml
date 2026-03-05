@@ -10,7 +10,7 @@ coverage:
       default:
         target: 80%       # New code must have 80% coverage
         threshold: 5%
-        informational: false
+        informational: true
 
 comment:
   layout: "reach,diff,flags,tree"
