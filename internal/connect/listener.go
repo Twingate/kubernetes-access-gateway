@@ -132,6 +132,7 @@ func NewListener(
 
 // Serve starts accepting connections and routing them to the appropriate channels.
 // The caller owns the listener and is responsible for closing it.
+// Serve closes the channels when it returns.
 func (l *Listener) Serve(ctx context.Context, listener net.Listener) error {
 	l.certReloader.Run(ctx)
 
