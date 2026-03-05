@@ -26,13 +26,6 @@ const (
 	loginRetryInterval = time.Minute
 )
 
-// VaultClient manages a Vault API client and handles automatic token renewal.
-type VaultClient struct {
-	client     *vault.Client
-	authMethod vault.AuthMethod
-	logger     *zap.Logger
-}
-
 //nolint:ireturn
 func newVaultAuthMethod(authConfig *gatewayconfig.SSHCAVaultAuthConfig) (vault.AuthMethod, error) {
 	if authConfig.AppRole != nil {
@@ -117,7 +110,14 @@ func newAWSAuthMethod(awsConfig *gatewayconfig.SSHCAVaultAWSConfig) (*aws.AWSAut
 	return aws.NewAWSAuth(opts...)
 }
 
-func newVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (*VaultClient, error) {
+// Vault manages a Vault API client and handles automatic token renewal.
+type Vault struct {
+	client     *vault.Client
+	authMethod vault.AuthMethod
+	logger     *zap.Logger
+}
+
+func newVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Logger) (*Vault, error) {
 	config := vault.DefaultConfig()
 	config.Address = vaultConfig.Address
 
@@ -134,7 +134,7 @@ func newVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Log
 		return nil, fmt.Errorf("failed to create vault client: %w", err)
 	}
 
-	vc := &VaultClient{client: client, logger: logger}
+	vc := &Vault{client: client, logger: logger}
 
 	client.SetNamespace(vaultConfig.Namespace)
 
@@ -162,7 +162,7 @@ func newVaultClient(vaultConfig *gatewayconfig.SSHCAVaultConfig, logger *zap.Log
 // runTokenRenewalLoop runs the token lifecycle watcher and login loop until context is canceled.
 // Whenever the token expires or renewal fails, it re-logins using the configured auth method and
 // start the token lifecycle watcher again with the new token. If login fails, it retries after a delay.
-func (vc *VaultClient) runTokenRenewalLoop(ctx context.Context, secret *vault.Secret) {
+func (vc *Vault) runTokenRenewalLoop(ctx context.Context, secret *vault.Secret) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -177,7 +177,7 @@ func (vc *VaultClient) runTokenRenewalLoop(ctx context.Context, secret *vault.Se
 	}
 }
 
-func (vc *VaultClient) watchTokenLifecycle(ctx context.Context, secret *vault.Secret) error {
+func (vc *Vault) watchTokenLifecycle(ctx context.Context, secret *vault.Secret) error {
 	watcher, err := vc.client.NewLifetimeWatcher(&vault.LifetimeWatcherInput{
 		Secret: secret,
 	})
@@ -210,7 +210,7 @@ func (vc *VaultClient) watchTokenLifecycle(ctx context.Context, secret *vault.Se
 	}
 }
 
-func (vc *VaultClient) loginWithRetry(ctx context.Context) *vault.Secret {
+func (vc *Vault) loginWithRetry(ctx context.Context) *vault.Secret {
 	for {
 		secret, err := vc.client.Auth().Login(ctx, vc.authMethod)
 		if err == nil {

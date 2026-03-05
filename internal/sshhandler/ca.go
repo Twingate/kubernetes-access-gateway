@@ -41,7 +41,7 @@ type caConfig struct {
 	GatewayUserCA  ca // Signs Gateway's user certificates (presented to upstreams)
 	UpstreamHostCA ca // Verifies upstream host certificates (only publicKey is used). If nil, defaults to TOFU verification with upstream's public key.
 
-	vaultClient *VaultClient // Vault client for token lifecycle management (nil for non-Vault CAs)
+	vaultClient *Vault // Vault client for token lifecycle management (nil for non-Vault CAs)
 }
 
 // StartVault performs initial Vault authentication and starts the token renewal loop.

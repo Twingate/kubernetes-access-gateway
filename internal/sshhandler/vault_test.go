@@ -126,7 +126,7 @@ func (m *mockAuthMethod) Login(ctx context.Context, _ *vault.Client) (*vault.Sec
 	return m.secret, m.err
 }
 
-func newTestVaultClient(t *testing.T, authMethod vault.AuthMethod) *VaultClient {
+func newTestVaultClient(t *testing.T, authMethod vault.AuthMethod) *Vault {
 	t.Helper()
 
 	client, err := vault.NewClient(vault.DefaultConfig())
@@ -134,7 +134,7 @@ func newTestVaultClient(t *testing.T, authMethod vault.AuthMethod) *VaultClient 
 
 	client.SetToken("initial-token")
 
-	return &VaultClient{
+	return &Vault{
 		client:     client,
 		authMethod: authMethod,
 		logger:     zap.NewNop(),
