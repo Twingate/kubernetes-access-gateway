@@ -114,7 +114,7 @@ func NewProxy(config Config) *SSHProxy {
 }
 
 func (p *SSHProxy) Start(ctx context.Context) error {
-	if err := p.config.caConfig.StartVault(ctx); err != nil {
+	if err := p.config.caConfig.Start(ctx); err != nil {
 		return err
 	}
 

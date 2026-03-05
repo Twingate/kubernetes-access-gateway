@@ -44,9 +44,9 @@ type caConfig struct {
 	vaultClient *Vault // Vault client for token lifecycle management (nil for non-Vault CAs)
 }
 
-// StartVault performs initial Vault authentication and starts the token renewal loop.
+// Start performs initial Vault authentication and starts the token renewal loop.
 // For non-Vault CAs, this is a no-op.
-func (c *caConfig) StartVault(ctx context.Context) error {
+func (c *caConfig) Start(ctx context.Context) error {
 	if c.vaultClient == nil || c.vaultClient.authMethod == nil {
 		return nil
 	}
