@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"go.yaml.in/yaml/v4"
@@ -131,7 +132,35 @@ type SSHCAVaultMountConfig struct {
 }
 
 type SSHCAVaultAuthConfig struct {
-	Token string `yaml:"token,omitempty"`
+	Token   string                   `yaml:"token,omitempty"`
+	AppRole *SSHCAVaultAppRoleConfig `yaml:"appRole,omitempty"`
+	GCP     *SSHCAVaultGCPConfig     `yaml:"gcp,omitempty"`
+	AWS     *SSHCAVaultAWSConfig     `yaml:"aws,omitempty"`
+}
+
+type SSHCAVaultAppRoleConfig struct {
+	Mount        string `yaml:"mount,omitempty"`
+	RoleID       string `yaml:"roleID"`
+	SecretID     string `yaml:"secretID"`
+	SecretIDFile string `yaml:"secretIDFile"`
+}
+
+type SSHCAVaultGCPConfig struct {
+	Mount               string `yaml:"mount,omitempty"`
+	Role                string `yaml:"role"`
+	Type                string `yaml:"type"`
+	ServiceAccountEmail string `yaml:"serviceAccountEmail,omitempty"` // Required for iam type
+}
+
+type SSHCAVaultAWSConfig struct {
+	Mount             string `yaml:"mount,omitempty"`
+	Role              string `yaml:"role"`
+	Type              string `yaml:"type"`
+	Region            string `yaml:"region,omitempty"`
+	IAMServerIDHeader string `yaml:"iamServerIDHeader,omitempty"`
+	// EC2-only options
+	SignatureType string `yaml:"signatureType,omitempty"`
+	Nonce         string `yaml:"nonce,omitempty"`
 }
 
 type SSHUpstream struct {
@@ -370,6 +399,10 @@ func (v *SSHCAVaultConfig) Validate() error {
 		return fmt.Errorf("%w: server", ErrRequired)
 	}
 
+	if err := v.Auth.Validate(); err != nil {
+		return fmt.Errorf("auth: %w", err)
+	}
+
 	// Validate that we can resolve Gateway host and user cert mounts/roles
 	if v.GetGatewayHostCAMount() == "" {
 		return fmt.Errorf("%w: mount is required (either at top level or in gatewayHostCA)", ErrRequired)
@@ -388,6 +421,170 @@ func (v *SSHCAVaultConfig) Validate() error {
 	}
 
 	return nil
+}
+
+var (
+	ErrConflictingAuthConfig     = errors.New("only one of 'token', 'appRole', 'gcp', or 'aws' can be specified for Vault auth")
+	ErrConflictingSecretIDConfig = errors.New("only one of 'secretID' or 'secretIDFile' can be specified")
+	ErrInvalidGCPType            = errors.New("gcp type must be 'gce' or 'iam'")
+	ErrInvalidAWSType            = errors.New("aws type must be 'iam' or 'ec2'")
+	ErrInvalidAWSSignatureType   = errors.New("aws signatureType must be 'identity', 'pkcs7', or 'rsa2048'")
+)
+
+func (a *SSHCAVaultAuthConfig) Validate() error {
+	configuredMethods := a.countConfiguredMethods()
+	if configuredMethods > 1 {
+		return ErrConflictingAuthConfig
+	}
+
+	if a.AppRole != nil {
+		if err := a.AppRole.Validate(); err != nil {
+			return fmt.Errorf("appRole: %w", err)
+		}
+	}
+
+	if a.GCP != nil {
+		if err := a.GCP.Validate(); err != nil {
+			return fmt.Errorf("gcp: %w", err)
+		}
+	}
+
+	if a.AWS != nil {
+		if err := a.AWS.Validate(); err != nil {
+			return fmt.Errorf("aws: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (a *SSHCAVaultAuthConfig) countConfiguredMethods() int {
+	count := 0
+
+	if a.Token != "" {
+		count++
+	}
+
+	if a.AppRole != nil {
+		count++
+	}
+
+	if a.GCP != nil {
+		count++
+	}
+
+	if a.AWS != nil {
+		count++
+	}
+
+	return count
+}
+
+const defaultAppRoleMount = "approle"
+
+// GetMount returns the appRole mount path, defaulting to "approle" if not specified.
+func (a *SSHCAVaultAppRoleConfig) GetMount() string {
+	if a.Mount != "" {
+		return a.Mount
+	}
+
+	return defaultAppRoleMount
+}
+
+func (a *SSHCAVaultAppRoleConfig) Validate() error {
+	if a.RoleID == "" {
+		return fmt.Errorf("%w: roleID", ErrRequired)
+	}
+
+	if a.SecretID != "" && a.SecretIDFile != "" {
+		return ErrConflictingSecretIDConfig
+	}
+
+	if a.SecretID == "" && a.SecretIDFile == "" {
+		return fmt.Errorf("%w: either secretID or secretIDFile is required", ErrRequired)
+	}
+
+	return nil
+}
+
+const defaultGCPMount = "gcp"
+
+// GetMount returns the GCP auth mount path, defaulting to "gcp" if not specified.
+func (g *SSHCAVaultGCPConfig) GetMount() string {
+	if g.Mount != "" {
+		return g.Mount
+	}
+
+	return defaultGCPMount
+}
+
+func (g *SSHCAVaultGCPConfig) Validate() error {
+	if g.Role == "" {
+		return fmt.Errorf("%w: role", ErrRequired)
+	}
+
+	if g.Type == "" {
+		return fmt.Errorf("%w: type", ErrRequired)
+	}
+
+	gcpType := strings.ToLower(g.Type)
+
+	switch gcpType {
+	case "gce":
+		return nil
+	case "iam":
+		if g.ServiceAccountEmail == "" {
+			return fmt.Errorf("%w: serviceAccountEmail is required for iam type", ErrRequired)
+		}
+
+		return nil
+	default:
+		return ErrInvalidGCPType
+	}
+}
+
+const defaultAWSMount = "aws"
+
+// GetMount returns the AWS auth mount path, defaulting to "aws" if not specified.
+func (a *SSHCAVaultAWSConfig) GetMount() string {
+	if a.Mount != "" {
+		return a.Mount
+	}
+
+	return defaultAWSMount
+}
+
+func (a *SSHCAVaultAWSConfig) Validate() error {
+	if a.Role == "" {
+		return fmt.Errorf("%w: role", ErrRequired)
+	}
+
+	if a.Type == "" {
+		return fmt.Errorf("%w: type", ErrRequired)
+	}
+
+	awsType := strings.ToLower(a.Type)
+	switch awsType {
+	case "iam":
+		return nil
+	case "ec2":
+		return a.validateEC2Type()
+	default:
+		return ErrInvalidAWSType
+	}
+}
+
+func (a *SSHCAVaultAWSConfig) validateEC2Type() error {
+	if a.SignatureType == "" {
+		return nil
+	}
+
+	switch strings.ToLower(a.SignatureType) {
+	case "identity", "pkcs7", "rsa2048":
+		return nil
+	default:
+		return ErrInvalidAWSSignatureType
+	}
 }
 
 const defaultVaultSSHMount = "ssh"

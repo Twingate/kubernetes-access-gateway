@@ -112,6 +112,17 @@ Create the name of the SSH Vault token secret to use
 {{- end }}
 {{- end }}
 
+{{/*
+Create the name of the SSH Vault AppRole secret ID secret to use
+*/}}
+{{- define "gateway.sshVaultAppRoleSecretIdSecretName" -}}
+{{- if and .Values.ssh.ca.vault .Values.ssh.ca.vault.auth.appRole .Values.ssh.ca.vault.auth.appRole.existingSecretIdSecret }}
+{{- .Values.ssh.ca.vault.auth.appRole.existingSecretIdSecret }}
+{{- else }}
+{{- printf "%s-ssh-vault-approle-secret-id" (include "gateway.fullname" .) }}
+{{- end }}
+{{- end }}
+
 
 {{/*
 Get the alias of the resource

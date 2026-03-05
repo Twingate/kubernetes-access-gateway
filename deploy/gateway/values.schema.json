@@ -224,11 +224,41 @@
                     "token": {
                       "type": "string",
                       "description": "Vault token."
+                    },
+                    "appRole": {
+                      "type": "object",
+                      "description": "AppRole authentication configuration.",
+                      "required": ["roleId"],
+                      "properties": {
+                        "mount": {
+                          "type": "string",
+                          "description": "AppRole auth mount path (defaults to 'approle').",
+                          "default": "approle"
+                        },
+                        "roleId": {
+                          "type": "string",
+                          "description": "AppRole Role ID."
+                        },
+                        "secretId": {
+                          "type": "string",
+                          "description": "AppRole Secret ID in plaintext string."
+                        },
+                        "existingSecretIdSecret": {
+                          "type": "string",
+                          "description": "Name of existing K8s Secret containing the Secret ID (key name: secretId)."
+                        }
+                      },
+                      "oneOf": [
+                        { "required": ["secretId"] },
+                        { "required": ["existingSecretIdSecret"] }
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "oneOf": [
-                    {"required": ["existingTokenSecret"]},
-                    {"required": ["token"]}
+                    { "required": ["existingTokenSecret"] },
+                    { "required": ["token"] },
+                    { "required": ["appRole"] }
                   ],
                   "additionalProperties": false
                 },
