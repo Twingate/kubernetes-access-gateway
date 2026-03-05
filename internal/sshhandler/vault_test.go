@@ -4,12 +4,20 @@
 package sshhandler
 
 import (
+	"context"
+	"errors"
+	"sync"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/hashicorp/vault/api/auth/approle"
 	"github.com/hashicorp/vault/api/auth/aws"
 	"github.com/hashicorp/vault/api/auth/gcp"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
+	vault "github.com/hashicorp/vault/api"
 
 	gatewayconfig "k8sgateway/internal/config"
 )
@@ -99,4 +107,131 @@ func TestNewVaultAuthMethod_NoAuth(t *testing.T) {
 	authMethod, err := newVaultAuthMethod(cfg)
 	require.ErrorIs(t, err, errVaultAuthMethodNotConfigured)
 	require.Nil(t, authMethod)
+}
+
+type mockAuthMethod struct {
+	mu     sync.Mutex
+	secret *vault.Secret
+	err    error
+}
+
+func (m *mockAuthMethod) Login(ctx context.Context, _ *vault.Client) (*vault.Secret, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.secret, m.err
+}
+
+func newTestVault(t *testing.T, authMethod vault.AuthMethod) *Vault {
+	t.Helper()
+
+	client, err := vault.NewClient(vault.DefaultConfig())
+	require.NoError(t, err)
+
+	client.SetToken("initial-token")
+
+	return &Vault{
+		client:     client,
+		authMethod: authMethod,
+		logger:     zap.NewNop(),
+	}
+}
+
+func vaultAuthSecret(clientToken string, leaseDuration int) *vault.Secret {
+	return &vault.Secret{
+		Auth: &vault.SecretAuth{
+			ClientToken:   clientToken,
+			LeaseDuration: leaseDuration,
+			Renewable:     false, // To avoid calling the Vault renew API during tests
+		},
+	}
+}
+
+func TestRunTokenRenewalLoop_LoginAfterTokenExpires(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		secret := vaultAuthSecret("renewed-token", 30)
+		v := newTestVault(t, &mockAuthMethod{
+			secret: secret,
+		})
+
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		go v.runTokenRenewalLoop(ctx, secret)
+
+		// Advance time past the token's max TTL to exit the watcher and trigger re-login
+		time.Sleep(30 * time.Second)
+		synctest.Wait()
+
+		require.Equal(t, "renewed-token", v.client.Token())
+	})
+}
+
+func TestRunTokenRenewalLoop_LoginFailsThenSucceeds(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		secret := vaultAuthSecret("renewed-token", 30)
+		auth := &mockAuthMethod{
+			secret: secret,
+			err:    errors.New("login failed"),
+		}
+
+		v := newTestVault(t, auth)
+
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		go v.runTokenRenewalLoop(ctx, secret)
+
+		// Wait for the watcher to exit and the first login attempt to fail
+		time.Sleep(30 * time.Second)
+		synctest.Wait()
+
+		require.Equal(t, "initial-token", v.client.Token())
+
+		// Update mock to succeed on the next attempt
+		auth.mu.Lock()
+		auth.err = nil
+		auth.mu.Unlock()
+
+		// Advance time past the retry interval
+		time.Sleep(loginRetryInterval)
+		synctest.Wait()
+
+		require.Equal(t, "renewed-token", v.client.Token())
+	})
+}
+
+func TestRunTokenRenewalLoop_ContextCanceled(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		secret := vaultAuthSecret("renewed-token", 30)
+		v := newTestVault(t, &mockAuthMethod{
+			secret: secret,
+		})
+
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		done := make(chan struct{})
+
+		go func() {
+			v.runTokenRenewalLoop(ctx, secret)
+			close(done)
+		}()
+
+		// Token watcher starts and block on its internal timer
+		synctest.Wait()
+
+		// Cancel while the watcher is still running
+		cancel()
+		synctest.Wait()
+
+		// Wait token renewal goroutine to exit
+		<-done
+
+		require.Equal(t, "initial-token", v.client.Token())
+	})
 }
