@@ -55,6 +55,11 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	// Create channel and ProtocolListener (simulating connect package output)
 	ch := make(chan connect.Conn)
+
+	t.Cleanup(func() {
+		close(ch)
+	})
+
 	addr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0}
 	protocolListener := connect.NewProtocolListener(ch, addr)
 
