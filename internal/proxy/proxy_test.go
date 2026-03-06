@@ -4,7 +4,6 @@
 package proxy
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -191,19 +190,24 @@ func TestShutdown_ClosesAllComponents(t *testing.T) {
 
 	// Listener should be closed
 	_, err = net.DialTimeout("tcp", listenerAddr, 100*time.Millisecond)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Metrics server should be closed
 	client := &http.Client{Timeout: 100 * time.Millisecond}
-	_, err = client.Get(metricsAddr) //nolint:noctx
-	assert.Error(t, err)
+
+	resp, err := client.Get(metricsAddr) //nolint:noctx
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+
+	require.Error(t, err)
 
 	// HTTP proxy should have stopped with ErrServerClosed
 	close(httpChannel)
 
 	select {
 	case httpErr := <-httpDone:
-		assert.True(t, errors.Is(httpErr, http.ErrServerClosed))
+		require.ErrorIs(t, httpErr, http.ErrServerClosed)
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout waiting for HTTP proxy to stop")
 	}
@@ -221,7 +225,7 @@ func TestShutdown_IsIdempotent(t *testing.T) {
 	p.shutdown()
 }
 
-func TestShutdown_NilComponents(t *testing.T) {
+func TestShutdown_NilComponents(_ *testing.T) {
 	registry := prometheus.NewRegistry()
 	metricsServer := metrics.NewServer(metrics.Config{
 		Port:     0,
