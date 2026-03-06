@@ -4,6 +4,7 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -20,7 +21,11 @@ type Config struct {
 	Registry *prometheus.Registry
 }
 
-func Start(config Config) error {
+type Server struct {
+	server *http.Server
+}
+
+func NewServer(config Config) *Server {
 	registerCoreMetrics(config.Registry)
 
 	mux := http.NewServeMux()
@@ -37,7 +42,15 @@ func Start(config Config) error {
 		Handler: mux,
 	}
 
-	return server.ListenAndServe()
+	return &Server{server: server}
+}
+
+func (s *Server) Start() error {
+	return s.server.ListenAndServe()
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.server.Shutdown(ctx)
 }
 
 func registerCoreMetrics(reg *prometheus.Registry) {

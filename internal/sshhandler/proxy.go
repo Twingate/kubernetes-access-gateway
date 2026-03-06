@@ -72,12 +72,6 @@ var (
 // Timeout for connecting to the upstream SSH server.
 const upstreamConnTimeout = 10 * time.Second
 
-type ProxyService interface {
-	Start()
-	Serve(conn connect.Conn) error
-	Shutdown()
-}
-
 type SSHProxy struct {
 	mu sync.Mutex
 
@@ -113,7 +107,7 @@ func NewProxy(config Config) *SSHProxy {
 	}
 }
 
-func (p *SSHProxy) Start(ctx context.Context) error {
+func (p *SSHProxy) Start(ctx context.Context, listener net.Listener) error {
 	if err := p.config.caConfig.Start(ctx); err != nil {
 		return err
 	}
@@ -128,9 +122,11 @@ func (p *SSHProxy) Start(ctx context.Context) error {
 	// Start handling incoming SSH connections
 	for {
 		// Block until a connection is accepted
-		conn, err := p.config.ProtocolListener.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
-			p.config.logger.Error("Failed to accept incoming connection", zap.Error(err))
+			if !errors.Is(err, net.ErrClosed) {
+				p.config.logger.Error("Failed to accept incoming connection", zap.Error(err))
+			}
 
 			break
 		}
@@ -171,7 +167,7 @@ func (p *SSHProxy) Serve(ctx context.Context, conn connect.Conn) error {
 	return p.serveConn(ctx, conn)
 }
 
-func (p *SSHProxy) Shutdown() {
+func (p *SSHProxy) Shutdown(_ctx context.Context) {
 	// Try to close all the connections to cleanup
 	p.mu.Lock()
 

@@ -9,12 +9,9 @@ import (
 	"k8s.io/client-go/rest"
 
 	"k8sgateway/internal/config"
-	"k8sgateway/internal/connect"
 )
 
 type Config struct {
-	ProtocolListener *connect.ProtocolListener
-
 	auditLog *config.AuditLogConfig
 	registry *prometheus.Registry
 	upstream *config.KubernetesUpstream
