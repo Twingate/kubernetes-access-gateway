@@ -72,6 +72,16 @@ type ProxyConn struct {
 	once    sync.Once
 }
 
+func NewProxyConn(conn net.Conn, tlsConfig *tls.Config, validator Validator, logger *zap.Logger, metrics *ProxyConnMetrics) *ProxyConn {
+	return &ProxyConn{
+		Conn:             conn,
+		TLSConfig:        tlsConfig,
+		ConnectValidator: validator,
+		Logger:           logger,
+		tracker:          NewProxyConnMetricsTracker(ConnCategoryUnknown, metrics),
+	}
+}
+
 func (p *ProxyConn) Close() error {
 	p.Mu.Lock()
 	defer p.Mu.Unlock()
