@@ -1,7 +1,7 @@
 // Copyright (c) Twingate Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package log
+package proxy
 
 import (
 	"encoding/json"
@@ -77,7 +77,7 @@ func TestNewLogger_OutputFormat(t *testing.T) {
 	delete(payload, "ts")
 
 	assert.Equal(t, map[string]any{
-		"caller":    "log/logger_test.go:62",
+		"caller":    "proxy/logger_test.go:62",
 		"logger":    "test-logger",
 		"version":   "dev",
 		"levelname": "info",
