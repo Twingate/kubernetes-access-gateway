@@ -151,9 +151,7 @@ func (key *PublicKey) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("%w: not an ECDSA public key", errInvalidPublicKey)
 	}
 
-	key.Curve = publicKey.Curve
-	key.X = publicKey.X
-	key.Y = publicKey.Y
+	key.PublicKey = *publicKey
 
 	return nil
 }
