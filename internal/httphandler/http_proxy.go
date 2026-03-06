@@ -34,15 +34,10 @@ const ConnContextKey connContextKey = "CONN_CONTEXT"
 
 var errUpstreamTLSConfigFailed = errors.New("failed to create upstream TLS config")
 
-type ProxyService interface {
-	Start()
-}
-
 type Proxy struct {
 	config     Config
 	httpServer *http.Server
 	proxy      *httputil.ReverseProxy
-	listener   *connect.ProtocolListener
 }
 
 func NewProxy(cfg Config) (*Proxy, error) {
@@ -135,7 +130,6 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		httpServer: httpServer,
 		proxy:      httpProxy,
 		config:     cfg,
-		listener:   cfg.ProtocolListener,
 	}
 	handler := metrics.HTTPMiddleware(metrics.HTTPMiddlewareConfig{
 		Registry: cfg.registry,
@@ -149,8 +143,12 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	return p, nil
 }
 
-func (p *Proxy) Start() error {
-	return p.httpServer.Serve(p.listener)
+func (p *Proxy) Start(listener net.Listener) error {
+	return p.httpServer.Serve(listener)
+}
+
+func (p *Proxy) Shutdown(ctx context.Context) error {
+	return p.httpServer.Shutdown(ctx)
 }
 
 func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request, conn *connect.ProxyConn, auditLogger *zap.Logger) {

@@ -31,6 +31,7 @@ var fullConfig = gatewayconfig.Config{
 				Name:        "k8s-cluster",
 				Address:     "127.0.0.1:6443",
 				BearerToken: "token",
+				CAFile:      "../../test/data/api_server/tls.crt",
 			},
 		},
 	},
@@ -64,8 +65,9 @@ func TestNewProxy_Success(t *testing.T) {
 	assert.Equal(t, registry, p.registry)
 	assert.Equal(t, logger, p.logger)
 
-	assert.NotNil(t, p.httpConfig)
-	assert.NotNil(t, p.sshConfig)
+	assert.NotNil(t, p.httpProxy)
+	assert.NotNil(t, p.sshProxy)
+	assert.NotNil(t, p.metricsServer)
 }
 
 func TestNewProxy_KubernetesOnly(t *testing.T) {
@@ -80,8 +82,8 @@ func TestNewProxy_KubernetesOnly(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, p)
-	assert.NotNil(t, p.httpConfig)
-	assert.Nil(t, p.sshConfig)
+	assert.NotNil(t, p.httpProxy)
+	assert.Nil(t, p.sshProxy)
 }
 
 func TestNewProxy_SSHOnly(t *testing.T) {
@@ -96,6 +98,6 @@ func TestNewProxy_SSHOnly(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, p)
-	assert.NotNil(t, p.sshConfig)
-	assert.Nil(t, p.httpConfig)
+	assert.NotNil(t, p.sshProxy)
+	assert.Nil(t, p.httpProxy)
 }

@@ -43,7 +43,6 @@ func TestNewConfig(t *testing.T) {
 		assert.Equal(t, auditLogConfig, cfg.auditLog)
 		assert.Equal(t, registry, cfg.registry)
 		assert.Equal(t, &k8sConfig.Upstreams[0], cfg.upstream)
-		assert.Nil(t, cfg.ProtocolListener)
 	})
 
 	t.Run("Error when GetInClusterConfig fails", func(t *testing.T) {
