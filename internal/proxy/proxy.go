@@ -61,7 +61,7 @@ func NewProxy(config *gatewayconfig.Config, registry *prometheus.Registry, logge
 	if config.SSH != nil {
 		sshConfig, err := sshhandler.NewConfig(&config.AuditLog, config.SSH, logger)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create SSH config %w", err)
+			return nil, fmt.Errorf("failed to create SSH config: %w", err)
 		}
 
 		sshProxy = sshhandler.NewProxy(*sshConfig)
