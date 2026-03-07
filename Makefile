@@ -1,4 +1,5 @@
 GOLANG_VERSION 		?= $(shell cat .tool-versions | grep golang | cut -d' ' -f2)
+GOLANGCI_LINT_VERSION	?= v2.11.1
 VERSION 			?= $(shell go tool svu current)
 REGISTRY 			?= twingate
 IMAGE				:= kubernetes-gateway
@@ -16,6 +17,7 @@ HELP_FUN = \
     print "  ${YELLOW}GOLANG_VERSION${RESET} = ${GREEN}$(GOLANG_VERSION)${RESET}\n"; \
     print "  ${YELLOW}VERSION${RESET}        = ${GREEN}$(VERSION)${RESET}\n"; \
     print "  ${YELLOW}IMAGE_NAME${RESET}     = ${GREEN}$(IMAGE_NAME)${RESET}\n"; \
+    print "  ${YELLOW}GOLANGCI_LINT_VERSION${RESET} = ${GREEN}$(GOLANGCI_LINT_VERSION)${RESET}\n"; \
 	print "\n"; \
     for (sort keys %help) { \
     print "${WHITE}$$_:${RESET}\n"; \
@@ -45,7 +47,12 @@ version: ##@other Show the version
 .PHONY: lint
 lint: ##@lint Lint Go code
 	@echo "Running Linter..."
-	golangci-lint run --fix ./...
+	docker run --rm -t -v $$(pwd):/app -w /app \
+		--user $$(id -u):$$(id -g) \
+		-v $$(go env GOCACHE):/.cache/go-build -e GOCACHE=/.cache/go-build \
+		-v $$(go env GOMODCACHE):/.cache/mod -e GOMODCACHE=/.cache/mod \
+		-v ~/.cache/golangci-lint:/.cache/golangci-lint -e GOLANGCI_LINT_CACHE=/.cache/golangci-lint \
+		golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run --fix ./...
 
 .PHONY: lint-dockerfile
 lint-dockerfile: ##@lint Lint Dockerfile

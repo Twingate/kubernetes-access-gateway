@@ -168,7 +168,7 @@ subjects:
 
 	var sb strings.Builder
 	for _, user := range users {
-		fmt.Fprintf(&sb, `- kind: User
+		_, _ = fmt.Fprintf(&sb, `- kind: User
   name: "%s"
   apiGroup: rbac.authorization.k8s.io
 `, user)
