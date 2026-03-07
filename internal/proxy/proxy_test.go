@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	gatewayconfig "k8sgateway/internal/config"
-	"k8sgateway/internal/log"
 )
 
 var fullConfig = gatewayconfig.Config{
@@ -53,7 +52,7 @@ var fullConfig = gatewayconfig.Config{
 
 func TestNewProxy_Success(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	logger, err := log.NewLogger(log.DefaultName, false)
+	logger, err := NewLogger(DefaultLoggerName, false)
 	require.NoError(t, err)
 
 	p, err := NewProxy(&fullConfig, registry, logger)
@@ -76,7 +75,7 @@ func TestNewProxy_KubernetesOnly(t *testing.T) {
 	config.SSH = nil
 
 	registry := prometheus.NewRegistry()
-	logger, err := log.NewLogger(log.DefaultName, false)
+	logger, err := NewLogger(DefaultLoggerName, false)
 	require.NoError(t, err)
 
 	p, err := NewProxy(&config, registry, logger)
@@ -92,7 +91,7 @@ func TestNewProxy_SSHOnly(t *testing.T) {
 	config.Kubernetes = nil
 
 	registry := prometheus.NewRegistry()
-	logger, err := log.NewLogger(log.DefaultName, false)
+	logger, err := NewLogger(DefaultLoggerName, false)
 	require.NoError(t, err)
 
 	p, err := NewProxy(&config, registry, logger)

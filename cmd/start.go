@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"k8sgateway/internal/config"
-	"k8sgateway/internal/log"
 	"k8sgateway/internal/proxy"
 )
 
@@ -25,7 +24,7 @@ var startCmd = &cobra.Command{
 }
 
 func start() error {
-	logger, err := log.NewLogger(log.DefaultName, viper.GetBool("debug"))
+	logger, err := proxy.NewLogger(proxy.DefaultLoggerName, viper.GetBool("debug"))
 	if err != nil {
 		return err
 	}

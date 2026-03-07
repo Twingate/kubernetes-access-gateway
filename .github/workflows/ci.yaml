@@ -48,8 +48,7 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.9
-        only-new-issues: true
+        version: v2.11.1
 
   lint-markdown:
     runs-on: ubuntu-latest

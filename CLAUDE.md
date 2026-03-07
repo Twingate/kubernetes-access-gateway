@@ -8,7 +8,7 @@ Zero-trust access gateway bridging Twingate with L7 resources such as Kubernetes
 - **Repository**: <https://github.com/Twingate/kubernetes-access-gateway>
 - **Language**: Go 1.26.0
 - **Build**: goreleaser, Docker buildx, kind (testing)
-- **Linting**: golangci-lint v2.9 with revive
+- **Linting**: golangci-lint v2.11.1
 - **Testing**: testify, helm-unittest
 
 **Key Features**: TLS 1.3 mutual auth, K8s user impersonation, SSH certificate-based access, session recording, Prometheus metrics
@@ -105,7 +105,6 @@ main.go → cmd/start.go → proxy.NewProxy() → proxy.Start()
 
 ```bash
 asdf install golang 1.26.0
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.9.0
 ```
 
 Versions tracked in `.tool-versions`.
