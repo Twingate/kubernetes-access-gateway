@@ -16,31 +16,29 @@ const (
 	dirUpstreamToDownstream = "upstream -> downstream"
 )
 
-// Allowlists for channel types per direction.
+// Denylists for channel types per direction (RFC 4254).
 var (
-	// allowedDownstreamChannelTypes are channel types allowed from client to upstream server.
-	allowedDownstreamChannelTypes = map[string]bool{
-		"session":      true,
-		"direct-tcpip": true,
+	// disallowedDownstreamChannelTypes are channel types not allowed from downstream client.
+	disallowedDownstreamChannelTypes = map[string]bool{
+		"x11":             true, // server→client per RFC 4254 §6.3.2
+		"forwarded-tcpip": true, // server→client per RFC 4254 §7.2
 	}
 
-	// allowedUpstreamChannelTypes are channel types allowed from upstream server to client.
-	allowedUpstreamChannelTypes = map[string]bool{
-		"forwarded-tcpip": true,
+	// disallowedUpstreamChannelTypes are channel types not allowed from upstream server.
+	disallowedUpstreamChannelTypes = map[string]bool{
+		"session":      true, // client→server per RFC 4254 §6.1
+		"direct-tcpip": true, // client→server per RFC 4254 §7.2
+		"x11":          true, // not supported by gateway
 	}
 )
 
-// Allal request types per direction.
+// Denylists for global request types per direction (RFC 4254).
 var (
-	// allowedDownstreamGlobalRequests are global request types allowed from client to upstream server.
-	allowedDownstreamGlobalRequests = map[string]bool{
-		"tcpip-forward":        true,
-		"cancel-tcpip-forward": true,
+	// disallowedUpstreamGlobalRequests are global request types not allowed from upstream server.
+	disallowedUpstreamGlobalRequests = map[string]bool{
+		"tcpip-forward":        true, // client→server per RFC 4254 §7.1
+		"cancel-tcpip-forward": true, // client→server per RFC 4254 §7.1
 	}
-
-	// allowedUpstreamGlobalRequests are global request types allowed from upstream server to client.
-	// Currently none are allowed.
-	allowedUpstreamGlobalRequests = map[string]bool{}
 )
 
 // ChannelPairFactory creates SSH channel pairs.
@@ -109,33 +107,33 @@ func NewSSHConnPair(
 func (c *SSHConnPair) serve() {
 	// Forward global requests in both directions
 	c.wg.Go(func() {
-		c.forwardGlobalRequests(c.downstreamRequestsChan, c.upstreamConn, allowedDownstreamGlobalRequests, dirDownstreamToUpstream)
+		c.forwardGlobalRequests(c.downstreamRequestsChan, c.upstreamConn, nil, dirDownstreamToUpstream)
 	})
 
 	c.wg.Go(func() {
-		c.forwardGlobalRequests(c.upstreamRequestsChan, c.downstreamConn, allowedUpstreamGlobalRequests, dirUpstreamToDownstream)
+		c.forwardGlobalRequests(c.upstreamRequestsChan, c.downstreamConn, disallowedUpstreamGlobalRequests, dirUpstreamToDownstream)
 	})
 
 	// Forward channels in both directions
 	c.wg.Go(func() {
-		c.forwardChannels(c.downstreamSSHChannelsChan, c.upstreamConn, allowedDownstreamChannelTypes, dirDownstreamToUpstream)
+		c.forwardChannels(c.downstreamSSHChannelsChan, c.upstreamConn, disallowedDownstreamChannelTypes, dirDownstreamToUpstream)
 	})
 
 	c.wg.Go(func() {
-		c.forwardChannels(c.upstreamSSHChannelsChan, c.downstreamConn, allowedUpstreamChannelTypes, dirUpstreamToDownstream)
+		c.forwardChannels(c.upstreamSSHChannelsChan, c.downstreamConn, disallowedUpstreamChannelTypes, dirUpstreamToDownstream)
 	})
 
 	c.wg.Wait()
 }
 
-func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn ssh.Conn, allowedTypes map[string]bool, direction string) {
+func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn ssh.Conn, disallowedTypes map[string]bool, direction string) {
 	logger := c.logger.With(zap.String("direction", direction))
 
 	for newChannel := range channels {
 		channelType := newChannel.ChannelType()
 		logger.Info("Handling channel", zap.String("channelType", channelType))
 
-		if !allowedTypes[channelType] {
+		if disallowedTypes[channelType] {
 			logger.Warn("Rejecting disallowed channel type", zap.String("channelType", channelType))
 
 			if err := newChannel.Reject(ssh.Prohibited, "channel type not allowed"); err != nil {
@@ -184,11 +182,11 @@ func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn
 	}
 }
 
-func (c *SSHConnPair) forwardGlobalRequests(requests <-chan *ssh.Request, dst ssh.Conn, allowedTypes map[string]bool, direction string) {
+func (c *SSHConnPair) forwardGlobalRequests(requests <-chan *ssh.Request, dst ssh.Conn, disallowedTypes map[string]bool, direction string) {
 	logger := c.logger.With(zap.String("direction", direction))
 
 	for req := range requests {
-		if !allowedTypes[req.Type] {
+		if disallowedTypes[req.Type] {
 			logger.Warn("Rejecting disallowed global request", zap.String("type", req.Type))
 			replyToGlobalRequest(req, false, nil, logger)
 

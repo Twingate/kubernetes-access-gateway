@@ -418,7 +418,7 @@ func TestSSHConnPair_forwardChannels_RejectsDisallowedChannelType(t *testing.T) 
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
 	upstreamConn := &mockSSHConn{user: "upstream-user"}
 
-	// Create a "session" channel coming from upstream — not in allowedUpstreamChannelTypes
+	// Create a "session" channel coming from upstream — in disallowedUpstreamChannelTypes
 	newChannel := newMockNewChannel("session")
 	newChannel.On("Reject", ssh.Prohibited, "channel type not allowed").Return(nil)
 
@@ -454,10 +454,50 @@ func TestSSHConnPair_forwardChannels_RejectsDisallowedChannelType(t *testing.T) 
 	upstreamConn.AssertNotCalled(t, "OpenChannel")
 }
 
-func TestSSHConnPair_forwardGlobalRequests_ForwardsAllowedType(t *testing.T) {
+func TestSSHConnPair_forwardGlobalRequests_ForwardsNonDeniedType(t *testing.T) {
 	targetConn := &mockSSHConn{}
 
-	// tcpip-forward is allowed downstream -> upstream
+	// keepalive@openssh.com is not in any denylist and should be forwarded
+	targetConn.On("SendRequest", "keepalive@openssh.com", false, []byte("payload")).Return(true, []byte(nil), nil)
+
+	reqChan := make(chan *ssh.Request, 1)
+	reqChan <- &ssh.Request{
+		Type:      "keepalive@openssh.com",
+		WantReply: false,
+		Payload:   []byte("payload"),
+	}
+
+	close(reqChan)
+
+	connPair := &SSHConnPair{logger: zap.NewNop()}
+	connPair.forwardGlobalRequests(reqChan, targetConn, disallowedUpstreamGlobalRequests, "upstream -> downstream")
+
+	targetConn.AssertExpectations(t)
+}
+
+func TestSSHConnPair_forwardGlobalRequests_BlocksDeniedType(t *testing.T) {
+	targetConn := &mockSSHConn{}
+
+	// tcpip-forward is a client→server request and should be blocked from upstream
+	reqChan := make(chan *ssh.Request, 1)
+	reqChan <- &ssh.Request{
+		Type:      "tcpip-forward",
+		WantReply: false,
+	}
+
+	close(reqChan)
+
+	connPair := &SSHConnPair{logger: zap.NewNop()}
+	connPair.forwardGlobalRequests(reqChan, targetConn, disallowedUpstreamGlobalRequests, "upstream -> downstream")
+
+	// SendRequest should never be called for disallowed types
+	targetConn.AssertNotCalled(t, "SendRequest")
+}
+
+func TestSSHConnPair_forwardGlobalRequests_ForwardsAllWhenNoDenyList(t *testing.T) {
+	targetConn := &mockSSHConn{}
+
+	// All requests should be forwarded when denylist is nil (downstream direction)
 	targetConn.On("SendRequest", "tcpip-forward", false, []byte("payload")).Return(true, []byte(nil), nil)
 
 	reqChan := make(chan *ssh.Request, 1)
@@ -470,28 +510,9 @@ func TestSSHConnPair_forwardGlobalRequests_ForwardsAllowedType(t *testing.T) {
 	close(reqChan)
 
 	connPair := &SSHConnPair{logger: zap.NewNop()}
-	connPair.forwardGlobalRequests(reqChan, targetConn, allowedDownstreamGlobalRequests, "downstream -> upstream")
+	connPair.forwardGlobalRequests(reqChan, targetConn, nil, "downstream -> upstream")
 
 	targetConn.AssertExpectations(t)
-}
-
-func TestSSHConnPair_forwardGlobalRequests_BlocksDisallowedType(t *testing.T) {
-	targetConn := &mockSSHConn{}
-
-	// "env" is not in any allowlist
-	reqChan := make(chan *ssh.Request, 1)
-	reqChan <- &ssh.Request{
-		Type:      "env",
-		WantReply: false,
-	}
-
-	close(reqChan)
-
-	connPair := &SSHConnPair{logger: zap.NewNop()}
-	connPair.forwardGlobalRequests(reqChan, targetConn, allowedUpstreamGlobalRequests, "upstream -> downstream")
-
-	// SendRequest should never be called for disallowed types
-	targetConn.AssertNotCalled(t, "SendRequest")
 }
 
 func TestSSHConnPair_close(t *testing.T) {
