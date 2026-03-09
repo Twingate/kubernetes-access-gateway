@@ -168,10 +168,10 @@ subjects:
 
 	var sb strings.Builder
 	for _, user := range users {
-		sb.WriteString(fmt.Sprintf(`- kind: User
+		_, _ = fmt.Fprintf(&sb, `- kind: User
   name: "%s"
   apiGroup: rbac.authorization.k8s.io
-`, user))
+`, user)
 	}
 
 	yaml += sb.String()

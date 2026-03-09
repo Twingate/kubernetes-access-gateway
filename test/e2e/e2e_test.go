@@ -158,7 +158,7 @@ func getDockerImageTag(t *testing.T) string {
 func loadDockerImageToKinD(t *testing.T, clusterName, image string) {
 	t.Helper()
 
-	cmd := exec.Command("kind", "load", "docker-image", image, "-n", clusterName)
+	cmd := exec.Command("kind", "load", "docker-image", image, "-n", clusterName) //nolint:gosec // args are test-controlled
 	_, err := testutil.RunCommand(cmd)
 	require.NoError(t, err, "failed to load docker image to KinD")
 }
