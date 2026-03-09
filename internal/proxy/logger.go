@@ -1,7 +1,7 @@
 // Copyright (c) Twingate Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package log
+package proxy
 
 import (
 	"go.uber.org/zap"
@@ -10,7 +10,7 @@ import (
 	"k8sgateway/internal/version"
 )
 
-const DefaultName = "gateway"
+const DefaultLoggerName = "gateway"
 
 func NewLogger(name string, debug bool) (*zap.Logger, error) {
 	logger, err := logConfig(debug).Build()
