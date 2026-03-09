@@ -6,6 +6,8 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -94,4 +96,45 @@ func SetupSSHServer(t *testing.T, userName string) (string, int) {
 	require.NoError(t, err, "failed to start SSH server")
 
 	return containerID, serverPort
+}
+
+// SetupEchoServer installs socat and starts a TCP echo server inside the Docker container.
+func SetupEchoServer(t *testing.T, containerID string, port int) {
+	t.Helper()
+
+	// #nosec G204 -- inputs are from trusted operator configuration
+	_, err := RunCommand(exec.Command("docker", "exec", containerID, "apk", "add", "--no-cache", "socat"))
+	require.NoError(t, err, "failed to install socat in docker container")
+
+	// #nosec G204 -- inputs are from trusted operator configuration
+	_, err = RunCommand(exec.Command("docker", "exec", "-d", containerID, "socat",
+		fmt.Sprintf("TCP-LISTEN:%d,fork,reuseaddr", port), "EXEC:cat"))
+	require.NoError(t, err, "failed to start echo server in docker container")
+}
+
+// StartLocalEchoServer starts a TCP echo server on the given port on the host machine.
+func StartLocalEchoServer(t *testing.T, port int) {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	require.NoError(t, err, "failed to start local echo server")
+
+	t.Cleanup(func() {
+		require.NoError(t, listener.Close(), "failed to close local echo server listener")
+	})
+
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+
+			go func() {
+				defer conn.Close()
+
+				_, _ = io.Copy(conn, conn)
+			}()
+		}
+	}()
 }

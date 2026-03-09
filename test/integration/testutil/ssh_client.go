@@ -13,6 +13,32 @@ import (
 	"k8sgateway/internal/sshhandler"
 )
 
+// LocalPortForward creates an ssh command with local port forwarding (-L).
+// The returned cmd is prepared but not started — the caller must call cmd.Start().
+func (s *SSH) LocalPortForward(ctx context.Context, localPort int, remoteHost string, remotePort int) *exec.Cmd {
+	options := append(s.baseOptions(),
+		"-o", "ExitOnForwardFailure=yes",
+		"-N",
+		"-L", fmt.Sprintf("%d:%s:%d", localPort, remoteHost, remotePort),
+	)
+
+	// #nosec G204 -- ssh is safe to use
+	return exec.CommandContext(ctx, "ssh", options...)
+}
+
+// RemotePortForward creates an ssh command with remote port forwarding (-R).
+// The returned cmd is prepared but not started — the caller must call cmd.Start().
+func (s *SSH) RemotePortForward(ctx context.Context, remotePort int, localHost string, localPort int) *exec.Cmd {
+	options := append(s.baseOptions(),
+		"-o", "ExitOnForwardFailure=yes",
+		"-N",
+		"-R", fmt.Sprintf("%d:%s:%d", remotePort, localHost, localPort),
+	)
+
+	// #nosec G204 -- ssh is safe to use
+	return exec.CommandContext(ctx, "ssh", options...)
+}
+
 var sshBanner = []byte(sshhandler.Banner)
 
 var errMissingBanner = errors.New("output does not start with SSH banner")
@@ -36,17 +62,19 @@ func (s *SSH) CopyFileToHost(remoteDest, localDest string, cmdOptions ...string)
 	return s.copy(context.Background(), source, localDest, cmdOptions...)
 }
 
-func (s *SSH) executeSSH(ctx context.Context, cmdOptions ...string) ([]byte, error) {
-	var options = []string{
+func (s *SSH) baseOptions() []string {
+	return []string{
 		s.hostname,
 		"-l", s.username,
 		"-p", s.port,
 		"-o", "StrictHostKeyChecking=yes",
 		"-o", "UserKnownHostsFile=" + s.knownHostsFile,
 	}
+}
 
+func (s *SSH) executeSSH(ctx context.Context, cmdOptions ...string) ([]byte, error) {
 	// #nosec G204 -- ssh is safe to use
-	cmd := exec.CommandContext(ctx, "ssh", append(options, cmdOptions...)...)
+	cmd := exec.CommandContext(ctx, "ssh", append(s.baseOptions(), cmdOptions...)...)
 
 	return runCommandAndStripBanner(cmd)
 }
