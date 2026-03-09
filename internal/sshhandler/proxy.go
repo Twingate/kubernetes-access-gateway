@@ -231,6 +231,8 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 
 	upstreamConfig, err := p.config.GetUpstreamConfig(ctx, upstream)
 	if err != nil {
+		closeDownstreamSSH(downstreamSSHConn, downstreamSSHChannelsChan, logger)
+
 		return err
 	}
 
@@ -239,7 +241,7 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 	if err != nil {
 		logger.Error("Failed to connect to upstream SSH server", zap.Error(err))
 
-		_ = downstreamSSHConn.Close()
+		closeDownstreamSSH(downstreamSSHConn, downstreamSSHChannelsChan, logger)
 
 		return err
 	}
@@ -249,15 +251,8 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 	if err != nil {
 		logger.Error("Failed to connect to upstream SSH server", zap.Error(err))
 
-		for newChannel := range downstreamSSHChannelsChan {
-			logger.Debug("Rejecting channel", zap.String("channel_type", newChannel.ChannelType()))
+		closeDownstreamSSH(downstreamSSHConn, downstreamSSHChannelsChan, logger)
 
-			if err := newChannel.Reject(ssh.ConnectionFailed, "upstream connection failed"); err != nil {
-				logger.Error("Failed to reject channel", zap.Error(err))
-			}
-		}
-
-		_ = downstreamSSHConn.Close()
 		_ = upstreamConn.Close()
 
 		return err
@@ -285,4 +280,17 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 	p.wg.Done()
 
 	return nil
+}
+
+// closeDownstreamSSH closes the connection and rejects any queued channels.
+func closeDownstreamSSH(conn ssh.Conn, channels <-chan ssh.NewChannel, logger *zap.Logger) {
+	_ = conn.Close()
+
+	for newChannel := range channels {
+		logger.Debug("Rejecting channel", zap.String("channel_type", newChannel.ChannelType()))
+
+		if err := newChannel.Reject(ssh.ConnectionFailed, "upstream connection failed"); err != nil {
+			logger.Error("Failed to reject channel", zap.Error(err))
+		}
+	}
 }

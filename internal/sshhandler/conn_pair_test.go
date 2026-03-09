@@ -221,7 +221,7 @@ func TestSSHConnPair_serve_UpstreamOpenChannelFailure(t *testing.T) {
 
 	expectedErr := errors.New("upstream connection failed")
 	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return((*MockChannel)(nil), (<-chan *ssh.Request)(nil), expectedErr)
-	newChannel.On("Reject", ssh.ConnectionFailed, "failed to create upstream session").Return(nil)
+	newChannel.On("Reject", ssh.ConnectionFailed, "failed to open target channel").Return(nil)
 
 	// Create channel chan with one session channel
 	channelChan := createMockChannelChan([]ssh.NewChannel{newChannel})
@@ -267,7 +267,7 @@ func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
 	// Downstream accept fails
 	expectedErr := errors.New("downstream accept failed")
 	newChannel.On("Accept").Return((*MockChannel)(nil), (<-chan *ssh.Request)(nil), expectedErr)
-	newChannel.On("Reject", ssh.ConnectionFailed, "failed to accept channel").Return(nil)
+	upstreamChannel.On("Close").Return(nil)
 
 	// Create channel chan with one session channel
 	channelChan := createMockChannelChan([]ssh.NewChannel{newChannel})
@@ -291,6 +291,7 @@ func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
 	}
 
 	upstreamConn.AssertExpectations(t)
+	upstreamChannel.AssertExpectations(t)
 	newChannel.AssertExpectations(t)
 }
 

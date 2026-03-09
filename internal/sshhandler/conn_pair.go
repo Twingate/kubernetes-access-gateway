@@ -145,10 +145,10 @@ func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn
 
 		targetChannel, targetRequests, err := targetConn.OpenChannel(channelType, newChannel.ExtraData())
 		if err != nil {
-			logger.Error("Failed to create upstream session", zap.Error(err))
+			logger.Error("Failed to open target channel", zap.Error(err))
 
-			if err := newChannel.Reject(ssh.ConnectionFailed, "failed to create upstream session"); err != nil {
-				logger.Error("Failed to reject downstream channel", zap.Error(err))
+			if err := newChannel.Reject(ssh.ConnectionFailed, "failed to open target channel"); err != nil {
+				logger.Error("Failed to reject source channel", zap.Error(err))
 			}
 
 			continue
@@ -156,11 +156,13 @@ func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn
 
 		sourceChannel, sourceRequests, err := newChannel.Accept()
 		if err != nil {
-			logger.Error("Could not accept channel", zap.Error(err))
+			logger.Error("Failed to accept source channel", zap.Error(err))
 
-			if err := newChannel.Reject(ssh.ConnectionFailed, "failed to accept channel"); err != nil {
-				logger.Error("Failed to reject downstream channel", zap.Error(err))
+			if err := targetChannel.Close(); err != nil {
+				logger.Error("Failed to close target channel", zap.Error(err))
 			}
+
+			go ssh.DiscardRequests(targetRequests)
 
 			continue
 		}

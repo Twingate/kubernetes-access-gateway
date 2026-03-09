@@ -509,8 +509,10 @@ func TestSSHProxy_ServeConn_UpstreamConnectionFailure(t *testing.T) {
 		assert.AnError,
 	)
 
-	// Expect downstream connection to be closed
-	downstreamSSHConn.On("Close").Return(nil)
+	// Simulate real SSH mux behavior: closing the connection closes the channel stream
+	downstreamSSHConn.On("Close").Run(func(_ mock.Arguments) {
+		close(downstreamChannels)
+	}).Return(nil)
 
 	// Call serve and expect it to fail
 	err = sshProxy.serveConn(t.Context(), testConn)
@@ -578,11 +580,10 @@ func TestSSHProxy_ServeConn_UpstreamSSHHandshakeFailure(t *testing.T) {
 		assert.AnError,
 	)
 
-	// Close downstream channels so the drain loop exits
-	close(downstreamChannels)
-
-	// Ensure downstream connection is closed
-	downstreamSSHConn.On("Close").Return(nil)
+	// Simulate real SSH mux behavior: closing the connection closes the channel stream
+	downstreamSSHConn.On("Close").Run(func(_ mock.Arguments) {
+		close(downstreamChannels)
+	}).Return(nil)
 	// Ensure upstream connection is closed
 	upstreamConn.On("Close").Return(nil)
 
