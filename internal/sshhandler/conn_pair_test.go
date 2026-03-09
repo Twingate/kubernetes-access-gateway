@@ -100,10 +100,10 @@ func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
 	connPair := &SSHConnPair{
 		logger:                    zap.NewNop(),
 		downstreamConn:            downstreamConn,
-		upstreamConn:              upstreamConn,
 		downstreamSSHChannelsChan: channelChan,
-		upstreamSSHChannelsChan:   createMockChannelChan(nil),
 		downstreamRequestsChan:    closedRequestChan(),
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   createMockChannelChan(nil),
 		upstreamRequestsChan:      closedRequestChan(),
 		channelPairFactory:        mockFactory,
 	}
@@ -171,10 +171,10 @@ func TestSSHConnPair_serve_DirectTCPIPChannelForwarded(t *testing.T) {
 	connPair := &SSHConnPair{
 		logger:                    zap.NewNop(),
 		downstreamConn:            downstreamConn,
-		upstreamConn:              upstreamConn,
 		downstreamSSHChannelsChan: channelChan,
-		upstreamSSHChannelsChan:   createMockChannelChan(nil),
 		downstreamRequestsChan:    closedRequestChan(),
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   createMockChannelChan(nil),
 		upstreamRequestsChan:      closedRequestChan(),
 		channelPairFactory:        mockFactory,
 	}
@@ -359,10 +359,10 @@ func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 	connPair := &SSHConnPair{
 		logger:                    zap.NewNop(),
 		downstreamConn:            downstreamConn,
-		upstreamConn:              upstreamConn,
 		downstreamSSHChannelsChan: channelChan,
-		upstreamSSHChannelsChan:   createMockChannelChan(nil),
 		downstreamRequestsChan:    closedRequestChan(),
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   createMockChannelChan(nil),
 		upstreamRequestsChan:      closedRequestChan(),
 		channelPairFactory:        mockFactory,
 	}
@@ -427,10 +427,10 @@ func TestSSHConnPair_forwardChannels_RejectsDisallowedChannelType(t *testing.T) 
 	connPair := &SSHConnPair{
 		logger:                    zap.NewNop(),
 		downstreamConn:            downstreamConn,
-		upstreamConn:              upstreamConn,
 		downstreamSSHChannelsChan: createMockChannelChan(nil),
-		upstreamSSHChannelsChan:   channelChan,
 		downstreamRequestsChan:    closedRequestChan(),
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   channelChan,
 		upstreamRequestsChan:      closedRequestChan(),
 		channelPairFactory:        &DefaultChannelPairFactory{},
 	}

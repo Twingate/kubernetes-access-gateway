@@ -95,10 +95,10 @@ func NewSSHConnPair(
 	return &SSHConnPair{
 		logger:                    logger,
 		downstreamConn:            downstreamConn,
-		upstreamConn:              upstreamConn,
 		downstreamSSHChannelsChan: downstreamChannels,
-		upstreamSSHChannelsChan:   upstreamChannels,
 		downstreamRequestsChan:    downstreamRequests,
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   upstreamChannels,
 		upstreamRequestsChan:      upstreamRequests,
 		channelPairFactory:        &DefaultChannelPairFactory{},
 	}
@@ -131,7 +131,7 @@ func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn
 
 	for newChannel := range channels {
 		channelType := newChannel.ChannelType()
-		logger.Info("Handling channel", zap.String("channelType", channelType))
+		logger.Debug("Handling channel", zap.String("channelType", channelType))
 
 		if disallowedTypes[channelType] {
 			logger.Warn("Rejecting disallowed channel type", zap.String("channelType", channelType))
@@ -193,7 +193,7 @@ func (c *SSHConnPair) forwardGlobalRequests(requests <-chan *ssh.Request, dst ss
 			continue
 		}
 
-		logger.Info("Forwarding global request", zap.String("type", req.Type))
+		logger.Debug("Forwarding global request", zap.String("type", req.Type))
 
 		ok, payload, err := dst.SendRequest(req.Type, req.WantReply, req.Payload)
 		if err != nil {

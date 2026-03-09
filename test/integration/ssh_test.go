@@ -38,7 +38,7 @@ type sshTestEnv struct {
 	logs        *observer.ObservedLogs
 }
 
-func setupSSHGateway(t *testing.T, user *token.User, gwPort int) *sshTestEnv {
+func setupSSHGateway(t *testing.T, user *token.User, gatewayPort int) *sshTestEnv {
 	t.Helper()
 
 	containerID, sshServerPort := testutil.SetupSSHServer(t, sshUsername)
@@ -53,7 +53,7 @@ func setupSSHGateway(t *testing.T, user *token.User, gwPort int) *sshTestEnv {
 			Network: network,
 			Host:    host,
 		},
-		Port:        gwPort,
+		Port:        gatewayPort,
 		MetricsPort: 0,
 		TLS: gatewayconfig.TLSConfig{
 			CertificateFile: "../data/proxy/tls.crt",
@@ -85,7 +85,7 @@ func setupSSHGateway(t *testing.T, user *token.User, gwPort int) *sshTestEnv {
 		t.Logf("Failed to start Gateway: %v", err)
 	}()
 
-	testutil.GatewayHealthCheck(t, gwPort)
+	testutil.GatewayHealthCheck(t, gatewayPort)
 
 	knownHostsFile := filepath.Join(t.TempDir(), "known_hosts")
 	line := "@cert-authority * " + string(data.SSHCAPublicKey)
@@ -93,7 +93,7 @@ func setupSSHGateway(t *testing.T, user *token.User, gwPort int) *sshTestEnv {
 
 	sshUser, err := testutil.NewSSHUser(
 		user,
-		gwPort,
+		gatewayPort,
 		sshServerAddress,
 		controller.URL,
 		knownHostsFile,
@@ -114,13 +114,13 @@ func setupSSHGateway(t *testing.T, user *token.User, gwPort int) *sshTestEnv {
 // - Session recording (asciicast) is properly generated
 // - User can copy file from remote server to host.
 func TestSSH(t *testing.T) {
-	const gwPort = 8445
+	const gatewayPort = 8445
 
 	env := setupSSHGateway(t, &token.User{
 		ID:       "user-ssh-1",
 		Username: "alex@acme.com",
 		Groups:   []string{"OnCall", "Engineering"},
-	}, gwPort)
+	}, gatewayPort)
 
 	// Test `ssh 127.0.0.1 -l admin -p 2222 "whoami"`
 	output, err := env.user.SSH.Command("whoami")
@@ -174,7 +174,7 @@ func TestSSH(t *testing.T) {
 // This exercises the direct-tcpip channel forwarding in conn_pair.go.
 func TestSSHLocalPortForwarding(t *testing.T) {
 	const (
-		gwPort         = 8446
+		gatewayPort    = 8446
 		echoServerPort = 8888
 		localPort      = 18888
 	)
@@ -183,9 +183,9 @@ func TestSSHLocalPortForwarding(t *testing.T) {
 		ID:       "user-ssh-local-fwd",
 		Username: "alex@acme.com",
 		Groups:   []string{"Engineering"},
-	}, gwPort)
+	}, gatewayPort)
 
-	testutil.SetupEchoServer(t, env.containerID, echoServerPort)
+	testutil.SetupRemoteEchoServer(t, env.containerID, echoServerPort)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
@@ -242,7 +242,7 @@ func TestSSHLocalPortForwarding(t *testing.T) {
 // This exercises the tcpip-forward global request and forwarded-tcpip channel forwarding in conn_pair.go.
 func TestSSHRemotePortForwarding(t *testing.T) {
 	const (
-		gwPort        = 8447
+		gatewayPort   = 8447
 		localEchoPort = 19999
 		remotePort    = 9999
 	)
@@ -251,9 +251,9 @@ func TestSSHRemotePortForwarding(t *testing.T) {
 		ID:       "user-ssh-remote-fwd",
 		Username: "alex@acme.com",
 		Groups:   []string{"Engineering"},
-	}, gwPort)
+	}, gatewayPort)
 
-	testutil.StartLocalEchoServer(t, localEchoPort)
+	testutil.SetupLocalEchoServer(t, localEchoPort)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()

@@ -98,8 +98,8 @@ func SetupSSHServer(t *testing.T, userName string) (string, int) {
 	return containerID, serverPort
 }
 
-// SetupEchoServer installs socat and starts a TCP echo server inside the Docker container.
-func SetupEchoServer(t *testing.T, containerID string, port int) {
+// SetupRemoteEchoServer installs socat and starts a TCP echo server inside the Docker container.
+func SetupRemoteEchoServer(t *testing.T, containerID string, port int) {
 	t.Helper()
 
 	// #nosec G204 -- inputs are from trusted operator configuration
@@ -112,8 +112,8 @@ func SetupEchoServer(t *testing.T, containerID string, port int) {
 	require.NoError(t, err, "failed to start echo server in docker container")
 }
 
-// StartLocalEchoServer starts a TCP echo server on the given port on the host machine.
-func StartLocalEchoServer(t *testing.T, port int) {
+// SetupLocalEchoServer starts a TCP echo server on the given port on the host machine.
+func SetupLocalEchoServer(t *testing.T, port int) {
 	t.Helper()
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))

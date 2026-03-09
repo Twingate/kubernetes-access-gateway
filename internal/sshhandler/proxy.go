@@ -250,10 +250,10 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 		logger.Error("Failed to connect to upstream SSH server", zap.Error(err))
 
 		for newChannel := range downstreamSSHChannelsChan {
-			logger.Info("Rejecting channel", zap.String("channel_type", newChannel.ChannelType()))
+			logger.Debug("Rejecting channel", zap.String("channel_type", newChannel.ChannelType()))
 
-			if rejectErr := newChannel.Reject(ssh.ConnectionFailed, "upstream connection failed"); rejectErr != nil {
-				logger.Error("Failed to reject channel", zap.Error(rejectErr))
+			if err := newChannel.Reject(ssh.ConnectionFailed, "upstream connection failed"); err != nil {
+				logger.Error("Failed to reject channel", zap.Error(err))
 			}
 		}
 
