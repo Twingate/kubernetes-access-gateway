@@ -91,7 +91,6 @@ type asciicastRecorder struct {
 	mu sync.Mutex
 }
 
-//nolint:ireturn
 func NewRecorder(logger *zap.Logger, opts ...RecorderOption) Recorder {
 	r := &asciicastRecorder{
 		start:         time.Now(),

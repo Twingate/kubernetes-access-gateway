@@ -77,7 +77,6 @@ func mockNewConn(conn net.Conn, _ sessionrecorder.Recorder, _ sessionrecorder.As
 	return conn
 }
 
-//nolint:ireturn
 func mockNewRecorder() sessionrecorder.Recorder {
 	return sessionrecorder.NewRecorder(zap.NewNop())
 }
