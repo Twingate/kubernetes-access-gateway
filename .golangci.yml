@@ -45,6 +45,7 @@ linters:
         - empty
         - stdlib
         # custom values
+        - Recorder
         # golang.org/x/crypto/ssh
         - Signer
         - PublicKey

@@ -60,7 +60,6 @@ type mockSessionRecorderFactory struct {
 	mock.Mock
 }
 
-//nolint:ireturn
 func (m *mockSessionRecorderFactory) NewRecorder(logger *zap.Logger) sessionrecorder.Recorder {
 	args := m.Called(logger)
 
