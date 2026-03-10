@@ -43,14 +43,14 @@ var (
 
 // ChannelPairFactory creates SSH channel pairs.
 type ChannelPairFactory interface {
-	NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request, waitToStart bool) ChannelPair
+	NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request, channelType string) ChannelPair
 }
 
 // DefaultChannelPairFactory implements ChannelPairFactory using SSHChannelPair.
 type DefaultChannelPairFactory struct{}
 
 //nolint:ireturn
-func (f *DefaultChannelPairFactory) NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request, waitToStart bool) ChannelPair {
+func (f *DefaultChannelPairFactory) NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request, channelType string) ChannelPair {
 	return NewSSHChannelPair(
 		logger,
 		upstreamSSHUsername,
@@ -58,7 +58,7 @@ func (f *DefaultChannelPairFactory) NewChannelPair(logger *zap.Logger, upstreamS
 		wrapSSHRequestChannel(downstreamRequests),
 		upstreamChannel,
 		wrapSSHRequestChannel(upstreamRequests),
-		waitToStart,
+		channelType,
 	)
 }
 
@@ -175,7 +175,7 @@ func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn
 			c.upstreamConn.User(),
 			sourceChannel, sourceRequests,
 			targetChannel, targetRequests,
-			newChannel.ChannelType() == "session",
+			channelType,
 		)
 
 		c.wg.Go(func() {

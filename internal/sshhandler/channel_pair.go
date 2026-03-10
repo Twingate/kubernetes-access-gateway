@@ -46,7 +46,7 @@ type ChannelPair interface {
 type SSHChannelPair struct {
 	logger *zap.Logger
 
-	waitToStart bool
+	channelType string
 
 	// Downstream SSH channel
 	downstreamChannel ssh.Channel
@@ -67,7 +67,7 @@ type SSHChannelPair struct {
 }
 
 // NewSSHChannelPair creates a new SSHChannelPair with the default factories.
-func NewSSHChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan Request, upstreamChannel ssh.Channel, upstreamRequests <-chan Request, waitToStart bool) *SSHChannelPair {
+func NewSSHChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan Request, upstreamChannel ssh.Channel, upstreamRequests <-chan Request, channelType string) *SSHChannelPair {
 	return &SSHChannelPair{
 		logger:                    logger,
 		upstreamSSHUsername:       upstreamSSHUsername,
@@ -76,7 +76,7 @@ func NewSSHChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstrea
 		upstreamChannel:           upstreamChannel,
 		upstreamChannelRequests:   upstreamRequests,
 		recorderFactory:           &DefaultSessionRecorderFactory{},
-		waitToStart:               waitToStart,
+		channelType:               channelType,
 	}
 }
 
@@ -139,7 +139,7 @@ func (c *SSHChannelPair) serve() {
 
 	var command string
 
-	if c.waitToStart {
+	if c.channelType == "session" {
 		// Wait for session to start from downstream prior to starting the data copying
 		select {
 		case command = <-downstreamSessionSignals.started:
