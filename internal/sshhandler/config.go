@@ -54,8 +54,6 @@ type upstream struct {
 }
 
 type Config struct {
-	ProtocolListener net.Listener
-
 	caConfig           *caConfig
 	gatewaySigner      ssh.Signer
 	gatewayPublicKey   ssh.PublicKey

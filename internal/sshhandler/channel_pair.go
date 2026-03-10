@@ -24,7 +24,6 @@ type SessionRecorderFactory interface {
 // DefaultSessionRecorderFactory implements SessionRecorderFactory.
 type DefaultSessionRecorderFactory struct{}
 
-//nolint:ireturn
 func (f *DefaultSessionRecorderFactory) NewRecorder(logger *zap.Logger) sessionrecorder.Recorder {
 	return sessionrecorder.NewRecorder(logger)
 }

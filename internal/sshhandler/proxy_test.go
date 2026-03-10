@@ -153,8 +153,6 @@ func TestSSHProxy_Start_AcceptError(t *testing.T) {
 	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
-	config.ProtocolListener = listener
-
 	sshProxy := NewProxy(*config)
 
 	listener.On("Accept").Return(nil, errors.New("error"))
@@ -164,7 +162,7 @@ func TestSSHProxy_Start_AcceptError(t *testing.T) {
 	go func() {
 		defer close(done)
 
-		_ = sshProxy.Start(t.Context())
+		_ = sshProxy.Start(t.Context(), listener)
 	}()
 
 	select {
@@ -185,8 +183,6 @@ func TestSSHProxy_Start_Shutdown(t *testing.T) {
 	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
 
-	config.ProtocolListener = listener
-
 	sshProxy := NewProxy(*config)
 
 	listener.On("Accept").Return(nil, nil)
@@ -196,7 +192,7 @@ func TestSSHProxy_Start_Shutdown(t *testing.T) {
 	go func() {
 		defer close(done)
 
-		_ = sshProxy.Start(t.Context())
+		_ = sshProxy.Start(t.Context(), listener)
 	}()
 
 	select {
@@ -216,8 +212,6 @@ func TestSSHProxy_Start_Success(t *testing.T) {
 
 	config, err := NewConfig(nil, sshConfig, zap.NewNop())
 	require.NoError(t, err)
-
-	config.ProtocolListener = listener
 
 	sshProxy := NewProxy(*config)
 
@@ -253,7 +247,7 @@ func TestSSHProxy_Start_Success(t *testing.T) {
 	go func() {
 		defer close(startFinished)
 
-		_ = sshProxy.Start(t.Context())
+		_ = sshProxy.Start(t.Context(), listener)
 	}()
 
 	// Wait for the connection to start being served (first Accept())
@@ -700,7 +694,7 @@ func TestSSHProxy_Shutdown_WithActiveConnection(t *testing.T) {
 	sshProxy.mu.Unlock()
 
 	// Call Shutdown() while the connection is active
-	sshProxy.Shutdown()
+	sshProxy.Shutdown(t.Context())
 
 	// Verify shutdown state
 	assert.True(t, sshProxy.shuttingDown, "Proxy should be in shutting down state")

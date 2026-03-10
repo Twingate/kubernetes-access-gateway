@@ -65,8 +65,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 
 	// Create HTTP proxy
 	cfg := Config{
-		ProtocolListener: protocolListener,
-		registry:         prometheus.NewRegistry(),
+		registry: prometheus.NewRegistry(),
 		upstream: &config.KubernetesUpstream{
 			Address:     apiServerAddress,
 			CAFile:      "../../test/data/api_server/tls.crt",
@@ -79,7 +78,7 @@ func TestProxy_ForwardRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	go func() {
-		_ = httpProxy.Start()
+		_ = httpProxy.Start(protocolListener)
 	}()
 
 	// Create a pipe for communication (client <-> proxy)
