@@ -70,7 +70,6 @@ func NewProxy(config *gatewayconfig.Config, registry *prometheus.Registry, logge
 	sessionrecorder.RegisterRecordedSessionMetrics(metrics.Namespace, registry)
 
 	metricsServer := metrics.NewServer(metrics.Config{
-		Port:     config.MetricsPort,
 		Registry: registry,
 	})
 
@@ -168,10 +167,15 @@ func (p *Proxy) Start() error {
 		})
 	}
 
-	g.Go(func() error {
-		p.logger.Info("Starting metrics server", zap.Int("port", p.config.MetricsPort))
+	metricsListener, err := net.Listen("tcp", fmt.Sprintf(":%d", p.config.MetricsPort))
+	if err != nil {
+		return fmt.Errorf("failed to create metrics listener: %w", err)
+	}
 
-		err := p.metricsServer.Start()
+	g.Go(func() error {
+		p.logger.Info("Starting metrics server", zap.String("addr", metricsListener.Addr().String()))
+
+		err := p.metricsServer.Start(metricsListener)
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}

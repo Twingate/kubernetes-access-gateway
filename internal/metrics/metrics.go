@@ -5,7 +5,7 @@ package metrics
 
 import (
 	"context"
-	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -17,7 +17,6 @@ import (
 const Namespace = "twingate_gateway"
 
 type Config struct {
-	Port     int
 	Registry *prometheus.Registry
 }
 
@@ -38,15 +37,14 @@ func NewServer(config Config) *Server {
 		// G112 - Protect against Slowloris attack
 		ReadHeaderTimeout: 5 * time.Second,
 
-		Addr:    fmt.Sprintf(":%v", config.Port),
 		Handler: mux,
 	}
 
 	return &Server{server: server}
 }
 
-func (s *Server) Start() error {
-	return s.server.ListenAndServe()
+func (s *Server) Start(listener net.Listener) error {
+	return s.server.Serve(listener)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
