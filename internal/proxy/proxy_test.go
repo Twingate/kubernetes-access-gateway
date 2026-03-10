@@ -110,24 +110,18 @@ func TestNewProxy_SSHOnly(t *testing.T) {
 	assert.Nil(t, p.httpProxy)
 }
 
-func createTestProxy(t *testing.T) (*Proxy, int) {
+func createTestProxy(t *testing.T) (*Proxy, net.Listener) {
 	t.Helper()
 
 	// Create a real TCP listener on a random port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
-	// Get a free port for the metrics server
 	metricsListener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
-	metricsPort := metricsListener.Addr().(*net.TCPAddr).Port
-	// Close so the metrics server can bind to this port
-	require.NoError(t, metricsListener.Close())
-
 	registry := prometheus.NewRegistry()
 	metricsServer := metrics.NewServer(metrics.Config{
-		Port:     metricsPort,
 		Registry: registry,
 	})
 
@@ -135,11 +129,11 @@ func createTestProxy(t *testing.T) (*Proxy, int) {
 		logger:        zap.NewNop(),
 		listener:      listener,
 		metricsServer: metricsServer,
-	}, metricsPort
+	}, metricsListener
 }
 
 func TestShutdown_ClosesAllComponents(t *testing.T) {
-	p, metricsPort := createTestProxy(t)
+	p, metricsListener := createTestProxy(t)
 
 	// Create and attach a real HTTP proxy
 	registry := prometheus.NewRegistry()
@@ -179,11 +173,11 @@ func TestShutdown_ClosesAllComponents(t *testing.T) {
 
 	// Start metrics server
 	go func() {
-		_ = p.metricsServer.Start()
+		_ = p.metricsServer.Start(metricsListener)
 	}()
 
 	listenerAddr := p.listener.Addr().String()
-	metricsAddr := fmt.Sprintf("http://127.0.0.1:%d/metrics", metricsPort)
+	metricsAddr := fmt.Sprintf("http://%s/metrics", metricsListener.Addr().String())
 
 	p.shutdown()
 
@@ -213,10 +207,10 @@ func TestShutdown_ClosesAllComponents(t *testing.T) {
 }
 
 func TestShutdown_IsIdempotent(t *testing.T) {
-	p, _ := createTestProxy(t)
+	p, metricsListener := createTestProxy(t)
 
 	go func() {
-		_ = p.metricsServer.Start()
+		_ = p.metricsServer.Start(metricsListener)
 	}()
 
 	// Calling shutdown multiple times should not panic
@@ -224,15 +218,17 @@ func TestShutdown_IsIdempotent(t *testing.T) {
 	p.shutdown()
 }
 
-func TestShutdown_NilComponents(_ *testing.T) {
+func TestShutdown_NilComponents(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	metricsServer := metrics.NewServer(metrics.Config{
-		Port:     0,
 		Registry: registry,
 	})
 
+	metricsListener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
 	go func() {
-		_ = metricsServer.Start()
+		_ = metricsServer.Start(metricsListener)
 	}()
 
 	p := &Proxy{
