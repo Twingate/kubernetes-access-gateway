@@ -40,6 +40,12 @@ func SetupVaultServer(t *testing.T) (string, int) {
 
 	containerID := strings.TrimSpace(string(output))
 
+	t.Cleanup(func() {
+		// #nosec G204 -- output is a container ID returned by docker
+		_, err = RunCommand(exec.Command("docker", "rm", "-vf", containerID))
+		require.NoError(t, err, "failed to remove Vault docker container")
+	})
+
 	// #nosec G204 -- inputs are from trusted operator configuration
 	output, err = RunCommand(exec.Command("docker", "inspect", containerID,
 		fmt.Sprintf("--format='{{(index (index .NetworkSettings.Ports \"%d/tcp\") 0).HostPort}}'", vaultPort),
@@ -48,12 +54,6 @@ func SetupVaultServer(t *testing.T) (string, int) {
 
 	serverPort, err := strconv.Atoi(strings.Trim(string(output), "'\n"))
 	require.NoError(t, err, "failed to parse Vault server port")
-
-	t.Cleanup(func() {
-		// #nosec G204 -- output is a container ID returned by docker
-		_, err = RunCommand(exec.Command("docker", "rm", "-vf", containerID))
-		require.NoError(t, err, "failed to remove Vault docker container")
-	})
 
 	err = wait.PollUntilContextTimeout(t.Context(), time.Second, 10*time.Second, true, func(_ context.Context) (bool, error) {
 		// #nosec G204 -- inputs are from trusted operator configuration
@@ -124,7 +124,7 @@ func SetupVaultToken(t *testing.T, containerID string) string {
 
 	token := strings.TrimSpace(string(output))
 
-	t.Logf("Vault token created: %s", token)
+	t.Log("Vault token created")
 
 	return token
 }

@@ -165,7 +165,9 @@ func assertSSHProxy(t *testing.T, config *gatewayconfig.Config, sshContainerID, 
 	// Start the Gateway
 	go func() {
 		err := p.Start()
-		t.Logf("Failed to start Gateway: %v", err)
+		if err != nil {
+			t.Errorf("Failed to start Gateway: %v", err)
+		}
 	}()
 
 	testutil.GatewayHealthCheck(t, config.Port)
