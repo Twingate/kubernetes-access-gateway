@@ -16,8 +16,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const supportedVersion = "1"
+
 var (
-	errInvalidPublicKey = errors.New("not a valid public key")
+	errInvalidPublicKey   = errors.New("not a valid public key")
+	errUnsupportedVersion = errors.New("unsupported version")
 )
 
 type GATClaims struct {
@@ -49,6 +52,10 @@ func (p GATClaims) Validate() error {
 		if v.condition {
 			return fmt.Errorf("%w \"%s\"", jwt.ErrTokenRequiredClaimMissing, v.fieldName)
 		}
+	}
+
+	if p.Version != supportedVersion {
+		return fmt.Errorf("%w: %w %q", jwt.ErrTokenInvalidClaims, errUnsupportedVersion, p.Version)
 	}
 
 	return nil
