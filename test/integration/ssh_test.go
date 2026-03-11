@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -69,10 +68,98 @@ func TestSSH(t *testing.T) {
 		},
 	}
 
+	assertSSHProxy(t, &config, containerID, sshServerAddress, controller.URL)
+}
+
+// TestSSHVault tests SSH proxying through the gateway using Vault as the CA backend.
+func TestSSHVault(t *testing.T) {
+	sshContainerID, sshServerPort := testutil.SetupSSHServer(t, sshUsername)
+	sshServerAddress := fmt.Sprintf("127.0.0.1:%d", sshServerPort)
+
+	vaultContainerID, vaultPort := testutil.SetupVaultServer(t)
+	vaultAddress := fmt.Sprintf("http://127.0.0.1:%d", vaultPort)
+
+	controller := fake.NewController(network, 8080)
+	defer controller.Close()
+
+	t.Log("Controller is serving at", controller.URL)
+
+	tests := []struct {
+		name      string
+		authSetup func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig
+	}{
+		{
+			name: "token",
+			authSetup: func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig {
+				t.Helper()
+
+				return gatewayconfig.SSHCAVaultAuthConfig{
+					Token: testutil.SetupVaultToken(t, vaultContainerID),
+				}
+			},
+		},
+		{
+			name: "approle",
+			authSetup: func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig {
+				t.Helper()
+
+				roleID, secretID := testutil.SetupVaultAppRole(t, vaultContainerID)
+
+				return gatewayconfig.SSHCAVaultAuthConfig{
+					AppRole: &gatewayconfig.SSHCAVaultAppRoleConfig{
+						RoleID:   roleID,
+						SecretID: secretID,
+					},
+				}
+			},
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			auth := tt.authSetup(t)
+
+			config := gatewayconfig.Config{
+				Twingate: gatewayconfig.TwingateConfig{
+					Network: network,
+					Host:    host,
+				},
+				Port:        gatewayPort + 1 + i,
+				MetricsPort: 0,
+				TLS: gatewayconfig.TLSConfig{
+					CertificateFile: "../data/proxy/tls.crt",
+					PrivateKeyFile:  "../data/proxy/tls.key",
+				},
+				SSH: &gatewayconfig.SSHConfig{
+					Gateway: gatewayconfig.SSHGatewayConfig{
+						Username: sshUsername,
+					},
+					CA: gatewayconfig.SSHCAConfig{
+						Vault: &gatewayconfig.SSHCAVaultConfig{
+							Address: vaultAddress,
+							Mount:   "ssh",
+							Role:    "gateway-signer",
+							Auth:    auth,
+						},
+					},
+					Upstreams: []gatewayconfig.SSHUpstream{
+						{Name: "ssh-server", Address: sshServerAddress},
+					},
+				},
+			}
+
+			assertSSHProxy(t, &config, sshContainerID, sshServerAddress, controller.URL)
+		})
+	}
+}
+
+func assertSSHProxy(t *testing.T, config *gatewayconfig.Config, sshContainerID, sshServerAddress, controllerURL string) {
+	t.Helper()
+
 	core, logs := observer.New(zap.DebugLevel)
 	logger := zap.New(core).Named("test")
 
-	p, err := proxy.NewProxy(&config, prometheus.NewRegistry(), logger)
+	p, err := proxy.NewProxy(config, prometheus.NewRegistry(), logger)
 	require.NoError(t, err, "failed to create proxy")
 
 	// Start the Gateway
@@ -81,7 +168,7 @@ func TestSSH(t *testing.T) {
 		t.Logf("Failed to start Gateway: %v", err)
 	}()
 
-	testutil.GatewayHealthCheck(t, gatewayPort)
+	testutil.GatewayHealthCheck(t, config.Port)
 
 	knownHostsFile := filepath.Join(t.TempDir(), "known_hosts")
 	line := "@cert-authority * " + string(data.SSHCAPublicKey)
@@ -94,9 +181,9 @@ func TestSSH(t *testing.T) {
 			Username: "alex@acme.com",
 			Groups:   []string{"OnCall", "Engineering"},
 		},
-		gatewayPort,
+		config.Port,
 		sshServerAddress,
-		controller.URL,
+		controllerURL,
 		knownHostsFile,
 	)
 	require.NoError(t, err, "failed to create SSH user")
@@ -108,7 +195,7 @@ func TestSSH(t *testing.T) {
 	output, err := user.SSH.Command("whoami")
 	require.NoError(t, err, "failed to execute 'whoami' command")
 
-	assert.Equalf(t, sshUsername+"\n", string(output), "whoami should return '%s'", sshUsername)
+	require.Equalf(t, sshUsername+"\n", string(output), "whoami should return '%s'", sshUsername)
 
 	// Wait for logs to be flushed
 	time.Sleep(100 * time.Millisecond)
@@ -128,7 +215,7 @@ func TestSSH(t *testing.T) {
 	logs.TakeAll()
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err = testutil.RunCommand(exec.Command("docker", "exec", containerID, "sh", "-c", "echo 'test file copy' > /tmp/test.txt"))
+	_, err = testutil.RunCommand(exec.Command("docker", "exec", sshContainerID, "sh", "-c", "echo 'test file copy' > /tmp/test.txt"))
 	require.NoError(t, err, "failed to create test file in docker container")
 
 	// Test `scp -P 2222 admin@127.0.0.1:/tmp/test.txt /tmp/dir/test.txt`
@@ -140,7 +227,7 @@ func TestSSH(t *testing.T) {
 	fileContent, err := os.ReadFile(tmpFile)
 	require.NoErrorf(t, err, "failed to read file %s", tmpFile)
 
-	assert.Equal(t, "test file copy\n", string(fileContent))
+	require.Equal(t, "test file copy\n", string(fileContent))
 
 	// Wait for logs to be flushed
 	time.Sleep(100 * time.Millisecond)
