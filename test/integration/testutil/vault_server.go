@@ -5,7 +5,6 @@ package testutil
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -19,8 +18,6 @@ import (
 func SetupVaultServer(t *testing.T) (string, int) {
 	t.Helper()
 
-	const vaultPort = 8200
-
 	// #nosec G204 -- inputs are from trusted operator configuration
 	_, err := RunCommand(exec.Command("docker", "pull", "hashicorp/vault:latest"))
 	require.NoError(t, err, "failed to pull Vault docker image")
@@ -28,7 +25,7 @@ func SetupVaultServer(t *testing.T) (string, int) {
 	// #nosec G204 -- inputs are from trusted operator configuration
 	output, err := RunCommand(exec.Command("docker", "run", "-d",
 		"--cap-add=IPC_LOCK",
-		"-p", fmt.Sprintf("0:%d", vaultPort),
+		"-p", "0:8200",
 		"--name", "gateway-integration-test-vault",
 		"-e", "VAULT_DEV_ROOT_TOKEN_ID=root",
 		"-e", "VAULT_TOKEN=root",
@@ -48,7 +45,7 @@ func SetupVaultServer(t *testing.T) (string, int) {
 
 	// #nosec G204 -- inputs are from trusted operator configuration
 	output, err = RunCommand(exec.Command("docker", "inspect", containerID,
-		fmt.Sprintf("--format='{{(index (index .NetworkSettings.Ports \"%d/tcp\") 0).HostPort}}'", vaultPort),
+		"--format='{{(index (index .NetworkSettings.Ports \"8200/tcp\") 0).HostPort}}'",
 	))
 	require.NoError(t, err, "failed to get Vault docker container port mappings")
 
