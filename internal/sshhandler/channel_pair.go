@@ -46,6 +46,8 @@ type ChannelPair interface {
 type SSHChannelPair struct {
 	logger *zap.Logger
 
+	channelType string
+
 	// Downstream SSH channel
 	downstreamChannel ssh.Channel
 	// Downstream SSH channel requests channel
@@ -65,7 +67,7 @@ type SSHChannelPair struct {
 }
 
 // NewSSHChannelPair creates a new SSHChannelPair with the default factories.
-func NewSSHChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan Request, upstreamChannel ssh.Channel, upstreamRequests <-chan Request) *SSHChannelPair {
+func NewSSHChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan Request, upstreamChannel ssh.Channel, upstreamRequests <-chan Request, channelType string) *SSHChannelPair {
 	return &SSHChannelPair{
 		logger:                    logger,
 		upstreamSSHUsername:       upstreamSSHUsername,
@@ -74,6 +76,7 @@ func NewSSHChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstrea
 		upstreamChannel:           upstreamChannel,
 		upstreamChannelRequests:   upstreamRequests,
 		recorderFactory:           &DefaultSessionRecorderFactory{},
+		channelType:               channelType,
 	}
 }
 
@@ -134,16 +137,19 @@ func (c *SSHChannelPair) serve() {
 	}
 	upstreamSessionSignals := upstreamRequestHandler.handleRequests()
 
-	// Wait for session to start from downstream prior to starting the data copying
 	var command string
-	select {
-	case command = <-downstreamSessionSignals.started:
-		c.logger.Debug("Downstream session started", zap.String("command", command))
-		asciinemaHeader.Command = command
-	case <-time.After(sessionStartTimeout):
-		c.logger.Error("Timeout waiting for downstream session to start")
 
-		return
+	if c.channelType == "session" {
+		// Wait for session to start from downstream prior to starting the data copying
+		select {
+		case command = <-downstreamSessionSignals.started:
+			c.logger.Debug("Downstream session started", zap.String("command", command))
+			asciinemaHeader.Command = command
+		case <-time.After(sessionStartTimeout):
+			c.logger.Error("Timeout waiting for downstream session to start")
+
+			return
+		}
 	}
 
 	var processor io.Writer

@@ -62,8 +62,11 @@ type mockProxySSHConnPairFactory struct {
 }
 
 //nolint:ireturn
-func (m *mockProxySSHConnPairFactory) NewConnPair(logger *zap.Logger, downstreamConn ssh.Conn, upstreamConn ssh.Conn, downstreamChannels <-chan ssh.NewChannel) ConnPair {
-	args := m.Called(logger, downstreamConn, upstreamConn, downstreamChannels)
+func (m *mockProxySSHConnPairFactory) NewConnPair(logger *zap.Logger,
+	downstreamConn ssh.Conn, downstreamChannels <-chan ssh.NewChannel, downstreamRequests <-chan *ssh.Request,
+	upstreamConn ssh.Conn, upstreamChannels <-chan ssh.NewChannel, upstreamRequests <-chan *ssh.Request,
+) ConnPair {
+	args := m.Called(logger, downstreamConn, downstreamChannels, downstreamRequests, upstreamConn, upstreamChannels, upstreamRequests)
 
 	return args.Get(0).(ConnPair)
 }
@@ -335,23 +338,20 @@ func TestSSHProxy_ServeConn_Success(t *testing.T) {
 
 	// Create mock SSH connection pair
 	mockProxyConnPair := &mockSSHConnPair{}
+
 	mockProxyConnPairFactory.On("NewConnPair",
-		mock.AnythingOfType("*zap.Logger"),          // Validate logger is not nil
-		downstreamSSHConn,                           // Exact downstream connection
-		upstreamSSHConn,                             // Exact upstream connection
-		(<-chan ssh.NewChannel)(downstreamChannels), // Exact downstream channels
+		mock.AnythingOfType("*zap.Logger"),
+		downstreamSSHConn,
+		(<-chan ssh.NewChannel)(downstreamChannels),
+		(<-chan *ssh.Request)(downstreamRequests),
+		upstreamSSHConn,
+		(<-chan ssh.NewChannel)(upstreamChannels),
+		(<-chan *ssh.Request)(upstreamRequests),
 	).Return(mockProxyConnPair)
 
-	// Mock the serve method of the SSH connection pair
 	serveDone := make(chan struct{})
 
 	mockProxyConnPair.On("serve").Run(func(_ mock.Arguments) {
-		// Verify that the SSH connection pair was added to the connection map
-		sshProxy.mu.Lock()
-		assert.Len(t, sshProxy.connsMap, 1)
-		assert.Contains(t, sshProxy.connsMap, mockProxyConnPair)
-		sshProxy.mu.Unlock()
-
 		// Return after some delay to simulate a real serve
 		time.Sleep(100 * time.Millisecond)
 	}).Return()
@@ -509,8 +509,10 @@ func TestSSHProxy_ServeConn_UpstreamConnectionFailure(t *testing.T) {
 		assert.AnError,
 	)
 
-	// Expect downstream connection to be closed
-	downstreamSSHConn.On("Close").Return(nil)
+	// Simulate real SSH mux behavior: closing the connection closes the channel stream
+	downstreamSSHConn.On("Close").Run(func(_ mock.Arguments) {
+		close(downstreamChannels)
+	}).Return(nil)
 
 	// Call serve and expect it to fail
 	err = sshProxy.serveConn(t.Context(), testConn)
@@ -578,8 +580,10 @@ func TestSSHProxy_ServeConn_UpstreamSSHHandshakeFailure(t *testing.T) {
 		assert.AnError,
 	)
 
-	// Ensure downstream connection is closed
-	downstreamSSHConn.On("Close").Return(nil)
+	// Simulate real SSH mux behavior: closing the connection closes the channel stream
+	downstreamSSHConn.On("Close").Run(func(_ mock.Arguments) {
+		close(downstreamChannels)
+	}).Return(nil)
 	// Ensure upstream connection is closed
 	upstreamConn.On("Close").Return(nil)
 
@@ -655,11 +659,15 @@ func TestSSHProxy_Shutdown_WithActiveConnection(t *testing.T) {
 
 	// Create mock SSH connection pair
 	mockProxyConnPair := &mockSSHConnPair{}
+
 	mockProxyConnPairFactory.On("NewConnPair",
 		mock.AnythingOfType("*zap.Logger"),
 		downstreamSSHConn,
-		upstreamSSHConn,
 		(<-chan ssh.NewChannel)(downstreamChannels),
+		(<-chan *ssh.Request)(downstreamRequests),
+		upstreamSSHConn,
+		(<-chan ssh.NewChannel)(upstreamChannels),
+		(<-chan *ssh.Request)(upstreamRequests),
 	).Return(mockProxyConnPair)
 
 	// Mock the serve method to block until Close is called
@@ -686,10 +694,8 @@ func TestSSHProxy_Shutdown_WithActiveConnection(t *testing.T) {
 	// Wait for serve to start and connection to be added
 	<-serveStarted
 
-	// Verify connection was added to the map
+	// Verify downstream connection pair was added to the map
 	sshProxy.mu.Lock()
-	connCount := len(sshProxy.connsMap)
-	assert.Equal(t, 1, connCount, "Connection should be added to the map")
 	assert.Contains(t, sshProxy.connsMap, mockProxyConnPair)
 	sshProxy.mu.Unlock()
 

@@ -4,7 +4,11 @@
 package integration
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	gatewayconfig "k8sgateway/internal/config"
 	"k8sgateway/internal/proxy"
@@ -25,23 +30,23 @@ import (
 	"k8sgateway/test/integration/testutil"
 )
 
-const (
-	sshUsername = "admin"
-	gatewayPort = 8445
-)
+const sshUsername = "admin"
 
-// TestSSH tests the following properties:
-// - User can execute commands via SSH through the gateway
-// - Session recording (asciicast) is properly generated
-// - User can copy file from remote server to host.
-func TestSSH(t *testing.T) {
+type sshTestEnv struct {
+	containerID string
+	user        *testutil.SSHUser
+	logs        *observer.ObservedLogs
+}
+
+func setupSSHGateway(t *testing.T, user *token.User, gatewayPort int) *sshTestEnv {
+	t.Helper()
+
 	containerID, sshServerPort := testutil.SetupSSHServer(t, sshUsername)
 	sshServerAddress := fmt.Sprintf("127.0.0.1:%d", sshServerPort)
 
 	controller := fake.NewController(network, 8080)
-	defer controller.Close()
 
-	t.Log("Controller is serving at", controller.URL)
+	t.Cleanup(func() { controller.Close() })
 
 	config := gatewayconfig.Config{
 		Twingate: gatewayconfig.TwingateConfig{
@@ -75,7 +80,6 @@ func TestSSH(t *testing.T) {
 	p, err := proxy.NewProxy(&config, prometheus.NewRegistry(), logger)
 	require.NoError(t, err, "failed to create proxy")
 
-	// Start the Gateway
 	go func() {
 		err := p.Start()
 		t.Logf("Failed to start Gateway: %v", err)
@@ -85,15 +89,10 @@ func TestSSH(t *testing.T) {
 
 	knownHostsFile := filepath.Join(t.TempDir(), "known_hosts")
 	line := "@cert-authority * " + string(data.SSHCAPublicKey)
-	require.NoError(t, os.WriteFile(knownHostsFile, []byte(line), 0600), "failed to create SSH known_hosts file")
+	require.NoError(t, os.WriteFile(knownHostsFile, []byte(line), 0600))
 
-	// Create a user with SSH client
-	user, err := testutil.NewSSHUser(
-		&token.User{
-			ID:       "user-ssh-1",
-			Username: "alex@acme.com",
-			Groups:   []string{"OnCall", "Engineering"},
-		},
+	sshUser, err := testutil.NewSSHUser(
+		user,
 		gatewayPort,
 		sshServerAddress,
 		controller.URL,
@@ -101,11 +100,30 @@ func TestSSH(t *testing.T) {
 	)
 	require.NoError(t, err, "failed to create SSH user")
 
-	require.NotNil(t, user.SSH, "failed to create SSH client")
-	defer user.Close()
+	t.Cleanup(func() { sshUser.Close() })
+
+	return &sshTestEnv{
+		containerID: containerID,
+		user:        sshUser,
+		logs:        logs,
+	}
+}
+
+// TestSSH tests the following properties:
+// - User can execute commands via SSH through the gateway
+// - Session recording (asciicast) is properly generated
+// - User can copy file from remote server to host.
+func TestSSH(t *testing.T) {
+	const gatewayPort = 8445
+
+	env := setupSSHGateway(t, &token.User{
+		ID:       "user-ssh-1",
+		Username: "alex@acme.com",
+		Groups:   []string{"OnCall", "Engineering"},
+	}, gatewayPort)
 
 	// Test `ssh 127.0.0.1 -l admin -p 2222 "whoami"`
-	output, err := user.SSH.Command("whoami")
+	output, err := env.user.SSH.Command("whoami")
 	require.NoError(t, err, "failed to execute 'whoami' command")
 
 	assert.Equalf(t, sshUsername+"\n", string(output), "whoami should return '%s'", sshUsername)
@@ -122,18 +140,18 @@ func TestSSH(t *testing.T) {
 		"username": "alex@acme.com",
 		"groups":   []any{"OnCall", "Engineering"},
 	}
-	testutil.AssertLogsForSSH(t, logs, expectedUser, expectedRequest)
+	testutil.AssertLogsForSSH(t, env.logs, expectedUser, expectedRequest)
 
 	// Clear existing logs
-	logs.TakeAll()
+	env.logs.TakeAll()
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err = testutil.RunCommand(exec.Command("docker", "exec", containerID, "sh", "-c", "echo 'test file copy' > /tmp/test.txt"))
+	_, err = testutil.RunCommand(exec.Command("docker", "exec", env.containerID, "sh", "-c", "echo 'test file copy' > /tmp/test.txt"))
 	require.NoError(t, err, "failed to create test file in docker container")
 
 	// Test `scp -P 2222 admin@127.0.0.1:/tmp/test.txt /tmp/dir/test.txt`
 	tmpFile := filepath.Join(t.TempDir(), "test.txt")
-	_, err = user.SSH.CopyFileToHost("/tmp/test.txt", tmpFile)
+	_, err = env.user.SSH.CopyFileToHost("/tmp/test.txt", tmpFile)
 	require.NoError(t, err, "failed to copy '/tmp/test.txt' file locally")
 
 	// #nosec G304 -- file paths are from trusted operator configuration
@@ -149,5 +167,131 @@ func TestSSH(t *testing.T) {
 		"type": "subsystem",
 		"name": "sftp",
 	}
-	testutil.AssertLogsForSSH(t, logs, expectedUser, expectedRequest)
+	testutil.AssertLogsForSSH(t, env.logs, expectedUser, expectedRequest)
+}
+
+// TestSSHLocalPortForwarding tests that local port forwarding (-L) works through the gateway.
+// This exercises the direct-tcpip channel forwarding in conn_pair.go.
+func TestSSHLocalPortForwarding(t *testing.T) {
+	const (
+		gatewayPort    = 8446
+		echoServerPort = 8888
+		localPort      = 18888
+	)
+
+	env := setupSSHGateway(t, &token.User{
+		ID:       "user-ssh-local-fwd",
+		Username: "alex@acme.com",
+		Groups:   []string{"Engineering"},
+	}, gatewayPort)
+
+	testutil.SetupRemoteEchoServer(t, env.containerID, echoServerPort)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+
+	var sshStderr bytes.Buffer
+
+	cmd := env.user.SSH.LocalPortForward(ctx, localPort, "127.0.0.1", echoServerPort)
+	cmd.Stderr = &sshStderr
+
+	require.NoError(t, cmd.Start(), "failed to start SSH local port forwarding")
+
+	t.Cleanup(func() {
+		cancel()
+
+		_ = cmd.Wait()
+
+		if sshStderr.Len() > 0 {
+			t.Logf("SSH local port forward stderr: %s", sshStderr.String())
+		}
+	})
+
+	// Wait for the tunnel to be established by polling the forwarded port
+	var conn net.Conn
+
+	err := wait.PollUntilContextTimeout(ctx, 500*time.Millisecond, 10*time.Second, true, func(_ context.Context) (bool, error) {
+		var dialErr error
+
+		conn, dialErr = net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", localPort), time.Second)
+		if dialErr != nil {
+			return false, nil //nolint:nilerr
+		}
+
+		return true, nil
+	})
+	require.NoError(t, err, "failed to connect to local forwarded port")
+
+	defer conn.Close()
+
+	// Send data through the tunnel and verify the echo server echoes it back
+	testData := "hello local port forwarding\n"
+
+	_, err = conn.Write([]byte(testData))
+	require.NoError(t, err, "failed to write to forwarded port")
+
+	require.NoError(t, conn.(*net.TCPConn).CloseWrite())
+
+	response, err := io.ReadAll(conn)
+	require.NoError(t, err, "failed to read from forwarded port")
+
+	assert.Equal(t, testData, string(response))
+}
+
+// TestSSHRemotePortForwarding tests that remote port forwarding (-R) works through the gateway.
+// This exercises the tcpip-forward global request and forwarded-tcpip channel forwarding in conn_pair.go.
+func TestSSHRemotePortForwarding(t *testing.T) {
+	const (
+		gatewayPort   = 8447
+		localEchoPort = 19999
+		remotePort    = 9999
+	)
+
+	env := setupSSHGateway(t, &token.User{
+		ID:       "user-ssh-remote-fwd",
+		Username: "alex@acme.com",
+		Groups:   []string{"Engineering"},
+	}, gatewayPort)
+
+	testutil.SetupLocalEchoServer(t, localEchoPort)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+
+	var sshStderr bytes.Buffer
+
+	cmd := env.user.SSH.RemotePortForward(ctx, remotePort, "127.0.0.1", localEchoPort)
+	cmd.Stderr = &sshStderr
+
+	require.NoError(t, cmd.Start(), "failed to start SSH remote port forwarding")
+
+	t.Cleanup(func() {
+		cancel()
+
+		_ = cmd.Wait()
+
+		if sshStderr.Len() > 0 {
+			t.Logf("SSH remote port forward stderr: %s", sshStderr.String())
+		}
+	})
+
+	// Wait for the remote tunnel to be established by polling from inside the container
+	var output []byte
+
+	err := wait.PollUntilContextTimeout(ctx, 500*time.Millisecond, 10*time.Second, true, func(_ context.Context) (bool, error) {
+		var cmdErr error
+
+		output, cmdErr = testutil.RunCommand(exec.Command( // #nosec G204 -- inputs are from trusted operator configuration
+			"docker", "exec", env.containerID, "sh", "-c",
+			fmt.Sprintf("echo 'hello remote port forwarding' | nc -w 2 127.0.0.1 %d", remotePort),
+		))
+		if cmdErr != nil {
+			return false, nil //nolint:nilerr
+		}
+
+		return true, nil
+	})
+	require.NoError(t, err, "failed to connect to remote forwarded port from container")
+
+	assert.Equal(t, "hello remote port forwarding\n", string(output))
 }

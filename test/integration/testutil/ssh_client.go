@@ -36,17 +36,31 @@ func (s *SSH) CopyFileToHost(remoteDest, localDest string, cmdOptions ...string)
 	return s.copy(context.Background(), source, localDest, cmdOptions...)
 }
 
-func (s *SSH) executeSSH(ctx context.Context, cmdOptions ...string) ([]byte, error) {
-	var options = []string{
+// LocalPortForward creates an ssh command with local port forwarding (-L).
+// The returned cmd is prepared but not started — the caller must call cmd.Start().
+func (s *SSH) LocalPortForward(ctx context.Context, localPort int, remoteHost string, remotePort int) *exec.Cmd {
+	return s.portForwardCommand(ctx, "-L", fmt.Sprintf("%d:%s:%d", localPort, remoteHost, remotePort))
+}
+
+// RemotePortForward creates an ssh command with remote port forwarding (-R).
+// The returned cmd is prepared but not started — the caller must call cmd.Start().
+func (s *SSH) RemotePortForward(ctx context.Context, remotePort int, localHost string, localPort int) *exec.Cmd {
+	return s.portForwardCommand(ctx, "-R", fmt.Sprintf("%d:%s:%d", remotePort, localHost, localPort))
+}
+
+func (s *SSH) baseOptions() []string {
+	return []string{
 		s.hostname,
 		"-l", s.username,
 		"-p", s.port,
 		"-o", "StrictHostKeyChecking=yes",
 		"-o", "UserKnownHostsFile=" + s.knownHostsFile,
 	}
+}
 
+func (s *SSH) executeSSH(ctx context.Context, cmdOptions ...string) ([]byte, error) {
 	// #nosec G204 -- ssh is safe to use
-	cmd := exec.CommandContext(ctx, "ssh", append(options, cmdOptions...)...)
+	cmd := exec.CommandContext(ctx, "ssh", append(s.baseOptions(), cmdOptions...)...)
 
 	return runCommandAndStripBanner(cmd)
 }
@@ -64,6 +78,17 @@ func (s *SSH) copy(ctx context.Context, source, target string, cmdOptions ...str
 	cmd := exec.CommandContext(ctx, "scp", append(options, source, target)...)
 
 	return runCommandAndStripBanner(cmd)
+}
+
+func (s *SSH) portForwardCommand(ctx context.Context, flag, spec string) *exec.Cmd {
+	options := append(s.baseOptions(),
+		"-o", "ExitOnForwardFailure=yes",
+		"-N",
+		flag, spec,
+	)
+
+	// #nosec G204 -- ssh is safe to use
+	return exec.CommandContext(ctx, "ssh", options...)
 }
 
 func runCommandAndStripBanner(cmd *exec.Cmd) ([]byte, error) {

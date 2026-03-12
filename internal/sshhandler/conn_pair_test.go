@@ -44,8 +44,8 @@ func newMockChannelPairFactory(channelPair ChannelPair) *mockChannelPairFactory 
 }
 
 //nolint:ireturn
-func (m *mockChannelPairFactory) NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request) ChannelPair {
-	args := m.Called(logger, upstreamSSHUsername, downstreamChannel, downstreamRequests, upstreamChannel, upstreamRequests)
+func (m *mockChannelPairFactory) NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request, channelType string) ChannelPair {
+	args := m.Called(logger, upstreamSSHUsername, downstreamChannel, downstreamRequests, upstreamChannel, upstreamRequests, channelType)
 
 	return args.Get(0).(ChannelPair)
 }
@@ -57,6 +57,14 @@ func createMockChannelChan(channels []ssh.NewChannel) <-chan ssh.NewChannel {
 		ch <- channel
 	}
 
+	close(ch)
+
+	return ch
+}
+
+// Test helper to create a closed request channel.
+func closedRequestChan() <-chan *ssh.Request {
+	ch := make(chan *ssh.Request)
 	close(ch)
 
 	return ch
@@ -80,9 +88,10 @@ func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
 	mockFactory := newMockChannelPairFactory(mockChannelPair)
 
 	// Set up expectations
+	newChannel.On("ExtraData").Return([]byte(nil))
 	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return(upstreamChannel, (<-chan *ssh.Request)(upstreamRequests), nil)
 	newChannel.On("Accept").Return(downstreamChannel, (<-chan *ssh.Request)(downstreamRequests), nil)
-	mockFactory.On("NewChannelPair", mock.Anything, "upstream-user", downstreamChannel, (<-chan *ssh.Request)(downstreamRequests), upstreamChannel, (<-chan *ssh.Request)(upstreamRequests)).Return(mockChannelPair)
+	mockFactory.On("NewChannelPair", mock.Anything, "upstream-user", downstreamChannel, (<-chan *ssh.Request)(downstreamRequests), upstreamChannel, (<-chan *ssh.Request)(upstreamRequests), "session").Return(mockChannelPair)
 	mockChannelPair.On("serve").Return()
 
 	// Create channel chan with one session channel
@@ -91,8 +100,11 @@ func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
 	connPair := &SSHConnPair{
 		logger:                    zap.NewNop(),
 		downstreamConn:            downstreamConn,
-		upstreamConn:              upstreamConn,
 		downstreamSSHChannelsChan: channelChan,
+		downstreamRequestsChan:    closedRequestChan(),
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   createMockChannelChan(nil),
+		upstreamRequestsChan:      closedRequestChan(),
 		channelPairFactory:        mockFactory,
 	}
 
@@ -128,20 +140,44 @@ func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
 	mockChannelPair.AssertExpectations(t)
 }
 
-func TestSSHConnPair_serve_RejectNonSessionChannel(t *testing.T) {
-	downstreamConn := &mockSSHConn{}
-	upstreamConn := &mockSSHConn{}
+func TestSSHConnPair_serve_DirectTCPIPChannelForwarded(t *testing.T) {
+	downstreamConn := &mockSSHConn{user: "downstream-user"}
+	upstreamConn := &mockSSHConn{user: "upstream-user"}
 
-	// Create mock channel with non-session type
+	// Create mock channel with direct-tcpip type (port forwarding)
+	extraData := []byte("extra-data")
 	newChannel := newMockNewChannel("direct-tcpip")
+	downstreamChannel := NewMockChannel()
+	upstreamChannel := NewMockChannel()
 
-	// Set up expectations - should reject the channel
-	newChannel.On("Reject", ssh.UnknownChannelType, "unknown channel type").Return(nil)
+	// Create request channels
+	downstreamRequests := make(chan *ssh.Request)
+	upstreamRequests := make(chan *ssh.Request)
 
-	// Create channel chan with one non-session channel
+	// Create mock channel pair
+	mockChannelPair := newMockChannelPair()
+	mockFactory := newMockChannelPairFactory(mockChannelPair)
+
+	// Set up expectations - channel should be forwarded with original type and extra data
+	newChannel.On("ExtraData").Return(extraData)
+	upstreamConn.On("OpenChannel", "direct-tcpip", extraData).Return(upstreamChannel, (<-chan *ssh.Request)(upstreamRequests), nil)
+	newChannel.On("Accept").Return(downstreamChannel, (<-chan *ssh.Request)(downstreamRequests), nil)
+	mockFactory.On("NewChannelPair", mock.Anything, "upstream-user", downstreamChannel, (<-chan *ssh.Request)(downstreamRequests), upstreamChannel, (<-chan *ssh.Request)(upstreamRequests), "direct-tcpip").Return(mockChannelPair)
+	mockChannelPair.On("serve").Return()
+
+	// Create channel chan with one direct-tcpip channel
 	channelChan := createMockChannelChan([]ssh.NewChannel{newChannel})
 
-	connPair := NewSSHConnPair(zap.NewNop(), downstreamConn, upstreamConn, channelChan)
+	connPair := &SSHConnPair{
+		logger:                    zap.NewNop(),
+		downstreamConn:            downstreamConn,
+		downstreamSSHChannelsChan: channelChan,
+		downstreamRequestsChan:    closedRequestChan(),
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   createMockChannelChan(nil),
+		upstreamRequestsChan:      closedRequestChan(),
+		channelPairFactory:        mockFactory,
+	}
 
 	// Track if serve completes
 	done := make(chan struct{})
@@ -151,17 +187,26 @@ func TestSSHConnPair_serve_RejectNonSessionChannel(t *testing.T) {
 		close(done)
 	}()
 
+	// Wait for the channel pair serve to be called
+	select {
+	case <-mockChannelPair.serveCalled:
+		// Success - channel pair serve was called
+	case <-time.After(1 * time.Second):
+		t.Fatal("Channel pair serve was not called within timeout")
+	}
+
 	// Wait for serve to complete
 	select {
 	case <-done:
 		// Success
-	case <-time.After(1 * time.Second):
+	case <-time.After(2 * time.Second):
 		t.Fatal("serve() did not complete within timeout")
 	}
 
 	newChannel.AssertExpectations(t)
-	// upstreamConn should not be called since we reject before opening upstream
-	upstreamConn.AssertNotCalled(t, "OpenChannel")
+	upstreamConn.AssertExpectations(t)
+	mockFactory.AssertExpectations(t)
+	mockChannelPair.AssertExpectations(t)
 }
 
 func TestSSHConnPair_serve_UpstreamOpenChannelFailure(t *testing.T) {
@@ -172,14 +217,16 @@ func TestSSHConnPair_serve_UpstreamOpenChannelFailure(t *testing.T) {
 	newChannel := newMockNewChannel("session")
 
 	// Set up expectations - upstream fails to open channel
+	newChannel.On("ExtraData").Return([]byte(nil))
+
 	expectedErr := errors.New("upstream connection failed")
 	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return((*MockChannel)(nil), (<-chan *ssh.Request)(nil), expectedErr)
-	newChannel.On("Reject", ssh.ConnectionFailed, "failed to create upstream session").Return(nil)
+	newChannel.On("Reject", ssh.ConnectionFailed, "failed to open target channel").Return(nil)
 
 	// Create channel chan with one session channel
 	channelChan := createMockChannelChan([]ssh.NewChannel{newChannel})
 
-	connPair := NewSSHConnPair(zap.NewNop(), downstreamConn, upstreamConn, channelChan)
+	connPair := NewSSHConnPair(zap.NewNop(), downstreamConn, channelChan, closedRequestChan(), upstreamConn, createMockChannelChan(nil), closedRequestChan())
 
 	// Track if serve completes
 	done := make(chan struct{})
@@ -214,17 +261,18 @@ func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
 	close(upstreamRequests)
 
 	// Set up expectations
+	newChannel.On("ExtraData").Return([]byte(nil))
 	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return(upstreamChannel, (<-chan *ssh.Request)(upstreamRequests), nil)
 
 	// Downstream accept fails
 	expectedErr := errors.New("downstream accept failed")
 	newChannel.On("Accept").Return((*MockChannel)(nil), (<-chan *ssh.Request)(nil), expectedErr)
-	newChannel.On("Reject", ssh.ConnectionFailed, "failed to accept channel").Return(nil)
+	upstreamChannel.On("Close").Return(nil)
 
 	// Create channel chan with one session channel
 	channelChan := createMockChannelChan([]ssh.NewChannel{newChannel})
 
-	connPair := NewSSHConnPair(zap.NewNop(), downstreamConn, upstreamConn, channelChan)
+	connPair := NewSSHConnPair(zap.NewNop(), downstreamConn, channelChan, closedRequestChan(), upstreamConn, createMockChannelChan(nil), closedRequestChan())
 
 	// Track if serve completes
 	done := make(chan struct{})
@@ -243,6 +291,7 @@ func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
 	}
 
 	upstreamConn.AssertExpectations(t)
+	upstreamChannel.AssertExpectations(t)
 	newChannel.AssertExpectations(t)
 }
 
@@ -250,56 +299,72 @@ func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
 	upstreamConn := &mockSSHConn{user: "upstream-user"}
 
-	// Create multiple mock channels
+	// Create multiple mock channels: session + direct-tcpip + session
 	sessionChannel1 := newMockNewChannel("session")
+	directTCPIPChannel := newMockNewChannel("direct-tcpip")
 	sessionChannel2 := newMockNewChannel("session")
-	nonSessionChannel := newMockNewChannel("direct-tcpip")
 
 	downstreamChannel1 := NewMockChannel()
 	downstreamChannel2 := NewMockChannel()
+	downstreamChannel3 := NewMockChannel()
 	upstreamChannel1 := NewMockChannel()
 	upstreamChannel2 := NewMockChannel()
+	upstreamChannel3 := NewMockChannel()
 
 	// Create request channels
 	downstreamRequests1 := make(chan *ssh.Request)
 	downstreamRequests2 := make(chan *ssh.Request)
+	downstreamRequests3 := make(chan *ssh.Request)
 	upstreamRequests1 := make(chan *ssh.Request)
 	upstreamRequests2 := make(chan *ssh.Request)
+	upstreamRequests3 := make(chan *ssh.Request)
 
 	close(downstreamRequests1)
 	close(downstreamRequests2)
+	close(downstreamRequests3)
 	close(upstreamRequests1)
 	close(upstreamRequests2)
+	close(upstreamRequests3)
 
 	// Create mock channel pairs
 	mockChannelPair1 := newMockChannelPair()
 	mockChannelPair2 := newMockChannelPair()
+	mockChannelPair3 := newMockChannelPair()
 	mockFactory := newMockChannelPairFactory(nil)
 
 	// Set up expectations for session channels
+	sessionChannel1.On("ExtraData").Return([]byte(nil))
 	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return(upstreamChannel1, (<-chan *ssh.Request)(upstreamRequests1), nil).Once()
-	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return(upstreamChannel2, (<-chan *ssh.Request)(upstreamRequests2), nil).Once()
-
 	sessionChannel1.On("Accept").Return(downstreamChannel1, (<-chan *ssh.Request)(downstreamRequests1), nil)
-	sessionChannel2.On("Accept").Return(downstreamChannel2, (<-chan *ssh.Request)(downstreamRequests2), nil)
-
-	mockFactory.On("NewChannelPair", mock.Anything, "upstream-user", downstreamChannel1, (<-chan *ssh.Request)(downstreamRequests1), upstreamChannel1, (<-chan *ssh.Request)(upstreamRequests1)).Return(mockChannelPair1).Once()
-	mockFactory.On("NewChannelPair", mock.Anything, "upstream-user", downstreamChannel2, (<-chan *ssh.Request)(downstreamRequests2), upstreamChannel2, (<-chan *ssh.Request)(upstreamRequests2)).Return(mockChannelPair2).Once()
-
+	mockFactory.On("NewChannelPair", mock.Anything, "upstream-user", downstreamChannel1, (<-chan *ssh.Request)(downstreamRequests1), upstreamChannel1, (<-chan *ssh.Request)(upstreamRequests1), "session").Return(mockChannelPair1).Once()
 	mockChannelPair1.On("serve").Return()
+
+	// Set up expectations for direct-tcpip channel (should be forwarded, not rejected)
+	directTCPIPExtraData := []byte("direct-tcpip-data")
+	directTCPIPChannel.On("ExtraData").Return(directTCPIPExtraData)
+	upstreamConn.On("OpenChannel", "direct-tcpip", directTCPIPExtraData).Return(upstreamChannel2, (<-chan *ssh.Request)(upstreamRequests2), nil)
+	directTCPIPChannel.On("Accept").Return(downstreamChannel2, (<-chan *ssh.Request)(downstreamRequests2), nil)
+	mockFactory.On("NewChannelPair", mock.Anything, "upstream-user", downstreamChannel2, (<-chan *ssh.Request)(downstreamRequests2), upstreamChannel2, (<-chan *ssh.Request)(upstreamRequests2), "direct-tcpip").Return(mockChannelPair2).Once()
 	mockChannelPair2.On("serve").Return()
 
-	// Set up expectations for non-session channel (should be rejected)
-	nonSessionChannel.On("Reject", ssh.UnknownChannelType, "unknown channel type").Return(nil)
+	// Set up expectations for second session channel
+	sessionChannel2.On("ExtraData").Return([]byte(nil))
+	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return(upstreamChannel3, (<-chan *ssh.Request)(upstreamRequests3), nil).Once()
+	sessionChannel2.On("Accept").Return(downstreamChannel3, (<-chan *ssh.Request)(downstreamRequests3), nil)
+	mockFactory.On("NewChannelPair", mock.Anything, "upstream-user", downstreamChannel3, (<-chan *ssh.Request)(downstreamRequests3), upstreamChannel3, (<-chan *ssh.Request)(upstreamRequests3), "session").Return(mockChannelPair3).Once()
+	mockChannelPair3.On("serve").Return()
 
 	// Create channel chan with multiple channels
-	channelChan := createMockChannelChan([]ssh.NewChannel{sessionChannel1, nonSessionChannel, sessionChannel2})
+	channelChan := createMockChannelChan([]ssh.NewChannel{sessionChannel1, directTCPIPChannel, sessionChannel2})
 
 	connPair := &SSHConnPair{
 		logger:                    zap.NewNop(),
 		downstreamConn:            downstreamConn,
-		upstreamConn:              upstreamConn,
 		downstreamSSHChannelsChan: channelChan,
+		downstreamRequestsChan:    closedRequestChan(),
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   createMockChannelChan(nil),
+		upstreamRequestsChan:      closedRequestChan(),
 		channelPairFactory:        mockFactory,
 	}
 
@@ -312,19 +377,23 @@ func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 		connPair.serve()
 	}()
 
-	// Wait for both channel pairs to be called
+	// Wait for all channel pairs to be called
 	select {
 	case <-mockChannelPair1.serveCalled:
-		// First channel pair called
 	case <-time.After(1 * time.Second):
 		t.Fatal("First channel pair serve was not called within timeout")
 	}
 
 	select {
 	case <-mockChannelPair2.serveCalled:
-		// Second channel pair called
 	case <-time.After(1 * time.Second):
 		t.Fatal("Second channel pair serve was not called within timeout")
+	}
+
+	select {
+	case <-mockChannelPair3.serveCalled:
+	case <-time.After(1 * time.Second):
+		t.Fatal("Third channel pair serve was not called within timeout")
 	}
 
 	// Wait for serve to complete
@@ -339,10 +408,112 @@ func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 	upstreamConn.AssertExpectations(t)
 	sessionChannel1.AssertExpectations(t)
 	sessionChannel2.AssertExpectations(t)
-	nonSessionChannel.AssertExpectations(t)
+	directTCPIPChannel.AssertExpectations(t)
 	mockFactory.AssertExpectations(t)
 	mockChannelPair1.AssertExpectations(t)
 	mockChannelPair2.AssertExpectations(t)
+	mockChannelPair3.AssertExpectations(t)
+}
+
+func TestSSHConnPair_forwardChannels_RejectsDisallowedChannelType(t *testing.T) {
+	downstreamConn := &mockSSHConn{user: "downstream-user"}
+	upstreamConn := &mockSSHConn{user: "upstream-user"}
+
+	// Create a "session" channel coming from upstream — in disallowedUpstreamChannelTypes
+	newChannel := newMockNewChannel("session")
+	newChannel.On("Reject", ssh.Prohibited, "channel type not allowed").Return(nil)
+
+	channelChan := createMockChannelChan([]ssh.NewChannel{newChannel})
+
+	connPair := &SSHConnPair{
+		logger:                    zap.NewNop(),
+		downstreamConn:            downstreamConn,
+		downstreamSSHChannelsChan: createMockChannelChan(nil),
+		downstreamRequestsChan:    closedRequestChan(),
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   channelChan,
+		upstreamRequestsChan:      closedRequestChan(),
+		channelPairFactory:        &DefaultChannelPairFactory{},
+	}
+
+	done := make(chan struct{})
+
+	go func() {
+		connPair.serve()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success
+	case <-time.After(2 * time.Second):
+		t.Fatal("serve() did not complete within timeout")
+	}
+
+	// Verify the channel was rejected, not forwarded
+	newChannel.AssertExpectations(t)
+	upstreamConn.AssertNotCalled(t, "OpenChannel")
+}
+
+func TestSSHConnPair_forwardGlobalRequests_ForwardsNonDeniedType(t *testing.T) {
+	targetConn := &mockSSHConn{}
+
+	// keepalive@openssh.com is not in any denylist and should be forwarded
+	targetConn.On("SendRequest", "keepalive@openssh.com", false, []byte("payload")).Return(true, []byte(nil), nil)
+
+	reqChan := make(chan *ssh.Request, 1)
+	reqChan <- &ssh.Request{
+		Type:      "keepalive@openssh.com",
+		WantReply: false,
+		Payload:   []byte("payload"),
+	}
+
+	close(reqChan)
+
+	connPair := &SSHConnPair{logger: zap.NewNop()}
+	connPair.forwardGlobalRequests(reqChan, targetConn, disallowedUpstreamGlobalRequests, "upstream -> downstream")
+
+	targetConn.AssertExpectations(t)
+}
+
+func TestSSHConnPair_forwardGlobalRequests_BlocksDeniedType(t *testing.T) {
+	targetConn := &mockSSHConn{}
+
+	// tcpip-forward is a client→server request and should be blocked from upstream
+	reqChan := make(chan *ssh.Request, 1)
+	reqChan <- &ssh.Request{
+		Type:      "tcpip-forward",
+		WantReply: false,
+	}
+
+	close(reqChan)
+
+	connPair := &SSHConnPair{logger: zap.NewNop()}
+	connPair.forwardGlobalRequests(reqChan, targetConn, disallowedUpstreamGlobalRequests, "upstream -> downstream")
+
+	// SendRequest should never be called for disallowed types
+	targetConn.AssertNotCalled(t, "SendRequest")
+}
+
+func TestSSHConnPair_forwardGlobalRequests_ForwardsAllWhenNoDenyList(t *testing.T) {
+	targetConn := &mockSSHConn{}
+
+	// All requests should be forwarded when denylist is nil (downstream direction)
+	targetConn.On("SendRequest", "tcpip-forward", false, []byte("payload")).Return(true, []byte(nil), nil)
+
+	reqChan := make(chan *ssh.Request, 1)
+	reqChan <- &ssh.Request{
+		Type:      "tcpip-forward",
+		WantReply: false,
+		Payload:   []byte("payload"),
+	}
+
+	close(reqChan)
+
+	connPair := &SSHConnPair{logger: zap.NewNop()}
+	connPair.forwardGlobalRequests(reqChan, targetConn, nil, "downstream -> upstream")
+
+	targetConn.AssertExpectations(t)
 }
 
 func TestSSHConnPair_close(t *testing.T) {
