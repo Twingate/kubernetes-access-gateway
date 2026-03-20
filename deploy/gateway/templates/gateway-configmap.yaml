@@ -25,12 +25,21 @@ data:
       certificateFile: "/etc/gateway/tls/tls.crt"
       privateKeyFile: "/etc/gateway/tls/tls.key"
 
-    {{ with .Values.kubernetes -}}
-    {{ if and .enabled .upstreams -}}
+    {{- $resourceEnabled := and .Values.twingate.resource .Values.twingate.resource.enabled -}}
+    {{- $k8sEnabled := and .Values.kubernetes .Values.kubernetes.enabled -}}
+    {{- $k8sUpstreams := list -}}
+    {{- if $resourceEnabled -}}
+      {{- $resourceUpstream := dict "name" (include "gateway.resourceInClusterUpstreamName" .) "inCluster" true -}}
+      {{- $k8sUpstreams = append $k8sUpstreams $resourceUpstream -}}
+    {{- end -}}
+    {{- if and $k8sEnabled .Values.kubernetes.upstreams -}}
+      {{- $k8sUpstreams = concat $k8sUpstreams .Values.kubernetes.upstreams -}}
+    {{- end }}
+
+    {{ if $k8sUpstreams -}}
     kubernetes:
       upstreams:
-        {{- .upstreams | toYaml | nindent 8 }}
-    {{ end -}}
+        {{- $k8sUpstreams | toYaml | nindent 8 }}
     {{ end -}}
 
     {{ with .Values.ssh -}}
