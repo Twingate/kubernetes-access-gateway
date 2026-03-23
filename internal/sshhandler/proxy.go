@@ -53,15 +53,20 @@ func (d *defaultNetDialer) DialTimeout(network, address string, timeout time.Dur
 
 // ConnPairFactory creates an SSH connection pair (downstream and upstream).
 type connPairFactory interface {
-	NewConnPair(logger *zap.Logger, downstreamConn ssh.Conn, upstreamConn ssh.Conn, downstreamChannels <-chan ssh.NewChannel) ConnPair
+	NewConnPair(logger *zap.Logger,
+		downstreamConn ssh.Conn, downstreamChannels <-chan ssh.NewChannel, downstreamRequests <-chan *ssh.Request,
+		upstreamConn ssh.Conn, upstreamChannels <-chan ssh.NewChannel, upstreamRequests <-chan *ssh.Request) ConnPair
 }
 
 // DefaultConnPairFactory implements SSHConnPairFactory using SSHConnPair.
 type defaultConnPairFactory struct{}
 
 //nolint:ireturn
-func (f *defaultConnPairFactory) NewConnPair(logger *zap.Logger, downstreamConn ssh.Conn, upstreamConn ssh.Conn, downstreamChannels <-chan ssh.NewChannel) ConnPair {
-	return NewSSHConnPair(logger, downstreamConn, upstreamConn, downstreamChannels)
+func (f *defaultConnPairFactory) NewConnPair(logger *zap.Logger,
+	downstreamConn ssh.Conn, downstreamChannels <-chan ssh.NewChannel, downstreamRequests <-chan *ssh.Request,
+	upstreamConn ssh.Conn, upstreamChannels <-chan ssh.NewChannel, upstreamRequests <-chan *ssh.Request,
+) ConnPair {
+	return NewSSHConnPair(logger, downstreamConn, downstreamChannels, downstreamRequests, upstreamConn, upstreamChannels, upstreamRequests)
 }
 
 var (
@@ -96,11 +101,8 @@ type SSHProxy struct {
 
 func NewProxy(config Config) *SSHProxy {
 	return &SSHProxy{
-		wg:              sync.WaitGroup{},
-		mu:              sync.Mutex{},
 		connsMap:        map[ConnPair]struct{}{},
 		config:          config,
-		shuttingDown:    false,
 		sshConnFactory:  &defaultSSHConnFactory{},
 		netDialer:       &defaultNetDialer{},
 		connPairFactory: &defaultConnPairFactory{},
@@ -227,12 +229,10 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 		}),
 	)
 
-	// Reject all global requests from downstream
-	// This disallows `forwarded-tcpip` type of requests
-	go ssh.DiscardRequests(downstreamSSHRequestsChan)
-
 	upstreamConfig, err := p.config.GetUpstreamConfig(ctx, upstream)
 	if err != nil {
+		closeDownstreamSSH(downstreamSSHConn, downstreamSSHChannelsChan, logger)
+
 		return err
 	}
 
@@ -241,7 +241,7 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 	if err != nil {
 		logger.Error("Failed to connect to upstream SSH server", zap.Error(err))
 
-		_ = downstreamSSHConn.Close()
+		closeDownstreamSSH(downstreamSSHConn, downstreamSSHChannelsChan, logger)
 
 		return err
 	}
@@ -251,29 +251,16 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 	if err != nil {
 		logger.Error("Failed to connect to upstream SSH server", zap.Error(err))
 
-		_ = downstreamSSHConn.Close()
+		closeDownstreamSSH(downstreamSSHConn, downstreamSSHChannelsChan, logger)
+
 		_ = upstreamConn.Close()
 
 		return err
 	}
 
-	// Reject all channel open requests from upstream
-	// This disallows `forwarded-tcpip`, `x11`, and agent forwarding type of requests
-	go func() {
-		for newChannel := range upstreamSSHChannelsChan {
-			err := newChannel.Reject(ssh.Prohibited, "prohibited")
-			if err != nil {
-				logger.Error("Failed to reject upstream channel", zap.Error(err))
-			}
-		}
-	}()
-
-	// Reject all global requests from upstream
-	// This disallows `forwarded-tcpip` and `x11` type of requests
-	go ssh.DiscardRequests(upstreamSSHRequestsChan)
-
-	// Create the SSH connection pair using the factory
-	sshConnPair := p.connPairFactory.NewConnPair(logger, downstreamSSHConn, upstreamSSHConn, downstreamSSHChannelsChan)
+	sshConnPair := p.connPairFactory.NewConnPair(logger,
+		downstreamSSHConn, downstreamSSHChannelsChan, downstreamSSHRequestsChan,
+		upstreamSSHConn, upstreamSSHChannelsChan, upstreamSSHRequestsChan)
 
 	// Serve the SSH connection pair
 	p.wg.Add(1)
@@ -293,4 +280,17 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 	p.wg.Done()
 
 	return nil
+}
+
+// closeDownstreamSSH closes the connection and rejects any queued channels.
+func closeDownstreamSSH(conn ssh.Conn, channels <-chan ssh.NewChannel, logger *zap.Logger) {
+	_ = conn.Close()
+
+	for newChannel := range channels {
+		logger.Debug("Rejecting channel", zap.String("channel_type", newChannel.ChannelType()))
+
+		if err := newChannel.Reject(ssh.ConnectionFailed, "upstream connection failed"); err != nil {
+			logger.Error("Failed to reject channel", zap.Error(err))
+		}
+	}
 }

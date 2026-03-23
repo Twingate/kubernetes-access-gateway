@@ -103,6 +103,7 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 			downstreamRequests,
 			upstreamChannel,
 			upstreamRequests,
+			"session",
 		)
 		channelPair.recorderFactory = mockRecorderFactory
 
@@ -236,6 +237,7 @@ func TestSSHChannelPair_serve_NonShellCommand(t *testing.T) {
 			downstreamRequests,
 			upstreamChannel,
 			upstreamRequests,
+			"session",
 		)
 		channelPair.recorderFactory = mockRecorderFactory
 
@@ -307,6 +309,7 @@ func TestSSHChannelPair_serve_SessionStartTimeout(t *testing.T) {
 			downstreamRequests,
 			upstreamChannel,
 			upstreamRequests,
+			"session",
 		)
 		channelPair.recorderFactory = mockRecorderFactory
 

@@ -151,6 +151,143 @@ tests:
       - failedTemplate:
           errorPattern: "at '/kubernetes/upstreams/0': missing property 'caFile'"
 ---
+suite: Gateway configmap with Resource
+templates:
+  - gateway-configmap.yaml
+set:
+  twingate:
+    network: "acme"
+tests:
+  - it: should auto-create inCluster upstream when resource is enabled
+    set:
+      twingate:
+        resource:
+          enabled: true
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            kubernetes:
+              upstreams:
+                - inCluster: true
+                  name: Local Kubernetes Cluster
+  - it: should use resource.twingate.com/name from extraAnnotations as upstream name
+    set:
+      twingate:
+        resource:
+          enabled: true
+          extraAnnotations:
+            resource.twingate.com/name: "My K8s Cluster"
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            kubernetes:
+              upstreams:
+                - inCluster: true
+                  name: My K8s Cluster
+  - it: should prepend inCluster upstream before manual upstreams
+    set:
+      twingate:
+        resource:
+          enabled: true
+      kubernetes:
+        enabled: true
+        upstreams:
+          - name: "External Cluster"
+            inCluster: false
+            address: "https://api.k8s.int:443"
+            bearerToken: "token"
+            caFile: "/ca.crt"
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            kubernetes:
+              upstreams:
+                - inCluster: true
+                  name: Local Kubernetes Cluster
+                - address: https://api.k8s.int:443
+                  bearerToken: token
+                  caFile: /ca.crt
+                  inCluster: false
+                  name: External Cluster
+  - it: should auto-enable kubernetes even when kubernetes.enabled is false
+    set:
+      twingate:
+        resource:
+          enabled: true
+      kubernetes:
+        enabled: false
+    asserts:
+      - equal:
+          path: data["config.yaml"]
+          value: |-
+            twingate:
+              network: "acme"
+              host: "twingate.com"
+
+            port: 8443
+            metricsPort: 9090
+
+            auditLog:
+              flushInterval: 5m
+              flushSizeThreshold: 1e+06
+
+            tls:
+              certificateFile: "/etc/gateway/tls/tls.crt"
+              privateKeyFile: "/etc/gateway/tls/tls.key"
+
+            kubernetes:
+              upstreams:
+                - inCluster: true
+                  name: Local Kubernetes Cluster
+---
 suite: Gateway configmap with SSH
 templates:
   - gateway-configmap.yaml

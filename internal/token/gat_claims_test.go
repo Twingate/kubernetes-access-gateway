@@ -104,6 +104,14 @@ func TestGATTokenClaims_Validate(t *testing.T) {
 			expectedError:        jwt.ErrTokenRequiredClaimMissing,
 			expectedErrorMessage: "\"resource.address\"",
 		},
+		{
+			name: "Unsupported version",
+			setupFn: func(claims *GATClaims) {
+				claims.Version = "2"
+			},
+			expectedError:        jwt.ErrTokenInvalidClaims,
+			expectedErrorMessage: "unsupported version \"2\"",
+		},
 	}
 
 	for _, tt := range tests {
