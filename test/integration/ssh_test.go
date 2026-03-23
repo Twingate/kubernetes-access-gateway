@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
@@ -37,7 +38,7 @@ type sshTestEnv struct {
 	logs        *observer.ObservedLogs
 }
 
-func setupSSHGateway(t *testing.T, user *token.User, gatewayPort int) *sshTestEnv {
+func setupSSHGateway(t *testing.T, user *token.User, sshCAConfig gatewayconfig.SSHCAConfig, gatewayPort int) *sshTestEnv {
 	t.Helper()
 
 	containerID, sshServerPort := testutil.SetupSSHServer(t, sshUsername)
@@ -62,32 +63,119 @@ func setupSSHGateway(t *testing.T, user *token.User, gatewayPort int) *sshTestEn
 			Gateway: gatewayconfig.SSHGatewayConfig{
 				Username: sshUsername,
 			},
-			CA: gatewayconfig.SSHCAConfig{
-				Manual: &gatewayconfig.SSHCAManualConfig{
-					PrivateKeyFile: "../data/ssh/ca/ca",
-				},
-			},
+			CA: sshCAConfig,
 			Upstreams: []gatewayconfig.SSHUpstream{
 				{Name: "ssh-server", Address: sshServerAddress},
 			},
 		},
 	}
 
-	assertSSHProxy(t, &config, containerID, sshServerAddress, controller.URL)
+	core, logs := observer.New(zap.DebugLevel)
+	logger := zap.New(core).Named("test")
+
+	p, err := proxy.NewProxy(&config, prometheus.NewRegistry(), logger)
+	require.NoError(t, err, "failed to create proxy")
+
+	go func() {
+		err := p.Start()
+		t.Logf("Failed to start Gateway: %v", err)
+	}()
+
+	testutil.GatewayHealthCheck(t, gatewayPort)
+
+	knownHostsFile := filepath.Join(t.TempDir(), "known_hosts")
+	line := "@cert-authority * " + string(data.SSHCAPublicKey)
+	require.NoError(t, os.WriteFile(knownHostsFile, []byte(line), 0600))
+
+	sshUser, err := testutil.NewSSHUser(
+		user,
+		gatewayPort,
+		sshServerAddress,
+		controller.URL,
+		knownHostsFile,
+	)
+	require.NoError(t, err, "failed to create SSH user")
+
+	t.Cleanup(func() { sshUser.Close() })
+
+	return &sshTestEnv{
+		containerID: containerID,
+		user:        sshUser,
+		logs:        logs,
+	}
+}
+
+// TestSSH tests the following properties:
+// - User can execute commands via SSH through the gateway
+// - Session recording (asciicast) is properly generated
+// - User can copy file from remote server to host.
+func TestSSH(t *testing.T) {
+	const gatewayPort = 8445
+
+	env := setupSSHGateway(t, &token.User{
+		ID:       "user-ssh-1",
+		Username: "alex@acme.com",
+		Groups:   []string{"OnCall", "Engineering"},
+	}, gatewayconfig.SSHCAConfig{
+		Manual: &gatewayconfig.SSHCAManualConfig{
+			PrivateKeyFile: "../data/ssh/ca/ca",
+		},
+	}, gatewayPort)
+
+	// Test `ssh 127.0.0.1 -l admin -p 2222 "whoami"`
+	output, err := env.user.SSH.Command("whoami")
+	require.NoError(t, err, "failed to execute 'whoami' command")
+
+	assert.Equalf(t, sshUsername+"\n", string(output), "whoami should return '%s'", sshUsername)
+
+	// Wait for logs to be flushed
+	time.Sleep(100 * time.Millisecond)
+
+	expectedRequest := map[string]any{
+		"type":    "exec",
+		"command": "whoami",
+	}
+	expectedUser := map[string]any{
+		"id":       "user-ssh-1",
+		"username": "alex@acme.com",
+		"groups":   []any{"OnCall", "Engineering"},
+	}
+	testutil.AssertLogsForSSH(t, env.logs, expectedUser, expectedRequest)
+
+	// Clear existing logs
+	env.logs.TakeAll()
+
+	// #nosec G204 -- inputs are from trusted operator configuration
+	_, err = testutil.RunCommand(exec.Command("docker", "exec", env.containerID, "sh", "-c", "echo 'test file copy' > /tmp/test.txt"))
+	require.NoError(t, err, "failed to create test file in docker container")
+
+	// Test `scp -P 2222 admin@127.0.0.1:/tmp/test.txt /tmp/dir/test.txt`
+	tmpFile := filepath.Join(t.TempDir(), "test.txt")
+	_, err = env.user.SSH.CopyFileToHost("/tmp/test.txt", tmpFile)
+	require.NoError(t, err, "failed to copy '/tmp/test.txt' file locally")
+
+	// #nosec G304 -- file paths are from trusted operator configuration
+	fileContent, err := os.ReadFile(tmpFile)
+	require.NoErrorf(t, err, "failed to read file %s", tmpFile)
+
+	require.Equal(t, "test file copy\n", string(fileContent))
+
+	// Wait for logs to be flushed
+	time.Sleep(100 * time.Millisecond)
+
+	expectedRequest = map[string]any{
+		"type": "subsystem",
+		"name": "sftp",
+	}
+	testutil.AssertLogsForSSH(t, env.logs, expectedUser, expectedRequest)
 }
 
 // TestSSHVault tests SSH proxying through the gateway using Vault as the CA backend.
 func TestSSHVault(t *testing.T) {
-	sshContainerID, sshServerPort := testutil.SetupSSHServer(t, sshUsername)
-	sshServerAddress := fmt.Sprintf("127.0.0.1:%d", sshServerPort)
+	const gatewayPort = 8448
 
 	vaultContainerID, vaultPort := testutil.SetupVaultServer(t)
 	vaultAddress := fmt.Sprintf("http://127.0.0.1:%d", vaultPort)
-
-	controller := fake.NewController(network, 8080)
-	defer controller.Close()
-
-	t.Log("Controller is serving at", controller.URL)
 
 	tests := []struct {
 		name      string
@@ -123,145 +211,26 @@ func TestSSHVault(t *testing.T) {
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			auth := tt.authSetup(t)
+			env := setupSSHGateway(t, &token.User{
+				ID:       "user-ssh-1",
+				Username: "alex@acme.com",
+				Groups:   []string{"OnCall", "Engineering"},
+			}, gatewayconfig.SSHCAConfig{
+				Vault: &gatewayconfig.SSHCAVaultConfig{
+					Address: vaultAddress,
+					Mount:   "ssh",
+					Role:    "gateway-signer",
+					Auth:    auth,
+				},
+			}, gatewayPort+i)
 
-			config := gatewayconfig.Config{
-				Twingate: gatewayconfig.TwingateConfig{
-					Network: network,
-					Host:    host,
-				},
-				Port:        gatewayPort + 1 + i,
-				MetricsPort: 0,
-				TLS: gatewayconfig.TLSConfig{
-					CertificateFile: "../data/proxy/tls.crt",
-					PrivateKeyFile:  "../data/proxy/tls.key",
-				},
-				SSH: &gatewayconfig.SSHConfig{
-					Gateway: gatewayconfig.SSHGatewayConfig{
-						Username: sshUsername,
-					},
-					CA: gatewayconfig.SSHCAConfig{
-						Vault: &gatewayconfig.SSHCAVaultConfig{
-							Address: vaultAddress,
-							Mount:   "ssh",
-							Role:    "gateway-signer",
-							Auth:    auth,
-						},
-					},
-					Upstreams: []gatewayconfig.SSHUpstream{
-						{Name: "ssh-server", Address: sshServerAddress},
-					},
-				},
-			}
+			// Test `ssh 127.0.0.1 -l admin -p 2222 "whoami"`
+			output, err := env.user.SSH.Command("whoami")
+			require.NoError(t, err, "failed to execute 'whoami' command")
 
-			assertSSHProxy(t, &config, sshContainerID, sshServerAddress, controller.URL)
+			assert.Equalf(t, sshUsername+"\n", string(output), "whoami should return '%s'", sshUsername)
 		})
 	}
-}
-
-func assertSSHProxy(t *testing.T, config *gatewayconfig.Config, sshContainerID, sshServerAddress, controllerURL string) {
-	t.Helper()
-
-	core, logs := observer.New(zap.DebugLevel)
-	logger := zap.New(core).Named("test")
-
-	p, err := proxy.NewProxy(config, prometheus.NewRegistry(), logger)
-	require.NoError(t, err, "failed to create proxy")
-
-	go func() {
-		err := p.Start()
-		if err != nil {
-			t.Errorf("Failed to start Gateway: %v", err)
-		}
-	}()
-
-	testutil.GatewayHealthCheck(t, config.Port)
-
-	knownHostsFile := filepath.Join(t.TempDir(), "known_hosts")
-	line := "@cert-authority * " + string(data.SSHCAPublicKey)
-	require.NoError(t, os.WriteFile(knownHostsFile, []byte(line), 0600))
-
-	// Create a user with SSH client
-	user, err := testutil.NewSSHUser(
-		&token.User{
-			ID:       "user-ssh-1",
-			Username: "alex@acme.com",
-			Groups:   []string{"OnCall", "Engineering"},
-		},
-		config.Port,
-		sshServerAddress,
-		controllerURL,
-		knownHostsFile,
-	)
-	require.NoError(t, err, "failed to create SSH user")
-
-	t.Cleanup(func() { sshUser.Close() })
-
-	return &sshTestEnv{
-		containerID: containerID,
-		user:        sshUser,
-		logs:        logs,
-	}
-}
-
-// TestSSH tests the following properties:
-// - User can execute commands via SSH through the gateway
-// - Session recording (asciicast) is properly generated
-// - User can copy file from remote server to host.
-func TestSSH(t *testing.T) {
-	const gatewayPort = 8445
-
-	env := setupSSHGateway(t, &token.User{
-		ID:       "user-ssh-1",
-		Username: "alex@acme.com",
-		Groups:   []string{"OnCall", "Engineering"},
-	}, gatewayPort)
-
-	// Test `ssh 127.0.0.1 -l admin -p 2222 "whoami"`
-	output, err := env.user.SSH.Command("whoami")
-	require.NoError(t, err, "failed to execute 'whoami' command")
-
-	require.Equalf(t, sshUsername+"\n", string(output), "whoami should return '%s'", sshUsername)
-
-	// Wait for logs to be flushed
-	time.Sleep(100 * time.Millisecond)
-
-	expectedRequest := map[string]any{
-		"type":    "exec",
-		"command": "whoami",
-	}
-	expectedUser := map[string]any{
-		"id":       "user-ssh-1",
-		"username": "alex@acme.com",
-		"groups":   []any{"OnCall", "Engineering"},
-	}
-	testutil.AssertLogsForSSH(t, env.logs, expectedUser, expectedRequest)
-
-	// Clear existing logs
-	env.logs.TakeAll()
-
-	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err = testutil.RunCommand(exec.Command("docker", "exec", sshContainerID, "sh", "-c", "echo 'test file copy' > /tmp/test.txt"))
-	require.NoError(t, err, "failed to create test file in docker container")
-
-	// Test `scp -P 2222 admin@127.0.0.1:/tmp/test.txt /tmp/dir/test.txt`
-	tmpFile := filepath.Join(t.TempDir(), "test.txt")
-	_, err = env.user.SSH.CopyFileToHost("/tmp/test.txt", tmpFile)
-	require.NoError(t, err, "failed to copy '/tmp/test.txt' file locally")
-
-	// #nosec G304 -- file paths are from trusted operator configuration
-	fileContent, err := os.ReadFile(tmpFile)
-	require.NoErrorf(t, err, "failed to read file %s", tmpFile)
-
-	require.Equal(t, "test file copy\n", string(fileContent))
-
-	// Wait for logs to be flushed
-	time.Sleep(100 * time.Millisecond)
-
-	expectedRequest = map[string]any{
-		"type": "subsystem",
-		"name": "sftp",
-	}
-	testutil.AssertLogsForSSH(t, env.logs, expectedUser, expectedRequest)
 }
 
 // TestSSHLocalPortForwarding tests that local port forwarding (-L) works through the gateway.
@@ -277,6 +246,10 @@ func TestSSHLocalPortForwarding(t *testing.T) {
 		ID:       "user-ssh-local-fwd",
 		Username: "alex@acme.com",
 		Groups:   []string{"Engineering"},
+	}, gatewayconfig.SSHCAConfig{
+		Manual: &gatewayconfig.SSHCAManualConfig{
+			PrivateKeyFile: "../data/ssh/ca/ca",
+		},
 	}, gatewayPort)
 
 	testutil.SetupRemoteEchoServer(t, env.containerID, echoServerPort)
@@ -345,6 +318,10 @@ func TestSSHRemotePortForwarding(t *testing.T) {
 		ID:       "user-ssh-remote-fwd",
 		Username: "alex@acme.com",
 		Groups:   []string{"Engineering"},
+	}, gatewayconfig.SSHCAConfig{
+		Manual: &gatewayconfig.SSHCAManualConfig{
+			PrivateKeyFile: "../data/ssh/ca/ca",
+		},
 	}, gatewayPort)
 
 	testutil.SetupLocalEchoServer(t, localEchoPort)
