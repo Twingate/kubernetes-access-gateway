@@ -49,7 +49,7 @@ type ChannelPairFactory interface {
 // DefaultChannelPairFactory implements ChannelPairFactory using SSHChannelPair.
 type DefaultChannelPairFactory struct{}
 
-//nolint:ireturn
+//nolint:ireturn,revive // argument-limit: to be addressed when removing the ChannelPairFactory test interface
 func (f *DefaultChannelPairFactory) NewChannelPair(logger *zap.Logger, sshUsername string, sourceChannel ssh.Channel, sourceRequests <-chan *ssh.Request, targetChannel ssh.Channel, targetRequests <-chan *ssh.Request, channelType string, sourceLabel, targetLabel string) ChannelPair {
 	return NewSSHChannelPair(
 		logger,

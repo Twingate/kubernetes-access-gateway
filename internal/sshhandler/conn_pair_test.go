@@ -43,7 +43,7 @@ func newMockChannelPairFactory(channelPair ChannelPair) *mockChannelPairFactory 
 	}
 }
 
-//nolint:ireturn
+//nolint:ireturn,revive // argument-limit: to be addressed when removing the ChannelPairFactory test interface
 func (m *mockChannelPairFactory) NewChannelPair(logger *zap.Logger, sshUsername string, sourceChannel ssh.Channel, sourceRequests <-chan *ssh.Request, targetChannel ssh.Channel, targetRequests <-chan *ssh.Request, channelType string, sourceLabel, targetLabel string) ChannelPair {
 	args := m.Called(logger, sshUsername, sourceChannel, sourceRequests, targetChannel, targetRequests, channelType, sourceLabel, targetLabel)
 
@@ -265,7 +265,7 @@ func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
 	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return(targetChannel, (<-chan *ssh.Request)(targetRequests), nil)
 
 	// Source accept fails
-	expectedErr := errors.New("source accept failed")
+	expectedErr := errors.New("downstream accept failed")
 	newChannel.On("Accept").Return((*MockChannel)(nil), (<-chan *ssh.Request)(nil), expectedErr)
 	targetChannel.On("Close").Return(nil)
 
