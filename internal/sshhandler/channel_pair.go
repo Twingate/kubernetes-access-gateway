@@ -185,7 +185,7 @@ func (c *SSHChannelPair) serve() {
 	copier := &BidirectionalCopier{
 		logger: c.logger,
 		SourceToTarget: ChannelCopyPair{
-			logger:          c.logger,
+			logger:          c.logger.With(zap.String("channel_source", c.sourceLabel), zap.String("channel_target", c.targetLabel)),
 			Src:             c.sourceChannel,
 			Dst:             c.targetChannel,
 			EOFTriggerCh:    sourceEOFTrigger,
@@ -193,7 +193,7 @@ func (c *SSHChannelPair) serve() {
 		},
 
 		TargetToSource: ChannelCopyPair{
-			logger:          c.logger,
+			logger:          c.logger.With(zap.String("channel_source", c.targetLabel), zap.String("channel_target", c.sourceLabel)),
 			Src:             c.targetChannel,
 			Dst:             c.sourceChannel,
 			EOFTriggerCh:    targetEOFTrigger,
