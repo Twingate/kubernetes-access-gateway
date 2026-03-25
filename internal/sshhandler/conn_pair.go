@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	dirDownstreamToUpstream = "downstream -> upstream"
-	dirUpstreamToDownstream = "upstream -> downstream"
+	labelDownstream = "downstream"
+	labelUpstream   = "upstream"
 )
 
 // Denylists for channel types per direction (RFC 4254).
@@ -43,22 +43,24 @@ var (
 
 // ChannelPairFactory creates SSH channel pairs.
 type ChannelPairFactory interface {
-	NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request, channelType string) ChannelPair
+	NewChannelPair(logger *zap.Logger, sshUsername string, sourceChannel ssh.Channel, sourceRequests <-chan *ssh.Request, targetChannel ssh.Channel, targetRequests <-chan *ssh.Request, channelType string, sourceLabel, targetLabel string) ChannelPair
 }
 
 // DefaultChannelPairFactory implements ChannelPairFactory using SSHChannelPair.
 type DefaultChannelPairFactory struct{}
 
 //nolint:ireturn
-func (f *DefaultChannelPairFactory) NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request, channelType string) ChannelPair {
+func (f *DefaultChannelPairFactory) NewChannelPair(logger *zap.Logger, sshUsername string, sourceChannel ssh.Channel, sourceRequests <-chan *ssh.Request, targetChannel ssh.Channel, targetRequests <-chan *ssh.Request, channelType string, sourceLabel, targetLabel string) ChannelPair {
 	return NewSSHChannelPair(
 		logger,
-		upstreamSSHUsername,
-		downstreamChannel,
-		wrapSSHRequestChannel(downstreamRequests),
-		upstreamChannel,
-		wrapSSHRequestChannel(upstreamRequests),
+		sshUsername,
+		sourceChannel,
+		wrapSSHRequestChannel(sourceRequests),
+		targetChannel,
+		wrapSSHRequestChannel(targetRequests),
 		channelType,
+		sourceLabel,
+		targetLabel,
 	)
 }
 
@@ -107,27 +109,27 @@ func NewSSHConnPair(
 func (c *SSHConnPair) serve() {
 	// Forward global requests in both directions
 	c.wg.Go(func() {
-		c.forwardGlobalRequests(c.downstreamRequestsChan, c.upstreamConn, nil, dirDownstreamToUpstream)
+		c.forwardGlobalRequests(c.downstreamRequestsChan, c.upstreamConn, nil, labelDownstream, labelUpstream)
 	})
 
 	c.wg.Go(func() {
-		c.forwardGlobalRequests(c.upstreamRequestsChan, c.downstreamConn, disallowedUpstreamGlobalRequests, dirUpstreamToDownstream)
+		c.forwardGlobalRequests(c.upstreamRequestsChan, c.downstreamConn, disallowedUpstreamGlobalRequests, labelUpstream, labelDownstream)
 	})
 
 	// Forward channels in both directions
 	c.wg.Go(func() {
-		c.forwardChannels(c.downstreamSSHChannelsChan, c.upstreamConn, disallowedDownstreamChannelTypes, dirDownstreamToUpstream)
+		c.forwardChannels(c.downstreamSSHChannelsChan, c.upstreamConn, disallowedDownstreamChannelTypes, labelDownstream, labelUpstream)
 	})
 
 	c.wg.Go(func() {
-		c.forwardChannels(c.upstreamSSHChannelsChan, c.downstreamConn, disallowedUpstreamChannelTypes, dirUpstreamToDownstream)
+		c.forwardChannels(c.upstreamSSHChannelsChan, c.downstreamConn, disallowedUpstreamChannelTypes, labelUpstream, labelDownstream)
 	})
 
 	c.wg.Wait()
 }
 
-func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn ssh.Conn, disallowedTypes map[string]bool, direction string) {
-	logger := c.logger.With(zap.String("direction", direction))
+func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn ssh.Conn, disallowedTypes map[string]bool, source, target string) {
+	logger := c.logger.With(zap.String("conn_source", source), zap.String("conn_target", target))
 
 	for newChannel := range channels {
 		channelType := newChannel.ChannelType()
@@ -176,6 +178,7 @@ func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn
 			sourceChannel, sourceRequests,
 			targetChannel, targetRequests,
 			channelType,
+			source, target,
 		)
 
 		c.wg.Go(func() {
@@ -184,8 +187,8 @@ func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn
 	}
 }
 
-func (c *SSHConnPair) forwardGlobalRequests(requests <-chan *ssh.Request, dst ssh.Conn, disallowedTypes map[string]bool, direction string) {
-	logger := c.logger.With(zap.String("direction", direction))
+func (c *SSHConnPair) forwardGlobalRequests(requests <-chan *ssh.Request, dst ssh.Conn, disallowedTypes map[string]bool, source, target string) {
+	logger := c.logger.With(zap.String("conn_source", source), zap.String("conn_target", target))
 
 	for req := range requests {
 		if disallowedTypes[req.Type] {

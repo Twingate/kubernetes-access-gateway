@@ -109,19 +109,19 @@ func (c *ChannelCopyPair) copy() {
 }
 
 type BidirectionalCopier struct {
-	logger               *zap.Logger
-	DownstreamToUpstream ChannelCopyPair
-	UpstreamToDownstream ChannelCopyPair
+	logger         *zap.Logger
+	SourceToTarget ChannelCopyPair
+	TargetToSource ChannelCopyPair
 }
 
 func (c *BidirectionalCopier) start() {
 	var wg sync.WaitGroup
 
 	wg.Go(func() {
-		c.DownstreamToUpstream.copy()
+		c.SourceToTarget.copy()
 	})
 	wg.Go(func() {
-		c.UpstreamToDownstream.copy()
+		c.TargetToSource.copy()
 	})
 
 	// Wait for both directions to finish
