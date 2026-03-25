@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/connect"
+	"gateway/internal/connect"
 )
 
 var (

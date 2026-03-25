@@ -18,7 +18,7 @@ import (
 	kindcluster "sigs.k8s.io/kind/pkg/cluster"
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 
-	"k8sgateway/test/integration/testutil"
+	"gateway/test/integration/testutil"
 )
 
 const (

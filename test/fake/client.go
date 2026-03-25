@@ -22,9 +22,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/connect"
-	"k8sgateway/internal/token"
-	"k8sgateway/test/data"
+	"gateway/internal/connect"
+	"gateway/internal/token"
+	"gateway/test/data"
 )
 
 // Client simulates a Twingate Client, authenticating and forwarding requests to the Gateway.

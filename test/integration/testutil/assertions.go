@@ -17,7 +17,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	"k8sgateway/internal/sessionrecorder"
+	"gateway/internal/sessionrecorder"
 )
 
 func AssertWhoAmI(t *testing.T, output []byte, expectedUsername string, expectedGroups []string) {

@@ -18,12 +18,12 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	gatewayconfig "k8sgateway/internal/config"
-	"k8sgateway/internal/connect"
-	"k8sgateway/internal/httphandler"
-	"k8sgateway/internal/metrics"
-	"k8sgateway/internal/sessionrecorder"
-	"k8sgateway/internal/sshhandler"
+	gatewayconfig "gateway/internal/config"
+	"gateway/internal/connect"
+	"gateway/internal/httphandler"
+	"gateway/internal/metrics"
+	"gateway/internal/sessionrecorder"
+	"gateway/internal/sshhandler"
 )
 
 const shutdownTimeout = 30 * time.Second

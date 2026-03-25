@@ -18,10 +18,10 @@ import (
 
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 
-	"k8sgateway/internal/token"
-	"k8sgateway/test/data"
-	"k8sgateway/test/fake"
-	"k8sgateway/test/integration/testutil"
+	"gateway/internal/token"
+	"gateway/test/data"
+	"gateway/test/fake"
+	"gateway/test/integration/testutil"
 )
 
 // Prerequisites for running this test:

@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
-	gatewayconfig "k8sgateway/internal/config"
-	"k8sgateway/internal/connect"
-	"k8sgateway/internal/token"
+	gatewayconfig "gateway/internal/config"
+	"gateway/internal/connect"
+	"gateway/internal/token"
 )
 
 const upstreamAddress = "upstream.internal:22"

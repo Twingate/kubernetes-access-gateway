@@ -20,10 +20,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/config"
-	"k8sgateway/internal/connect"
-	"k8sgateway/internal/token"
-	"k8sgateway/test/data"
+	"gateway/internal/config"
+	"gateway/internal/connect"
+	"gateway/internal/token"
+	"gateway/test/data"
 )
 
 func TestProxy_ForwardRequest(t *testing.T) {

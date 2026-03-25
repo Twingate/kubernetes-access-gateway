@@ -22,12 +22,12 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	gatewayconfig "k8sgateway/internal/config"
-	"k8sgateway/internal/proxy"
-	"k8sgateway/internal/token"
-	"k8sgateway/test/data"
-	"k8sgateway/test/fake"
-	"k8sgateway/test/integration/testutil"
+	gatewayconfig "gateway/internal/config"
+	"gateway/internal/proxy"
+	"gateway/internal/token"
+	"gateway/test/data"
+	"gateway/test/fake"
+	"gateway/test/integration/testutil"
 )
 
 const sshUsername = "admin"

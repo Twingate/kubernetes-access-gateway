@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os/exec"
 
-	"k8sgateway/internal/sshhandler"
+	"gateway/internal/sshhandler"
 )
 
 var sshBanner = []byte(sshhandler.Banner)

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"k8sgateway/internal/sessionrecorder"
+	"gateway/internal/sessionrecorder"
 )
 
 var (

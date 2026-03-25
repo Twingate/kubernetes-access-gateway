@@ -3,7 +3,7 @@
 
 package main
 
-import "k8sgateway/cmd"
+import "gateway/cmd"
 
 func main() {
 	cmd.Execute()

@@ -9,7 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"k8sgateway/internal/metrics"
+	"gateway/internal/metrics"
 )
 
 const (

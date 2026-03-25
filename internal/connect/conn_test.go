@@ -25,8 +25,8 @@ import (
 
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 
-	"k8sgateway/internal/token"
-	"k8sgateway/test/data"
+	"gateway/internal/token"
+	"gateway/test/data"
 )
 
 type mockConn struct {
