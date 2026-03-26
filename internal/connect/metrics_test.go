@@ -12,7 +12,7 @@ import (
 
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
 
-	"k8sgateway/internal/metrics/testutil"
+	"gateway/internal/metrics/testutil"
 )
 
 func TestProxyConnMetricsTracker(t *testing.T) {

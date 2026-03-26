@@ -14,8 +14,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/token"
-	"k8sgateway/test/fake"
+	"gateway/internal/token"
+	"gateway/test/fake"
 )
 
 const (

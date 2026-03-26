@@ -15,11 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	gatewayconfig "k8sgateway/internal/config"
-	"k8sgateway/internal/connect"
-	"k8sgateway/internal/httphandler"
-	"k8sgateway/internal/metrics"
-	"k8sgateway/internal/sshhandler"
+	gatewayconfig "gateway/internal/config"
+	"gateway/internal/connect"
+	"gateway/internal/httphandler"
+	"gateway/internal/metrics"
+	"gateway/internal/sshhandler"
 )
 
 var fullConfig = gatewayconfig.Config{

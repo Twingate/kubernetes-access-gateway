@@ -16,8 +16,8 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/crypto/ssh"
 
-	gatewayconfig "k8sgateway/internal/config"
-	"k8sgateway/test/data"
+	gatewayconfig "gateway/internal/config"
+	"gateway/test/data"
 )
 
 func TestEmbeddedCA_PublicKey(t *testing.T) {

@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"k8sgateway/test/data"
-	"k8sgateway/test/integration/testutil"
+	"gateway/test/data"
+	"gateway/test/integration/testutil"
 )
 
 const (

@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
-	"k8sgateway/internal/config"
+	"gateway/internal/config"
 )
 
 var (

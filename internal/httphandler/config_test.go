@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/config"
+	"gateway/internal/config"
 )
 
 func TestNewConfig(t *testing.T) {

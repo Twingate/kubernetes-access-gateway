@@ -18,7 +18,7 @@ import (
 
 	vault "github.com/hashicorp/vault/api"
 
-	gatewayconfig "k8sgateway/internal/config"
+	gatewayconfig "gateway/internal/config"
 )
 
 var (

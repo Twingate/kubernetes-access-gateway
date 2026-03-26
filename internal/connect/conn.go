@@ -16,7 +16,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/token"
+	"gateway/internal/token"
 )
 
 const healthCheckPath = "/healthz"

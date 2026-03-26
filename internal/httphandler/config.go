@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 
-	"k8sgateway/internal/config"
+	"gateway/internal/config"
 )
 
 type Config struct {

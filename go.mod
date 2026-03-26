@@ -1,4 +1,4 @@
-module k8sgateway
+module gateway
 
 go 1.26.0
 

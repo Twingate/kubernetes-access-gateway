@@ -22,10 +22,10 @@ import (
 
 	k8stransport "k8s.io/client-go/transport"
 
-	"k8sgateway/internal/connect"
-	"k8sgateway/internal/httphandler/wshijacker"
-	"k8sgateway/internal/metrics"
-	"k8sgateway/internal/sessionrecorder"
+	"gateway/internal/connect"
+	"gateway/internal/httphandler/wshijacker"
+	"gateway/internal/metrics"
+	"gateway/internal/sessionrecorder"
 )
 
 type connContextKey string

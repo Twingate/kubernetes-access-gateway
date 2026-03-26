@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
-	"k8sgateway/internal/connect"
+	"gateway/internal/connect"
 )
 
 // Factory for creating SSH Client and Server Connections (downstream and upstream).

@@ -15,8 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/config"
-	"k8sgateway/internal/token"
+	"gateway/internal/config"
+	"gateway/internal/token"
 )
 
 type ProtocolListener struct {
