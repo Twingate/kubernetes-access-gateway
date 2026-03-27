@@ -108,7 +108,7 @@ jobs:
 
       # Upload coverage to CodeCov
       - name: Upload unit test coverage to CodeCov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./covprofile-unit
           flags: unit
@@ -118,7 +118,7 @@ jobs:
           verbose: true
 
       - name: Upload integration test coverage to CodeCov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./covprofile-integration
           flags: integration
@@ -128,7 +128,7 @@ jobs:
           verbose: true
 
       - name: Upload unit test results to CodeCov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./junit-unit.xml
           report_type: test_results
@@ -137,7 +137,7 @@ jobs:
           verbose: true
 
       - name: Upload integration test results to CodeCov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./junit-integration.xml
           report_type: test_results
