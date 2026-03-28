@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"gateway/internal/connect"
@@ -171,6 +172,7 @@ func (c *Client) handleConnection(ctx context.Context, clientConn net.Conn, gat 
 	}
 
 	connectReq.Header.Set("Proxy-Authorization", "Bearer "+gat)
+	connectReq.Header.Set(connect.ConnIDHeaderKey, uuid.New().String())
 
 	clientKey, _ := ReadECKey(data.ClientKey)
 	ekm, _ := connect.ExportKeyingMaterial(proxyTLSConn)
