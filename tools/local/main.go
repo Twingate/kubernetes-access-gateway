@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -138,26 +139,50 @@ func main() {
 		return
 	}
 
-	outputMsg := fmt.Sprintf(`
-=====================================================
-Twingate local dev environment running!
-Controller:           %s
-User:                 %s
-Client (Kubernetes):  %s
-KubeConfig:           %s (context: %s)
-Client (SSH):         %s
-`, controller.URL, user.Username, kubernetesClient.Address, kubeConfigFile, kindClusterName, sshClient.Address)
+	_, sshClientPort, _ := net.SplitHostPort(sshClient.Address)
 
 	gatewayRunCmd := "go run main.go start --debug --config " + gatewayConfigFile
 
-	outputMsg += fmt.Sprintf(`
-Start the Gateway at the project root with this command:
+	outputMsg := fmt.Sprintf(`
+=====================================================
+Twingate local dev environment running!
+=====================================================
 
-%s
+  Controller:           %s
+  User:                 %s
+  Client (Kubernetes):  %s
+  Client (SSH):         %s
 
+-----------------------------------------------------
+1. Start the Gateway (in a separate terminal):
+
+  %s
+
+-----------------------------------------------------
+2. Use kubectl with the local kubeconfig:
+
+  kubectl --kubeconfig %s auth whoami
+
+  Or set the context for your session:
+
+  export KUBECONFIG=%s
+  kubectl config use-context %s
+  kubectl auth whoami
+
+-----------------------------------------------------
+3. SSH into the local server:
+
+  ssh -p %s -o UserKnownHostsFile=%s 127.0.0.1
+
+-----------------------------------------------------
 Press Ctrl+C to stop
 =====================================================
-`, gatewayRunCmd)
+`, controller.URL, user.Username, kubernetesClient.Address, sshClient.Address,
+		gatewayRunCmd,
+		kubeConfigFile,
+		kubeConfigFile, kindClusterName,
+		sshClientPort, sshKnownHostFile,
+	)
 
 	//nolint:forbidigo
 	_, _ = fmt.Print(outputMsg)
