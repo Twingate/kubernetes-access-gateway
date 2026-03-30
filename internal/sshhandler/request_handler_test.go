@@ -73,7 +73,14 @@ func TestSSHRequestHandler_handleRequests_PtyRequest(t *testing.T) {
 	}
 
 	handler := &SSHRequestHandler{
-		logger:            zap.New(core).Named("test"),
+		logger: zap.New(core).Named("test"),
+		sshChannelCtx: &sshChannelContext{
+			sshContext:  testSSHContext,
+			channelID:   "test-channel-id",
+			channelType: "session",
+			sourceLabel: labelDownstream,
+			targetLabel: labelUpstream,
+		},
 		flushTrigger:      flushTrigger,
 		sourceRequestChan: sourceRequestChan,
 		targetChannel:     mockChannel,
@@ -112,9 +119,11 @@ func TestSSHRequestHandler_handleRequests_PtyRequest(t *testing.T) {
 	mockChannel.AssertExpectations(t)
 
 	// Assert that the SSH request log was emitted
-	requestLog := logs.FilterMessage("Received SSH request").All()
+	requestLog := logs.FilterMessage("SSH channel request").All()
 	assert.Len(t, requestLog, 1)
-	assert.Equal(t, map[string]any{"type": "pty-req"}, requestLog[0].ContextMap()["request"])
+
+	sshField := requestLog[0].ContextMap()["ssh"].(map[string]any)
+	assert.Equal(t, "pty-req", sshField["request"].(map[string]any)["type"])
 }
 
 func TestSSHRequestHandler_handleRequests_ShellRequest(t *testing.T) {
@@ -124,7 +133,14 @@ func TestSSHRequestHandler_handleRequests_ShellRequest(t *testing.T) {
 	core, logs := observer.New(zap.DebugLevel)
 
 	handler := &SSHRequestHandler{
-		logger:            zap.New(core).Named("test"),
+		logger: zap.New(core).Named("test"),
+		sshChannelCtx: &sshChannelContext{
+			sshContext:  testSSHContext,
+			channelID:   "test-channel-id",
+			channelType: "session",
+			sourceLabel: labelDownstream,
+			targetLabel: labelUpstream,
+		},
 		flushTrigger:      flushTrigger,
 		sourceRequestChan: sourceRequestChan,
 		targetChannel:     mockChannel,
@@ -162,9 +178,11 @@ func TestSSHRequestHandler_handleRequests_ShellRequest(t *testing.T) {
 	mockChannel.AssertExpectations(t)
 
 	// Assert that the SSH request log was emitted
-	requestLog := logs.FilterMessage("Received SSH request").All()
+	requestLog := logs.FilterMessage("SSH channel request").All()
 	assert.Len(t, requestLog, 1)
-	assert.Equal(t, map[string]any{"type": "shell"}, requestLog[0].ContextMap()["request"])
+
+	sshField := requestLog[0].ContextMap()["ssh"].(map[string]any)
+	assert.Equal(t, "shell", sshField["request"].(map[string]any)["type"])
 }
 
 func TestSSHRequestHandler_handleRequests_ExecRequest(t *testing.T) {
@@ -174,7 +192,14 @@ func TestSSHRequestHandler_handleRequests_ExecRequest(t *testing.T) {
 	core, logs := observer.New(zap.DebugLevel)
 
 	handler := &SSHRequestHandler{
-		logger:            zap.New(core).Named("test"),
+		logger: zap.New(core).Named("test"),
+		sshChannelCtx: &sshChannelContext{
+			sshContext:  testSSHContext,
+			channelID:   "test-channel-id",
+			channelType: "session",
+			sourceLabel: labelDownstream,
+			targetLabel: labelUpstream,
+		},
 		flushTrigger:      flushTrigger,
 		sourceRequestChan: sourceRequestChan,
 		targetChannel:     mockChannel,
@@ -211,9 +236,12 @@ func TestSSHRequestHandler_handleRequests_ExecRequest(t *testing.T) {
 	mockChannel.AssertExpectations(t)
 
 	// Assert that the SSH request log was emitted
-	requestLog := logs.FilterMessage("Received SSH request").All()
+	requestLog := logs.FilterMessage("SSH channel request").All()
 	assert.Len(t, requestLog, 1)
-	assert.Equal(t, map[string]any{"type": "exec", "command": "ls -la"}, requestLog[0].ContextMap()["request"])
+
+	sshField := requestLog[0].ContextMap()["ssh"].(map[string]any)
+	assert.Equal(t, "exec", sshField["request"].(map[string]any)["type"])
+	assert.Equal(t, "ls -la", sshField["request"].(map[string]any)["command"])
 }
 
 func TestSSHRequestHandler_handleRequests_SubsystemRequest(t *testing.T) {
@@ -223,7 +251,14 @@ func TestSSHRequestHandler_handleRequests_SubsystemRequest(t *testing.T) {
 	core, logs := observer.New(zap.DebugLevel)
 
 	handler := &SSHRequestHandler{
-		logger:            zap.New(core).Named("test"),
+		logger: zap.New(core).Named("test"),
+		sshChannelCtx: &sshChannelContext{
+			sshContext:  testSSHContext,
+			channelID:   "test-channel-id",
+			channelType: "session",
+			sourceLabel: labelDownstream,
+			targetLabel: labelUpstream,
+		},
 		flushTrigger:      flushTrigger,
 		sourceRequestChan: sourceRequestChan,
 		targetChannel:     mockChannel,
@@ -260,9 +295,12 @@ func TestSSHRequestHandler_handleRequests_SubsystemRequest(t *testing.T) {
 	mockChannel.AssertExpectations(t)
 
 	// Assert that the SSH request log was emitted
-	requestLog := logs.FilterMessage("Received SSH request").All()
+	requestLog := logs.FilterMessage("SSH channel request").All()
 	assert.Len(t, requestLog, 1)
-	assert.Equal(t, map[string]any{"type": "subsystem", "name": "sftp"}, requestLog[0].ContextMap()["request"])
+
+	sshField := requestLog[0].ContextMap()["ssh"].(map[string]any)
+	assert.Equal(t, "subsystem", sshField["request"].(map[string]any)["type"])
+	assert.Equal(t, "sftp", sshField["request"].(map[string]any)["name"])
 }
 
 func TestSSHRequestHandler_handleRequests_WindowChangeRequest(t *testing.T) {
@@ -277,7 +315,14 @@ func TestSSHRequestHandler_handleRequests_WindowChangeRequest(t *testing.T) {
 	}
 
 	handler := &SSHRequestHandler{
-		logger:            zap.NewNop(),
+		logger: zap.NewNop(),
+		sshChannelCtx: &sshChannelContext{
+			sshContext:  testSSHContext,
+			channelID:   "test-channel-id",
+			channelType: "session",
+			sourceLabel: labelDownstream,
+			targetLabel: labelUpstream,
+		},
 		flushTrigger:      flushTrigger,
 		sourceRequestChan: sourceRequestChan,
 		targetChannel:     mockChannel,
@@ -319,7 +364,14 @@ func TestSSHRequestHandler_handleRequests_FlushTrigger(t *testing.T) {
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
 
 	handler := &SSHRequestHandler{
-		logger:            zap.NewNop(),
+		logger: zap.NewNop(),
+		sshChannelCtx: &sshChannelContext{
+			sshContext:  testSSHContext,
+			channelID:   "test-channel-id",
+			channelType: "session",
+			sourceLabel: labelDownstream,
+			targetLabel: labelUpstream,
+		},
 		flushTrigger:      flushTrigger,
 		sourceRequestChan: sourceRequestChan,
 		targetChannel:     mockChannel,
@@ -383,7 +435,14 @@ func TestSSHRequestHandler_handleRequests_ChannelClosed(t *testing.T) {
 	flushTrigger := make(chan SSHRequestHandlerFlushTrigger)
 
 	handler := &SSHRequestHandler{
-		logger:            zap.NewNop(),
+		logger: zap.NewNop(),
+		sshChannelCtx: &sshChannelContext{
+			sshContext:  testSSHContext,
+			channelID:   "test-channel-id",
+			channelType: "session",
+			sourceLabel: labelDownstream,
+			targetLabel: labelUpstream,
+		},
 		flushTrigger:      flushTrigger,
 		sourceRequestChan: sourceRequestChan,
 		targetChannel:     mockChannel,
@@ -409,7 +468,14 @@ func TestSSHRequestHandler_handleRequests_UnknownType(t *testing.T) {
 	core, logs := observer.New(zap.DebugLevel)
 
 	handler := &SSHRequestHandler{
-		logger:            zap.New(core).Named("test"),
+		logger: zap.New(core).Named("test"),
+		sshChannelCtx: &sshChannelContext{
+			sshContext:  testSSHContext,
+			channelID:   "test-channel-id",
+			channelType: "session",
+			sourceLabel: labelDownstream,
+			targetLabel: labelUpstream,
+		},
 		flushTrigger:      flushTrigger,
 		sourceRequestChan: sourceRequestChan,
 		targetChannel:     mockChannel,
@@ -440,7 +506,7 @@ func TestSSHRequestHandler_handleRequests_UnknownType(t *testing.T) {
 	mockChannel.AssertExpectations(t)
 
 	// Assert that the SSH request log was not emitted
-	requestLog := logs.FilterMessage("Received SSH request").All()
+	requestLog := logs.FilterMessage("SSH channel request").All()
 	assert.Empty(t, requestLog)
 }
 

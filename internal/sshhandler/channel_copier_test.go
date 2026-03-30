@@ -184,80 +184,80 @@ func TestChannelCopyPair_copy_ShutdownTimeout(t *testing.T) {
 
 func TestBidirectionalCopier_start(t *testing.T) {
 	// Create mock channels for both directions
-	downstreamSrc := NewMockChannel()
-	downstreamDst := NewMockChannel()
-	upstreamSrc := NewMockChannel()
-	upstreamDst := NewMockChannel()
+	sourceSrc := NewMockChannel()
+	sourceDst := NewMockChannel()
+	targetSrc := NewMockChannel()
+	targetDst := NewMockChannel()
 
 	// Set up test data
-	downstreamData := []byte("downstream data")
-	upstreamData := []byte("upstream data")
+	sourceData := []byte("source data")
+	targetData := []byte("target data")
 
-	downstreamSrc.SetData(downstreamData)
-	upstreamSrc.SetData(upstreamData)
+	sourceSrc.SetData(sourceData)
+	targetSrc.SetData(targetData)
 
 	// Set up channels
-	downstreamEOFTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
-	downstreamChannelClosed := make(chan struct{}, 1)
-	upstreamEOFTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
-	upstreamChannelClosed := make(chan struct{}, 1)
+	sourceEOFTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
+	sourceChannelClosed := make(chan struct{}, 1)
+	targetEOFTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
+	targetChannelClosed := make(chan struct{}, 1)
 
 	// Mock expectations
-	downstreamDst.On("CloseWrite").Return(nil)
-	downstreamDst.On("Close").Return(nil)
-	upstreamDst.On("CloseWrite").Return(nil)
-	upstreamDst.On("Close").Return(nil)
+	sourceDst.On("CloseWrite").Return(nil)
+	sourceDst.On("Close").Return(nil)
+	targetDst.On("CloseWrite").Return(nil)
+	targetDst.On("Close").Return(nil)
 
 	copier := &BidirectionalCopier{
 		logger: zap.NewNop(),
-		DownstreamToUpstream: ChannelCopyPair{
+		SourceToTarget: ChannelCopyPair{
 			logger:          zap.NewNop(),
-			Src:             downstreamSrc,
-			Dst:             downstreamDst,
-			EOFTriggerCh:    downstreamEOFTrigger,
-			ChannelClosedCh: downstreamChannelClosed,
+			Src:             sourceSrc,
+			Dst:             sourceDst,
+			EOFTriggerCh:    sourceEOFTrigger,
+			ChannelClosedCh: sourceChannelClosed,
 		},
-		UpstreamToDownstream: ChannelCopyPair{
+		TargetToSource: ChannelCopyPair{
 			logger:          zap.NewNop(),
-			Src:             upstreamSrc,
-			Dst:             upstreamDst,
-			EOFTriggerCh:    upstreamEOFTrigger,
-			ChannelClosedCh: upstreamChannelClosed,
+			Src:             targetSrc,
+			Dst:             targetDst,
+			EOFTriggerCh:    targetEOFTrigger,
+			ChannelClosedCh: targetChannelClosed,
 		},
 	}
 
-	// Initiate shutdown from downstream EOF
-	downstreamSrc.TriggerEOF()
+	// Initiate shutdown from source EOF
+	sourceSrc.TriggerEOF()
 
-	// Handle EOF trigger from downstream
-	downstreamEOFCalled := false
+	// Handle EOF trigger from source
+	sourceEOFCalled := false
 
 	go func() {
-		trigger := <-downstreamEOFTrigger
+		trigger := <-sourceEOFTrigger
 		trigger.cb()
 
-		downstreamEOFCalled = true
+		sourceEOFCalled = true
 
-		// Downstream should have done CloseWrite() at this point, and upstream
+		// Source should have done CloseWrite() at this point, and target
 		// will receive SSH_MSG_CHANNEL_EOF, so simulate this by
-		// starting EOF trigger for upstream
-		upstreamSrc.TriggerEOF()
+		// starting EOF trigger for target
+		targetSrc.TriggerEOF()
 
-		// Now downstream can fully close
-		close(downstreamChannelClosed)
+		// Now source can fully close
+		close(sourceChannelClosed)
 	}()
 
-	// Handle EOF trigger from upstream
-	upstreamEOFCalled := false
+	// Handle EOF trigger from target
+	targetEOFCalled := false
 
 	go func() {
-		trigger := <-upstreamEOFTrigger
+		trigger := <-targetEOFTrigger
 		trigger.cb()
 
-		upstreamEOFCalled = true
+		targetEOFCalled = true
 
-		// Now upstream can fully close after receiving SSH_MSG_CHANNEL_EOF
-		close(upstreamChannelClosed)
+		// Now target can fully close after receiving SSH_MSG_CHANNEL_EOF
+		close(targetChannelClosed)
 	}()
 
 	// Mark time start
@@ -266,16 +266,16 @@ func TestBidirectionalCopier_start(t *testing.T) {
 	elapsed := time.Since(start)
 
 	// EOF triggers should have been called
-	assert.True(t, downstreamEOFCalled)
-	assert.True(t, upstreamEOFCalled)
+	assert.True(t, sourceEOFCalled)
+	assert.True(t, targetEOFCalled)
 
 	// Should complete quickly
 	assert.Less(t, elapsed, 1*time.Second)
 
 	// Verify data was copied in both directions
-	assert.Equal(t, downstreamData, downstreamDst.GetWrittenData())
-	assert.Equal(t, upstreamData, upstreamDst.GetWrittenData())
+	assert.Equal(t, sourceData, sourceDst.GetWrittenData())
+	assert.Equal(t, targetData, targetDst.GetWrittenData())
 
-	downstreamDst.AssertExpectations(t)
-	upstreamDst.AssertExpectations(t)
+	sourceDst.AssertExpectations(t)
+	targetDst.AssertExpectations(t)
 }

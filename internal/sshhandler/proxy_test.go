@@ -62,11 +62,11 @@ type mockProxySSHConnPairFactory struct {
 }
 
 //nolint:ireturn
-func (m *mockProxySSHConnPairFactory) NewConnPair(logger *zap.Logger,
+func (m *mockProxySSHConnPairFactory) NewConnPair(logger *zap.Logger, sshCtx *sshContext,
 	downstreamConn ssh.Conn, downstreamChannels <-chan ssh.NewChannel, downstreamRequests <-chan *ssh.Request,
 	upstreamConn ssh.Conn, upstreamChannels <-chan ssh.NewChannel, upstreamRequests <-chan *ssh.Request,
 ) ConnPair {
-	args := m.Called(logger, downstreamConn, downstreamChannels, downstreamRequests, upstreamConn, upstreamChannels, upstreamRequests)
+	args := m.Called(logger, sshCtx, downstreamConn, downstreamChannels, downstreamRequests, upstreamConn, upstreamChannels, upstreamRequests)
 
 	return args.Get(0).(ConnPair)
 }
@@ -74,6 +74,12 @@ func (m *mockProxySSHConnPairFactory) NewConnPair(logger *zap.Logger,
 // Mock SSH connection pair.
 type mockSSHConnPair struct {
 	mock.Mock
+}
+
+func (m *mockSSHConnPair) ChannelsOpened() int {
+	args := m.Called()
+
+	return args.Int(0)
 }
 
 func (m *mockSSHConnPair) serve() {
@@ -327,6 +333,8 @@ func TestSSHProxy_ServeConn_Success(t *testing.T) {
 
 	// Mock successful upstream SSH connection
 	upstreamSSHConn := &mockSSHConn{}
+	upstreamSSHConn.On("ServerVersion").Return([]byte("SSH-2.0-OpenSSH_9.6"))
+
 	upstreamChannels := make(chan ssh.NewChannel, 1)
 	upstreamRequests := make(chan *ssh.Request, 1)
 	mockProxySSHFactory.On("NewClientConn", upstreamConn, upstreamAddress, mock.AnythingOfType("*ssh.ClientConfig")).Return(
@@ -341,6 +349,7 @@ func TestSSHProxy_ServeConn_Success(t *testing.T) {
 
 	mockProxyConnPairFactory.On("NewConnPair",
 		mock.AnythingOfType("*zap.Logger"),
+		mock.AnythingOfType("*sshhandler.sshContext"),
 		downstreamSSHConn,
 		(<-chan ssh.NewChannel)(downstreamChannels),
 		(<-chan *ssh.Request)(downstreamRequests),
@@ -355,6 +364,7 @@ func TestSSHProxy_ServeConn_Success(t *testing.T) {
 		// Return after some delay to simulate a real serve
 		time.Sleep(100 * time.Millisecond)
 	}).Return()
+	mockProxyConnPair.On("ChannelsOpened").Return(0)
 
 	// Call serve - this should succeed and create the mocked SSHConnPair from above
 	go func() {
@@ -648,6 +658,8 @@ func TestSSHProxy_Shutdown_WithActiveConnection(t *testing.T) {
 
 	// Mock successful upstream SSH handshake
 	upstreamSSHConn := &mockSSHConn{}
+	upstreamSSHConn.On("ServerVersion").Return([]byte("SSH-2.0-OpenSSH_9.6"))
+
 	upstreamChannels := make(chan ssh.NewChannel, 1)
 	upstreamRequests := make(chan *ssh.Request, 1)
 	mockProxySSHFactory.On("NewClientConn", upstreamConn, upstreamAddress, mock.AnythingOfType("*ssh.ClientConfig")).Return(
@@ -662,6 +674,7 @@ func TestSSHProxy_Shutdown_WithActiveConnection(t *testing.T) {
 
 	mockProxyConnPairFactory.On("NewConnPair",
 		mock.AnythingOfType("*zap.Logger"),
+		mock.AnythingOfType("*sshhandler.sshContext"),
 		downstreamSSHConn,
 		(<-chan ssh.NewChannel)(downstreamChannels),
 		(<-chan *ssh.Request)(downstreamRequests),
@@ -678,6 +691,7 @@ func TestSSHProxy_Shutdown_WithActiveConnection(t *testing.T) {
 		close(serveStarted)
 		<-closeReceived // Block until Close is called
 	}).Return()
+	mockProxyConnPair.On("ChannelsOpened").Return(0)
 
 	// Mock Close to signal that shutdown was called
 	mockProxyConnPair.On("close").Run(func(_ mock.Arguments) {
