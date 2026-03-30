@@ -105,6 +105,17 @@ func NewSSHConnPair(
 }
 
 func (c *SSHConnPair) serve() {
+	// When either side closes, close the other to unblock all ranging goroutines.
+	c.wg.Go(func() {
+		_ = c.downstreamConn.Wait()
+		_ = c.upstreamConn.Close()
+	})
+
+	c.wg.Go(func() {
+		_ = c.upstreamConn.Wait()
+		_ = c.downstreamConn.Close()
+	})
+
 	// Forward global requests in both directions
 	c.wg.Go(func() {
 		c.forwardGlobalRequests(c.downstreamRequestsChan, c.upstreamConn, nil, dirDownstreamToUpstream)
