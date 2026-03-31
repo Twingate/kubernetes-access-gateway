@@ -12,6 +12,7 @@ import (
 func newTestSSHContext() *sshContext {
 	return &sshContext{
 		id:            "abc123",
+		username:      "gateway",
 		clientVersion: "SSH-2.0-OpenSSH_10.2",
 		serverVersion: "SSH-2.0-OpenSSH_9.6",
 	}
@@ -24,6 +25,7 @@ func Test_sshContext_baseFields(t *testing.T) {
 
 	assert.Equal(t, map[string]any{
 		"id":             "abc123",
+		"username":       "gateway",
 		"client_version": "SSH-2.0-OpenSSH_10.2",
 		"server_version": "SSH-2.0-OpenSSH_9.6",
 	}, result)
@@ -58,6 +60,7 @@ func Test_sshContext_withConnectionClose(t *testing.T) {
 			result := ctx.withConnectionClose(tt.channelsOpened)
 
 			assert.Equal(t, "abc123", result["id"])
+			assert.Equal(t, "gateway", result["username"])
 			assert.Equal(t, "SSH-2.0-OpenSSH_10.2", result["client_version"])
 			assert.Equal(t, "SSH-2.0-OpenSSH_9.6", result["server_version"])
 			assert.Equal(t, tt.channelsOpened, result["channels_opened"])
@@ -93,6 +96,7 @@ func Test_sshChannelContext_baseFields(t *testing.T) {
 	result := ctx.baseFields()
 
 	assert.Equal(t, "abc123", result["id"])
+	assert.Equal(t, "gateway", result["username"])
 	assert.Equal(t, "SSH-2.0-OpenSSH_10.2", result["client_version"])
 	assert.Equal(t, "SSH-2.0-OpenSSH_9.6", result["server_version"])
 	assert.Equal(t, map[string]any{

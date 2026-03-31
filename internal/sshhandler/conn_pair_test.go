@@ -52,6 +52,7 @@ func (m *mockChannelPairFactory) NewChannelPair(logger *zap.Logger, sshChannelCt
 
 var testSSHContext = &sshContext{
 	id:            "test-session-id",
+	username:      "testuser",
 	clientVersion: "SSH-2.0-test",
 	serverVersion: "SSH-2.0-upstream",
 }
@@ -78,7 +79,7 @@ func closedRequestChan() <-chan *ssh.Request {
 
 func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
-	upstreamConn := &mockSSHConn{user: "upstream-user"}
+	upstreamConn := &mockSSHConn{user: "testuser"}
 
 	// Create mock channels
 	newChannel := newMockNewChannel("session")
@@ -97,7 +98,7 @@ func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
 	newChannel.On("ExtraData").Return([]byte(nil))
 	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return(targetChannel, (<-chan *ssh.Request)(targetRequests), nil)
 	newChannel.On("Accept").Return(sourceChannel, (<-chan *ssh.Request)(sourceRequests), nil)
-	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "upstream-user", sourceChannel, (<-chan *ssh.Request)(sourceRequests), targetChannel, (<-chan *ssh.Request)(targetRequests)).Return(mockChannelPair)
+	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "testuser", sourceChannel, (<-chan *ssh.Request)(sourceRequests), targetChannel, (<-chan *ssh.Request)(targetRequests)).Return(mockChannelPair)
 	mockChannelPair.On("serve").Return()
 
 	// Create channel chan with one session channel
@@ -149,7 +150,7 @@ func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
 
 func TestSSHConnPair_serve_DirectTCPIPChannelForwarded(t *testing.T) {
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
-	upstreamConn := &mockSSHConn{user: "upstream-user"}
+	upstreamConn := &mockSSHConn{user: "testuser"}
 
 	// Create mock channel with direct-tcpip type (port forwarding)
 	extraData := []byte("extra-data")
@@ -169,7 +170,7 @@ func TestSSHConnPair_serve_DirectTCPIPChannelForwarded(t *testing.T) {
 	newChannel.On("ExtraData").Return(extraData)
 	upstreamConn.On("OpenChannel", "direct-tcpip", extraData).Return(targetChannel, (<-chan *ssh.Request)(targetRequests), nil)
 	newChannel.On("Accept").Return(sourceChannel, (<-chan *ssh.Request)(sourceRequests), nil)
-	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "upstream-user", sourceChannel, (<-chan *ssh.Request)(sourceRequests), targetChannel, (<-chan *ssh.Request)(targetRequests)).Return(mockChannelPair)
+	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "testuser", sourceChannel, (<-chan *ssh.Request)(sourceRequests), targetChannel, (<-chan *ssh.Request)(targetRequests)).Return(mockChannelPair)
 	mockChannelPair.On("serve").Return()
 
 	// Create channel chan with one direct-tcpip channel
@@ -305,7 +306,7 @@ func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
 
 func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
-	upstreamConn := &mockSSHConn{user: "upstream-user"}
+	upstreamConn := &mockSSHConn{user: "testuser"}
 
 	// Create multiple mock channels: session + direct-tcpip + session
 	sessionChannel1 := newMockNewChannel("session")
@@ -344,7 +345,7 @@ func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 	sessionChannel1.On("ExtraData").Return([]byte(nil))
 	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return(targetChannel1, (<-chan *ssh.Request)(targetRequests1), nil).Once()
 	sessionChannel1.On("Accept").Return(sourceChannel1, (<-chan *ssh.Request)(sourceRequests1), nil)
-	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "upstream-user", sourceChannel1, (<-chan *ssh.Request)(sourceRequests1), targetChannel1, (<-chan *ssh.Request)(targetRequests1)).Return(mockChannelPair1).Once()
+	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "testuser", sourceChannel1, (<-chan *ssh.Request)(sourceRequests1), targetChannel1, (<-chan *ssh.Request)(targetRequests1)).Return(mockChannelPair1).Once()
 	mockChannelPair1.On("serve").Return()
 
 	// Set up expectations for direct-tcpip channel (should be forwarded, not rejected)
@@ -352,14 +353,14 @@ func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 	directTCPIPChannel.On("ExtraData").Return(directTCPIPExtraData)
 	upstreamConn.On("OpenChannel", "direct-tcpip", directTCPIPExtraData).Return(targetChannel2, (<-chan *ssh.Request)(targetRequests2), nil)
 	directTCPIPChannel.On("Accept").Return(sourceChannel2, (<-chan *ssh.Request)(sourceRequests2), nil)
-	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "upstream-user", sourceChannel2, (<-chan *ssh.Request)(sourceRequests2), targetChannel2, (<-chan *ssh.Request)(targetRequests2)).Return(mockChannelPair2).Once()
+	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "testuser", sourceChannel2, (<-chan *ssh.Request)(sourceRequests2), targetChannel2, (<-chan *ssh.Request)(targetRequests2)).Return(mockChannelPair2).Once()
 	mockChannelPair2.On("serve").Return()
 
 	// Set up expectations for second session channel
 	sessionChannel2.On("ExtraData").Return([]byte(nil))
 	upstreamConn.On("OpenChannel", "session", []byte(nil)).Return(targetChannel3, (<-chan *ssh.Request)(targetRequests3), nil).Once()
 	sessionChannel2.On("Accept").Return(sourceChannel3, (<-chan *ssh.Request)(sourceRequests3), nil)
-	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "upstream-user", sourceChannel3, (<-chan *ssh.Request)(sourceRequests3), targetChannel3, (<-chan *ssh.Request)(targetRequests3)).Return(mockChannelPair3).Once()
+	mockFactory.On("NewChannelPair", mock.Anything, mock.Anything, "testuser", sourceChannel3, (<-chan *ssh.Request)(sourceRequests3), targetChannel3, (<-chan *ssh.Request)(targetRequests3)).Return(mockChannelPair3).Once()
 	mockChannelPair3.On("serve").Return()
 
 	// Create channel chan with multiple channels
@@ -426,7 +427,7 @@ func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 
 func TestSSHConnPair_forwardChannels_RejectsDisallowedChannelType(t *testing.T) {
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
-	upstreamConn := &mockSSHConn{user: "upstream-user"}
+	upstreamConn := &mockSSHConn{user: "testuser"}
 
 	// Create a "session" channel coming from upstream — in disallowedUpstreamChannelTypes
 	newChannel := newMockNewChannel("session")

@@ -12,6 +12,7 @@ import (
 // sshContext carries connection-level SSH metadata for audit logging.
 type sshContext struct {
 	id            string
+	username      string
 	clientVersion string
 	serverVersion string
 }
@@ -19,6 +20,7 @@ type sshContext struct {
 func (s *sshContext) baseFields() map[string]any {
 	return map[string]any{
 		"id":             s.id,
+		"username":       s.username,
 		"client_version": s.clientVersion,
 		"server_version": s.serverVersion,
 	}

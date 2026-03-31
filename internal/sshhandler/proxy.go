@@ -224,6 +224,7 @@ func (p *SSHProxy) serveConn(ctx context.Context, conn connect.Conn) error {
 
 	sshCtx := &sshContext{
 		id:            hex.EncodeToString(downstreamSSHConn.SessionID()),
+		username:      upstream.username,
 		clientVersion: string(downstreamSSHConn.ClientVersion()),
 	}
 
