@@ -57,6 +57,13 @@ var testSSHContext = &sshContext{
 	serverVersion: "SSH-2.0-upstream",
 }
 
+// setupConnWaitClose sets up Wait/Close expectations on a mockSSHConn so that serve()
+// cross-close goroutines don't panic on unexpected calls.
+func setupConnWaitClose(conn *mockSSHConn) {
+	conn.On("Wait").Return(nil)
+	conn.On("Close").Return(nil)
+}
+
 // Test helper to create a channel that sends mock NewChannel objects.
 func createMockChannelChan(channels []ssh.NewChannel) <-chan ssh.NewChannel {
 	ch := make(chan ssh.NewChannel, len(channels))
@@ -80,6 +87,9 @@ func closedRequestChan() <-chan *ssh.Request {
 func TestSSHConnPair_serve_SessionChannelSuccess(t *testing.T) {
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
 	upstreamConn := &mockSSHConn{user: "testuser"}
+
+	setupConnWaitClose(downstreamConn)
+	setupConnWaitClose(upstreamConn)
 
 	// Create mock channels
 	newChannel := newMockNewChannel("session")
@@ -152,6 +162,9 @@ func TestSSHConnPair_serve_DirectTCPIPChannelForwarded(t *testing.T) {
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
 	upstreamConn := &mockSSHConn{user: "testuser"}
 
+	setupConnWaitClose(downstreamConn)
+	setupConnWaitClose(upstreamConn)
+
 	// Create mock channel with direct-tcpip type (port forwarding)
 	extraData := []byte("extra-data")
 	newChannel := newMockNewChannel("direct-tcpip")
@@ -222,6 +235,9 @@ func TestSSHConnPair_serve_UpstreamOpenChannelFailure(t *testing.T) {
 	downstreamConn := &mockSSHConn{}
 	upstreamConn := &mockSSHConn{}
 
+	setupConnWaitClose(downstreamConn)
+	setupConnWaitClose(upstreamConn)
+
 	// Create mock channels
 	newChannel := newMockNewChannel("session")
 
@@ -260,6 +276,9 @@ func TestSSHConnPair_serve_UpstreamOpenChannelFailure(t *testing.T) {
 func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
 	downstreamConn := &mockSSHConn{}
 	upstreamConn := &mockSSHConn{}
+
+	setupConnWaitClose(downstreamConn)
+	setupConnWaitClose(upstreamConn)
 
 	// Create mock channels
 	newChannel := newMockNewChannel("session")
@@ -307,6 +326,9 @@ func TestSSHConnPair_serve_DownstreamAcceptFailure(t *testing.T) {
 func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
 	upstreamConn := &mockSSHConn{user: "testuser"}
+
+	setupConnWaitClose(downstreamConn)
+	setupConnWaitClose(upstreamConn)
 
 	// Create multiple mock channels: session + direct-tcpip + session
 	sessionChannel1 := newMockNewChannel("session")
@@ -425,9 +447,65 @@ func TestSSHConnPair_serve_MultipleChannels(t *testing.T) {
 	mockChannelPair3.AssertExpectations(t)
 }
 
+func TestSSHConnPair_serve_ClosesOtherSideOnDisconnect(t *testing.T) {
+	downstreamConn := &mockSSHConn{}
+	upstreamConn := &mockSSHConn{}
+
+	upstreamWait := make(chan struct{})
+
+	// downstream.Wait() returns immediately (simulating disconnect)
+	downstreamConn.On("Wait").Return(nil)
+	downstreamConn.On("Close").Return(nil)
+
+	// upstream.Wait() blocks until Close is called (simulating real SSH behavior)
+	upstreamConn.On("Wait").Run(func(mock.Arguments) { <-upstreamWait }).Return(nil)
+	upstreamConn.On("Close").Run(func(mock.Arguments) {
+		select {
+		case <-upstreamWait:
+		default:
+			close(upstreamWait)
+		}
+	}).Return(nil)
+
+	connPair := &SSHConnPair{
+		logger:                    zap.NewNop(),
+		sshCtx:                    testSSHContext,
+		downstreamConn:            downstreamConn,
+		downstreamSSHChannelsChan: createMockChannelChan(nil),
+		downstreamRequestsChan:    closedRequestChan(),
+		upstreamConn:              upstreamConn,
+		upstreamSSHChannelsChan:   createMockChannelChan(nil),
+		upstreamRequestsChan:      closedRequestChan(),
+		channelPairFactory:        &DefaultChannelPairFactory{},
+	}
+
+	// serve() should complete because:
+	// 1. downstream.Wait() returns → upstream.Close() called → upstreamWait unblocks
+	// 2. upstream.Wait() returns → downstream.Close() called
+	done := make(chan struct{})
+
+	go func() {
+		connPair.serve()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Success
+	case <-time.After(2 * time.Second):
+		t.Fatal("serve() did not complete within timeout — cross-close may not be working")
+	}
+
+	upstreamConn.AssertCalled(t, "Close")
+	downstreamConn.AssertCalled(t, "Close")
+}
+
 func TestSSHConnPair_forwardChannels_RejectsDisallowedChannelType(t *testing.T) {
 	downstreamConn := &mockSSHConn{user: "downstream-user"}
 	upstreamConn := &mockSSHConn{user: "testuser"}
+
+	setupConnWaitClose(downstreamConn)
+	setupConnWaitClose(upstreamConn)
 
 	// Create a "session" channel coming from upstream — in disallowedUpstreamChannelTypes
 	newChannel := newMockNewChannel("session")

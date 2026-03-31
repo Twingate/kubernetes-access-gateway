@@ -115,6 +115,23 @@ func (c *SSHConnPair) ChannelsOpened() int {
 }
 
 func (c *SSHConnPair) serve() {
+	// When either side closes, close the other to unblock all ranging goroutines.
+	c.wg.Go(func() {
+		_ = c.downstreamConn.Wait()
+
+		if err := c.upstreamConn.Close(); err != nil {
+			c.logger.Debug("Failed to close upstream connection", zap.Error(err))
+		}
+	})
+
+	c.wg.Go(func() {
+		_ = c.upstreamConn.Wait()
+
+		if err := c.downstreamConn.Close(); err != nil {
+			c.logger.Debug("Failed to close downstream connection", zap.Error(err))
+		}
+	})
+
 	// Forward global requests in both directions
 	c.wg.Go(func() {
 		c.forwardGlobalRequests(c.downstreamRequestsChan, c.upstreamConn, nil, labelDownstream, labelUpstream)
