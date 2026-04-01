@@ -41,7 +41,7 @@ tests:
     asserts:
       - equal:
           path: metadata.name
-          value: RELEASE-NAME-kubernetes-access-gateway
+          value: RELEASE-NAME-gateway
       - isNotEmpty:
           path: metadata.labels
 
@@ -51,7 +51,7 @@ tests:
     asserts:
       - equal:
           path: spec.selector.matchLabels["app.kubernetes.io/name"]
-          value: kubernetes-access-gateway
+          value: gateway
       - equal:
           path: spec.selector.matchLabels["app.kubernetes.io/instance"]
           value: RELEASE-NAME

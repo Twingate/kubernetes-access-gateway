@@ -78,4 +78,4 @@ jobs:
           echo "🚀 Publishing helm chart version $CHART_VERSION"
           echo ${{ secrets.GITHUB_TOKEN }} | helm registry login -u twingate --password-stdin $REGISTRY
           helm package deploy/gateway --version $CHART_VERSION --app-version $CHART_VERSION
-          helm push kubernetes-access-gateway-$CHART_VERSION.tgz oci://$REGISTRY/twingate/helmcharts
+          helm push gateway-$CHART_VERSION.tgz oci://$REGISTRY/twingate/helmcharts

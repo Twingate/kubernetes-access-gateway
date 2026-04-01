@@ -131,7 +131,7 @@ tests:
           apiVersion: v1
           type: kubernetes.io/tls
           metadata:
-            name: RELEASE-NAME-kubernetes-access-gateway-tls
+            name: RELEASE-NAME-gateway-tls
             namespace: NAMESPACE
             annotations:
               # sha256 hash of "[]-[]-" (no custom DNS names or resource alias is provided)
@@ -159,7 +159,7 @@ tests:
           apiVersion: v1
           type: kubernetes.io/tls
           metadata:
-            name: RELEASE-NAME-kubernetes-access-gateway-tls
+            name: RELEASE-NAME-gateway-tls
             namespace: NAMESPACE
             annotations:
               # sha256 hash of "[]-[]-" (no custom DNS names or resource alias is provided)

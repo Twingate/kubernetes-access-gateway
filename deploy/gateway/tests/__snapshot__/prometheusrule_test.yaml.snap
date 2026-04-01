@@ -6,13 +6,13 @@ should enable Prometheus Rule:
       labels:
         app.kubernetes.io/instance: RELEASE-NAME
         app.kubernetes.io/managed-by: Helm
-        app.kubernetes.io/name: kubernetes-access-gateway
+        app.kubernetes.io/name: gateway
         app.kubernetes.io/version: 0.1.0
-        helm.sh/chart: kubernetes-access-gateway-0.1.0
-      name: RELEASE-NAME-kubernetes-access-gateway
+        helm.sh/chart: gateway-0.1.0
+      name: RELEASE-NAME-gateway
     spec:
       groups:
-        - name: RELEASE-NAME-kubernetes-access-gateway
+        - name: RELEASE-NAME-gateway
           rules:
             - alert: TestAlert
               expr: vector(1)

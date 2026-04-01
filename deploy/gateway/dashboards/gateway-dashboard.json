@@ -194,7 +194,7 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum by(container) (twingate_gateway_http_active_requests{container=\"kubernetes-access-gateway\"})",
+          "expr": "sum by(container) (twingate_gateway_http_active_requests{container=\"gateway\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -1042,7 +1042,7 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum by(container) (twingate_gateway_api_server_active_requests{container=\"kubernetes-access-gateway\"})",
+          "expr": "sum by(container) (twingate_gateway_api_server_active_requests{container=\"gateway\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -1679,7 +1679,7 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum by(container) (twingate_gateway_active_tcp_connections{container=\"kubernetes-access-gateway\"})",
+          "expr": "sum by(container) (twingate_gateway_active_tcp_connections{container=\"gateway\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
