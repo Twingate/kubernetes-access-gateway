@@ -16,10 +16,10 @@ tests:
           value:
             - name: config
               configMap:
-                name: RELEASE-NAME-kubernetes-access-gateway-config
+                name: RELEASE-NAME-gateway-config
             - name: tls-certs
               secret:
-                secretName: RELEASE-NAME-kubernetes-access-gateway-tls
+                secretName: RELEASE-NAME-gateway-tls
             - name: logs
               mountPath: /var/log
       - equal:
@@ -77,10 +77,10 @@ tests:
           value:
             - name: config
               configMap:
-                name: RELEASE-NAME-kubernetes-access-gateway-config
+                name: RELEASE-NAME-gateway-config
             - name: tls-certs
               secret:
-                secretName: RELEASE-NAME-kubernetes-access-gateway-tls
+                secretName: RELEASE-NAME-gateway-tls
       - equal:
           path: spec.template.spec.containers[0].volumeMounts
           value:
@@ -108,7 +108,7 @@ tests:
           content:
             name: ssh-manual-ca
             secret:
-              secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-manual-ca
+              secretName: RELEASE-NAME-gateway-ssh-manual-ca
   - it: should error when replicaCount > 1 and `ssh.ca` is not specified
     set:
       replicaCount: 2
@@ -143,7 +143,7 @@ tests:
             name: VAULT_TOKEN
             valueFrom:
               secretKeyRef:
-                name: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-token
+                name: RELEASE-NAME-gateway-ssh-vault-token
                 key: token
   - it: should use existing token secret when specified
     set:
@@ -186,7 +186,7 @@ tests:
           content:
             name: vault-ca-bundle
             secret:
-              secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-ca-bundle
+              secretName: RELEASE-NAME-gateway-ssh-vault-ca-bundle
   - it: should support Vault CA bundle when existing CA bundle secret is specified
     set:
       ssh:
@@ -239,7 +239,7 @@ tests:
           content:
             name: vault-ca-bundle
             secret:
-              secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-ca-bundle
+              secretName: RELEASE-NAME-gateway-ssh-vault-ca-bundle
   - it: should include Vault AppRole Secret ID volume and volumeMount
     set:
       ssh:
@@ -261,7 +261,7 @@ tests:
           content:
             name: vault-approle-secret-id
             secret:
-              secretName: RELEASE-NAME-kubernetes-access-gateway-ssh-vault-approle-secret-id
+              secretName: RELEASE-NAME-gateway-ssh-vault-approle-secret-id
   - it: should use existing Vault AppRole Secret ID secret name when specified
     set:
       ssh:
