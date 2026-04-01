@@ -3,7 +3,7 @@
 
 version: 2
 
-project_name: kubernetes-access-gateway
+project_name: gateway
 
 before:
   hooks:
@@ -130,23 +130,23 @@ dockers:
 
 docker_manifests:
   #******************* Dockerhub *******************#
-  # Example: twingate/kubernetes-access-gateway:latest (or dev)
+  # Example: twingate/gateway:latest (or dev)
   - name_template: "twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}"
     image_templates:
       - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
       - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
-  # Example: twingate/kubernetes-access-gateway:v0.2.2
+  # Example: twingate/gateway:v0.2.2
   - name_template: "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}"
     image_templates:
       - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
       - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
-  # Example: twingate/kubernetes-access-gateway:v0
+  # Example: twingate/gateway:v0
   - name_template: "twingate/{{ .ProjectName }}:{{.Major}}"
     skip_push: auto
     image_templates:
       - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
       - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
-  # Example: twingate/kubernetes-access-gateway:v0.2
+  # Example: twingate/gateway:v0.2
   - name_template: "twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}"
     skip_push: auto
     image_templates:
@@ -173,23 +173,23 @@ docker_manifests:
       - "twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64-debug"
 
   #******************* Github *******************#
-  # Example: twingate/kubernetes-access-gateway:latest (or dev)
+  # Example: twingate/gateway:latest (or dev)
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ if not .Prerelease }}latest{{ else }}dev{{ end }}"
     image_templates:
       - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
       - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
-  # Example: twingate/kubernetes-access-gateway:v0.2.2
+  # Example: twingate/gateway:v0.2.2
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}"
     image_templates:
       - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
       - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
-  # Example: twingate/kubernetes-access-gateway:v0
+  # Example: twingate/gateway:v0
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}"
     skip_push: auto
     image_templates:
       - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-amd64"
       - "ghcr.io/twingate/{{ .ProjectName }}:{{ replace .Version \"+\" \"-\" }}-linux-arm64"
-  # Example: twingate/kubernetes-access-gateway:v0.2
+  # Example: twingate/gateway:v0.2
   - name_template: "ghcr.io/twingate/{{ .ProjectName }}:{{.Major}}.{{.Minor}}"
     skip_push: auto
     image_templates:
