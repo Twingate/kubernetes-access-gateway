@@ -4,6 +4,8 @@
 package sshhandler
 
 import (
+	"errors"
+	"net"
 	"sync"
 	"sync/atomic"
 
@@ -119,7 +121,7 @@ func (c *SSHConnPair) serve() {
 	c.wg.Go(func() {
 		_ = c.downstreamConn.Wait()
 
-		if err := c.upstreamConn.Close(); err != nil {
+		if err := c.upstreamConn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 			c.logger.Debug("Failed to close upstream connection", zap.Error(err))
 		}
 	})
@@ -127,7 +129,7 @@ func (c *SSHConnPair) serve() {
 	c.wg.Go(func() {
 		_ = c.upstreamConn.Wait()
 
-		if err := c.downstreamConn.Close(); err != nil {
+		if err := c.downstreamConn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 			c.logger.Debug("Failed to close downstream connection", zap.Error(err))
 		}
 	})
@@ -238,13 +240,11 @@ func (c *SSHConnPair) forwardGlobalRequests(requests <-chan *ssh.Request, dst ss
 }
 
 func (c *SSHConnPair) close() {
-	err := c.downstreamConn.Close()
-	if err != nil {
+	if err := c.downstreamConn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 		c.logger.Error("Failed to close downstream connection", zap.Error(err))
 	}
 
-	err = c.upstreamConn.Close()
-	if err != nil {
+	if err := c.upstreamConn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 		c.logger.Error("Failed to close upstream connection", zap.Error(err))
 	}
 }
