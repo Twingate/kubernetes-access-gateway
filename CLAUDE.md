@@ -201,7 +201,7 @@ tests := []struct {
 }{ /* cases */ }
 ```
 
-Use `require` for assertions (fails fast). Mocks via mockery.
+Use `testify/assert` for assertions (keep going). Use `testify/require` only for preconditions where continuing would panic or be meaningless. Write mocks with `testify/mock`.
 
 ### Linting
 
