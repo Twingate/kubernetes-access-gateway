@@ -20,7 +20,7 @@ should create Grafana Dashboard:
               }
             ]
           },
-          "description": "Grafana dashboard for Twingate Kubernetes Access Gateway",
+          "description": "Grafana dashboard for Twingate Gateway",
           "editable": true,
           "fiscalYearStartMonth": 0,
           "graphTooltip": 0,
@@ -2278,7 +2278,7 @@ should create Grafana Dashboard:
           },
           "timepicker": {},
           "timezone": "browser",
-          "title": "Twingate Kubernetes Access Gateway",
+          "title": "Twingate Gateway",
           "uid": "63804d24-275c-4d8b-9d3c-7408d6898259",
           "version": 1
         }
