@@ -1,11 +1,11 @@
-# Twingate Kubernetes Access Gateway - AI Development Guide
+# Twingate Gateway - AI Development Guide
 
 ## Project Overview
 
 Zero-trust access gateway bridging Twingate with L7 resources such as Kubernetes API servers, HTTP services, and SSH servers. Authentication uses JWT + Proof-of-Possession.
 
 - **License**: MPL-2.0
-- **Repository**: <https://github.com/Twingate/kubernetes-access-gateway>
+- **Repository**: <https://github.com/Twingate/gateway>
 - **Language**: Go 1.26.0
 - **Build**: goreleaser, Docker buildx, kind (testing)
 - **Linting**: golangci-lint v2.11.1

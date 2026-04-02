@@ -488,7 +488,7 @@
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Create Grafana Dashboard for Kubernetes Access Gateway.",
+              "description": "Create Grafana Dashboard for Gateway.",
               "default": false
             },
             "labels": {

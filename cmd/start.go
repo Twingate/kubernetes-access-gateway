@@ -17,7 +17,7 @@ import (
 
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start Twingate Kubernetes Access Gateway",
+	Short: "Start Twingate Gateway",
 	RunE: func(_cmd *cobra.Command, _args []string) error {
 		return start()
 	},

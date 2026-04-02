@@ -1,4 +1,4 @@
-# CodeCov configuration for Kubernetes Access Gateway
+# CodeCov configuration for Gateway
 coverage:
   status:
     project:
