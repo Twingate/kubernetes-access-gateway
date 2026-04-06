@@ -19,18 +19,18 @@ func SetupVaultServer(t *testing.T) (string, int) {
 	t.Helper()
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err := RunCommand(exec.Command("docker", "pull", "hashicorp/vault:latest"))
+	_, err := RunCommand(exec.Command("docker", "pull", "hashicorp/vault:1.21.4"))
 	require.NoError(t, err, "failed to pull Vault docker image")
 
 	// #nosec G204 -- inputs are from trusted operator configuration
+	containerName := "gateway-integration-test-vault-" + strings.ToLower(t.Name())
 	output, err := RunCommand(exec.Command("docker", "run", "-d",
-		"--cap-add=IPC_LOCK",
 		"-p", "0:8200",
-		"--name", "gateway-integration-test-vault",
+		"--name", containerName,
 		"-e", "VAULT_DEV_ROOT_TOKEN_ID=root",
 		"-e", "VAULT_TOKEN=root",
 		"-e", "VAULT_ADDR=http://127.0.0.1:8200",
-		"hashicorp/vault:latest",
+		"hashicorp/vault:1.21.4",
 		"server", "-dev", "-dev-listen-address=0.0.0.0:8200",
 	))
 	require.NoError(t, err, "failed to create Vault container")
