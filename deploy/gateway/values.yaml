@@ -1,4 +1,4 @@
-# Default values for Twingate Kubernetes Access Gateway.
+# Default values for Twingate Gateway.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -108,7 +108,7 @@ clusterDomain: cluster.local
 replicaCount: 1
 
 image:
-  repository: twingate/kubernetes-access-gateway
+  repository: twingate/gateway
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.

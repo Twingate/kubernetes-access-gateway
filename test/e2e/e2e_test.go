@@ -18,10 +18,10 @@ import (
 
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 
-	"k8sgateway/internal/token"
-	"k8sgateway/test/data"
-	"k8sgateway/test/fake"
-	"k8sgateway/test/integration/testutil"
+	"gateway/internal/token"
+	"gateway/test/data"
+	"gateway/test/fake"
+	"gateway/test/integration/testutil"
 )
 
 // Prerequisites for running this test:
@@ -58,7 +58,7 @@ func TestInCluster(t *testing.T) {
 	dockerImageTag := getDockerImageTag(t)
 	t.Log("Docker image tag:", dockerImageTag)
 
-	loadDockerImageToKinD(t, clusterName, "twingate/kubernetes-access-gateway:"+dockerImageTag)
+	loadDockerImageToKinD(t, clusterName, "twingate/gateway:"+dockerImageTag)
 
 	// Deploy Gateway onto KinD using Helm
 	deployHelmChart(t, clusterName, dockerImageTag)
@@ -136,7 +136,7 @@ func downloadCaddyCACert(t *testing.T) string {
 func getDockerImageTag(t *testing.T) string {
 	t.Helper()
 
-	var imageReference = "twingate/kubernetes-access-gateway:*-linux-"
+	var imageReference = "twingate/gateway:*-linux-"
 	if runtime.GOARCH == archARM64 {
 		imageReference += "arm64"
 	} else {
@@ -175,7 +175,7 @@ kubernetes:
       inCluster: true
 
 image:
-  repository: twingate/kubernetes-access-gateway
+  repository: twingate/gateway
   tag: %s
 
 volumes:

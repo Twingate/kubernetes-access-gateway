@@ -5,9 +5,9 @@ should show ClusterIP instructions when service type is ClusterIP:
 
       1. The Gateway is accessible via its ClusterIP DNS at
 
-      RELEASE-NAME-kubernetes-access-gateway.NAMESPACE.svc.cluster.local
+      RELEASE-NAME-gateway.NAMESPACE.svc.cluster.local
 
-      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret. The CA certificate is
+      2. The Gateway uses TLS certificates from the "RELEASE-NAME-gateway-tls" Secret. The CA certificate is
 
       -----BEGIN CERTIFICATE-----
       MIIDIDCCAgigAwIBAgIRANR3YBydhgMaFH4HzGiKyOEwDQYJKoZIhvcNAQELBQAw
@@ -36,9 +36,9 @@ should show LoadBalancer instructions when service type is LoadBalancer:
 
       1. The Gateway is accessible via its LoadBalancer IP or hostname. It may take a few minutes for the address to be available.
 
-      Watch the LoadBalancer address with: 'kubectl get svc --namespace NAMESPACE -w RELEASE-NAME-kubernetes-access-gateway -o jsonpath='{.status.loadBalancer.ingress[0]}''
+      Watch the LoadBalancer address with: 'kubectl get svc --namespace NAMESPACE -w RELEASE-NAME-gateway -o jsonpath='{.status.loadBalancer.ingress[0]}''
 
-      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret. The CA certificate is
+      2. The Gateway uses TLS certificates from the "RELEASE-NAME-gateway-tls" Secret. The CA certificate is
 
       -----BEGIN CERTIFICATE-----
       MIIDIDCCAgigAwIBAgIRANR3YBydhgMaFH4HzGiKyOEwDQYJKoZIhvcNAQELBQAw
@@ -67,9 +67,9 @@ should show previously generated CA when the alternative names have not changed:
 
       1. The Gateway is accessible via its ClusterIP DNS at
 
-      RELEASE-NAME-kubernetes-access-gateway.NAMESPACE.svc.cluster.local
+      RELEASE-NAME-gateway.NAMESPACE.svc.cluster.local
 
-      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret. The CA certificate is
+      2. The Gateway uses TLS certificates from the "RELEASE-NAME-gateway-tls" Secret. The CA certificate is
 
       -----BEGIN CERTIFICATE-----
       MIIDIDCCAgigAwIBAgIRANR3YBydhgMaFH4HzGiKyOEwDQYJKoZIhvcNAQELBQAw
@@ -98,7 +98,7 @@ should use `existingSecret` Secret object when provided:
 
       1. The Gateway is accessible via its ClusterIP DNS at
 
-      RELEASE-NAME-kubernetes-access-gateway.NAMESPACE.svc.cluster.local
+      RELEASE-NAME-gateway.NAMESPACE.svc.cluster.local
 
       2. The Gateway uses TLS certificates from the "my-custom-secret" Secret. The CA certificate is
 
@@ -129,9 +129,9 @@ should use `tls.ca` value when provided:
 
       1. The Gateway is accessible via its ClusterIP DNS at
 
-      RELEASE-NAME-kubernetes-access-gateway.NAMESPACE.svc.cluster.local
+      RELEASE-NAME-gateway.NAMESPACE.svc.cluster.local
 
-      2. The Gateway uses TLS certificates from the "RELEASE-NAME-kubernetes-access-gateway-tls" Secret. The CA certificate is
+      2. The Gateway uses TLS certificates from the "RELEASE-NAME-gateway-tls" Secret. The CA certificate is
 
       -----BEGIN CERTIFICATE-----
       MIIDIDCCAgigAwIBAgIRANR3YBydhgMaFH4HzGiKyOEwDQYJKoZIhvcNAQELBQAw

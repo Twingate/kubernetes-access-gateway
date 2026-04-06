@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"strings"
 
-	"k8sgateway/internal/token"
+	"gateway/internal/token"
 )
 
 // AuthHeaderKey is the header that contains the auth token.

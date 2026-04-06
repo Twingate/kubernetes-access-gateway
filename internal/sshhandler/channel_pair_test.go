@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
-	"k8sgateway/internal/sessionrecorder"
+	"gateway/internal/sessionrecorder"
 )
 
 // Mock implementations
@@ -69,12 +69,12 @@ func (m *mockSessionRecorderFactory) NewRecorder(logger *zap.Logger) sessionreco
 func TestSSHChannelPair_serve_Success(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		// Create mock channels
-		downstreamChannel := NewMockChannel()
-		upstreamChannel := NewMockChannel()
+		sourceChannel := NewMockChannel()
+		targetChannel := NewMockChannel()
 
 		// Create mock request channels
-		downstreamRequests := make(chan Request)
-		upstreamRequests := make(chan Request)
+		sourceRequests := make(chan Request)
+		targetRequests := make(chan Request)
 
 		mockRecorderFactory := &mockSessionRecorderFactory{}
 		mockRec := &mockRecorder{}
@@ -98,12 +98,18 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 
 		channelPair := NewSSHChannelPair(
 			zap.NewNop(),
+			&sshChannelContext{
+				sshContext:  testSSHContext,
+				channelID:   "test-channel-id",
+				channelType: "session",
+				sourceLabel: "downstream",
+				targetLabel: "upstream",
+			},
 			"testuser",
-			downstreamChannel,
-			downstreamRequests,
-			upstreamChannel,
-			upstreamRequests,
-			"session",
+			sourceChannel,
+			sourceRequests,
+			targetChannel,
+			targetRequests,
 		)
 		channelPair.recorderFactory = mockRecorderFactory
 
@@ -124,12 +130,12 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 		}
 		ptyRequest.On("Reply", true, []byte(nil)).Return(nil)
 
-		downstreamRequests <- ptyRequest
+		sourceRequests <- ptyRequest
 
-		// Assert that the pty request was sent to upstream
+		// Assert that the pty request was sent to target
 		synctest.Wait()
 
-		requests := upstreamChannel.GetSendRequests()
+		requests := targetChannel.GetSendRequests()
 
 		assert.Len(t, requests, 1)
 		assert.Equal(t, ptyRequest.Type, requests[0].Type)
@@ -144,12 +150,12 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 		}
 		shellRequest.On("Reply", true, []byte(nil)).Return(nil)
 
-		downstreamRequests <- shellRequest
+		sourceRequests <- shellRequest
 
-		// Assert that the shell request was sent to upstream
+		// Assert that the shell request was sent to target
 		synctest.Wait()
 
-		requests = upstreamChannel.GetSendRequests()
+		requests = targetChannel.GetSendRequests()
 
 		assert.Len(t, requests, 2)
 		assert.Equal(t, shellRequest.Type, requests[1].Type)
@@ -164,23 +170,23 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 		}
 		windowChangeRequest.On("Reply", false, []byte(nil)).Return(nil)
 
-		downstreamRequests <- windowChangeRequest
+		sourceRequests <- windowChangeRequest
 
-		// Assert that the window-change request was sent to upstream
+		// Assert that the window-change request was sent to target
 		synctest.Wait()
 
-		requests = upstreamChannel.GetSendRequests()
+		requests = targetChannel.GetSendRequests()
 
 		assert.Len(t, requests, 3)
 		assert.Equal(t, windowChangeRequest.Type, requests[2].Type)
 		assert.Equal(t, windowChangeRequest.Payload, requests[2].Payload)
 		assert.False(t, requests[2].WantReply)
 
-		// Write data to the upstream channel
-		upstreamChannel.SetData([]byte("filename.txt"))
-		// Assert that the data was copied to the downstream channel
+		// Write data to the target channel
+		targetChannel.SetData([]byte("filename.txt"))
+		// Assert that the data was copied to the source channel
 		synctest.Wait()
-		assert.Equal(t, []byte("filename.txt"), downstreamChannel.GetWrittenData())
+		assert.Equal(t, []byte("filename.txt"), sourceChannel.GetWrittenData())
 
 		// Send exit-status back
 		exitStatus := &mockSSHRequest{
@@ -188,12 +194,12 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 			Payload:   []byte{},
 			WantReply: false,
 		}
-		upstreamRequests <- exitStatus
+		targetRequests <- exitStatus
 
-		// Assert that the exit-status request was sent to downstream
+		// Assert that the exit-status request was sent to source
 		synctest.Wait()
 
-		requests = downstreamChannel.GetSendRequests()
+		requests = sourceChannel.GetSendRequests()
 
 		assert.Len(t, requests, 1)
 		assert.Equal(t, exitStatus.Type, requests[0].Type)
@@ -201,13 +207,13 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 		assert.False(t, requests[0].WantReply)
 
 		// Close all the channels now
-		_ = upstreamChannel.Close()
+		_ = targetChannel.Close()
 
-		close(upstreamRequests)
+		close(targetRequests)
 
-		_ = downstreamChannel.Close()
+		_ = sourceChannel.Close()
 
-		close(downstreamRequests)
+		close(sourceRequests)
 
 		// Wait for serve to complete
 		<-done
@@ -221,23 +227,29 @@ func TestSSHChannelPair_serve_Success(t *testing.T) {
 func TestSSHChannelPair_serve_NonShellCommand(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		// Create mock channels
-		downstreamChannel := NewMockChannel()
-		upstreamChannel := NewMockChannel()
+		sourceChannel := NewMockChannel()
+		targetChannel := NewMockChannel()
 
 		// Create mock request channels
-		downstreamRequests := make(chan Request)
-		upstreamRequests := make(chan Request)
+		sourceRequests := make(chan Request)
+		targetRequests := make(chan Request)
 
 		mockRecorderFactory := &mockSessionRecorderFactory{}
 
 		channelPair := NewSSHChannelPair(
 			zap.NewNop(),
+			&sshChannelContext{
+				sshContext:  testSSHContext,
+				channelID:   "test-channel-id",
+				channelType: "session",
+				sourceLabel: "downstream",
+				targetLabel: "upstream",
+			},
 			"testuser",
-			downstreamChannel,
-			downstreamRequests,
-			upstreamChannel,
-			upstreamRequests,
-			"session",
+			sourceChannel,
+			sourceRequests,
+			targetChannel,
+			targetRequests,
 		)
 		channelPair.recorderFactory = mockRecorderFactory
 
@@ -258,12 +270,12 @@ func TestSSHChannelPair_serve_NonShellCommand(t *testing.T) {
 		}
 		subsystemRequest.On("Reply", true, []byte(nil)).Return(nil)
 
-		downstreamRequests <- subsystemRequest
+		sourceRequests <- subsystemRequest
 
-		// Assert that the subsystem request was sent to upstream
+		// Assert that the subsystem request was sent to target
 		synctest.Wait()
 
-		requests := upstreamChannel.GetSendRequests()
+		requests := targetChannel.GetSendRequests()
 
 		assert.Len(t, requests, 1)
 		assert.Equal(t, subsystemRequest.Type, requests[0].Type)
@@ -271,13 +283,13 @@ func TestSSHChannelPair_serve_NonShellCommand(t *testing.T) {
 		assert.Equal(t, subsystemRequest.WantReply, requests[0].WantReply)
 
 		// Close all the channels now
-		_ = upstreamChannel.Close()
+		_ = targetChannel.Close()
 
-		close(upstreamRequests)
+		close(targetRequests)
 
-		_ = downstreamChannel.Close()
+		_ = sourceChannel.Close()
 
-		close(downstreamRequests)
+		close(sourceRequests)
 
 		// Wait for serve to complete
 		<-done
@@ -290,12 +302,12 @@ func TestSSHChannelPair_serve_NonShellCommand(t *testing.T) {
 func TestSSHChannelPair_serve_SessionStartTimeout(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		// Create mock channels
-		downstreamChannel := NewMockChannel()
-		upstreamChannel := NewMockChannel()
+		sourceChannel := NewMockChannel()
+		targetChannel := NewMockChannel()
 
 		// Create mock request channels
-		downstreamRequests := make(chan Request)
-		upstreamRequests := make(chan Request)
+		sourceRequests := make(chan Request)
+		targetRequests := make(chan Request)
 
 		mockRecorderFactory := &mockSessionRecorderFactory{}
 
@@ -304,12 +316,18 @@ func TestSSHChannelPair_serve_SessionStartTimeout(t *testing.T) {
 
 		channelPair := NewSSHChannelPair(
 			zap.NewNop(),
+			&sshChannelContext{
+				sshContext:  testSSHContext,
+				channelID:   "test-channel-id",
+				channelType: "session",
+				sourceLabel: "downstream",
+				targetLabel: "upstream",
+			},
 			"testuser",
-			downstreamChannel,
-			downstreamRequests,
-			upstreamChannel,
-			upstreamRequests,
-			"session",
+			sourceChannel,
+			sourceRequests,
+			targetChannel,
+			targetRequests,
 		)
 		channelPair.recorderFactory = mockRecorderFactory
 
@@ -337,13 +355,13 @@ func TestSSHChannelPair_serve_SessionStartTimeout(t *testing.T) {
 		}
 
 		// Close channels for cleanup
-		_ = upstreamChannel.Close()
+		_ = targetChannel.Close()
 
-		close(upstreamRequests)
+		close(targetRequests)
 
-		_ = downstreamChannel.Close()
+		_ = sourceChannel.Close()
 
-		close(downstreamRequests)
+		close(sourceRequests)
 
 		// Verify expectations - recorder should never have been created
 		mockRecorderFactory.AssertExpectations(t)

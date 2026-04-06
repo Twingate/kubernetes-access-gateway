@@ -17,12 +17,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	gatewayconfig "k8sgateway/internal/config"
-	"k8sgateway/internal/proxy"
-	"k8sgateway/internal/sessionrecorder"
-	"k8sgateway/internal/token"
-	"k8sgateway/test/fake"
-	"k8sgateway/test/integration/testutil"
+	gatewayconfig "gateway/internal/config"
+	"gateway/internal/proxy"
+	"gateway/internal/sessionrecorder"
+	"gateway/internal/token"
+	"gateway/test/fake"
+	"gateway/test/integration/testutil"
 )
 
 const network = "acme"

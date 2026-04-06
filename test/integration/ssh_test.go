@@ -22,12 +22,12 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	gatewayconfig "k8sgateway/internal/config"
-	"k8sgateway/internal/proxy"
-	"k8sgateway/internal/token"
-	"k8sgateway/test/data"
-	"k8sgateway/test/fake"
-	"k8sgateway/test/integration/testutil"
+	gatewayconfig "gateway/internal/config"
+	"gateway/internal/proxy"
+	"gateway/internal/token"
+	"gateway/test/data"
+	"gateway/test/fake"
+	"gateway/test/integration/testutil"
 )
 
 const sshUsername = "admin"
@@ -134,6 +134,8 @@ func TestSSH(t *testing.T) {
 	expectedRequest := map[string]any{
 		"type":    "exec",
 		"command": "whoami",
+		"source":  "downstream",
+		"target":  "upstream",
 	}
 	expectedUser := map[string]any{
 		"id":       "user-ssh-1",
@@ -164,8 +166,10 @@ func TestSSH(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	expectedRequest = map[string]any{
-		"type": "subsystem",
-		"name": "sftp",
+		"type":   "subsystem",
+		"name":   "sftp",
+		"source": "downstream",
+		"target": "upstream",
 	}
 	testutil.AssertLogsForSSH(t, env.logs, expectedUser, expectedRequest)
 }
@@ -240,6 +244,19 @@ func TestSSHLocalPortForwarding(t *testing.T) {
 	require.NoError(t, err, "failed to read from forwarded port")
 
 	assert.Equal(t, testData, string(response))
+
+	// Assert audit logs for local port forwarding
+	expectedUser := map[string]any{
+		"id":       "user-ssh-local-fwd",
+		"username": "alex@acme.com",
+		"groups":   []any{"Engineering"},
+	}
+	expectedChannel := map[string]any{
+		"type":   "direct-tcpip",
+		"source": "downstream",
+		"target": "upstream",
+	}
+	testutil.AssertLogsForSSHChannel(t, env.logs, expectedUser, expectedChannel)
 }
 
 // TestSSHRemotePortForwarding tests that remote port forwarding (-R) works through the gateway.
@@ -302,6 +319,26 @@ func TestSSHRemotePortForwarding(t *testing.T) {
 	require.NoError(t, err, "failed to connect to remote forwarded port from container")
 
 	assert.Equal(t, "hello remote port forwarding\n", string(output))
+
+	// Assert audit logs for remote port forwarding
+	expectedUser := map[string]any{
+		"id":       "user-ssh-remote-fwd",
+		"username": "alex@acme.com",
+		"groups":   []any{"Engineering"},
+	}
+	expectedGlobalRequest := map[string]any{
+		"type":   "tcpip-forward",
+		"source": "downstream",
+		"target": "upstream",
+	}
+	testutil.AssertLogsForSSHGlobalRequest(t, env.logs, expectedUser, expectedGlobalRequest)
+
+	expectedChannel := map[string]any{
+		"type":   "forwarded-tcpip",
+		"source": "upstream",
+		"target": "downstream",
+	}
+	testutil.AssertLogsForSSHChannel(t, env.logs, expectedUser, expectedChannel)
 }
 
 // TestSSHVault tests SSH proxying through the gateway using Vault as the CA backend.

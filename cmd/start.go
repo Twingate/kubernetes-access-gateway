@@ -11,13 +11,13 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/config"
-	"k8sgateway/internal/proxy"
+	"gateway/internal/config"
+	"gateway/internal/proxy"
 )
 
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start Twingate Kubernetes Access Gateway",
+	Short: "Start Twingate Gateway",
 	RunE: func(_cmd *cobra.Command, _args []string) error {
 		return start()
 	},

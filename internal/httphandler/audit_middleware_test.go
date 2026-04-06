@@ -17,8 +17,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"k8sgateway/internal/connect"
-	"k8sgateway/internal/token"
+	"gateway/internal/connect"
+	"gateway/internal/token"
 )
 
 type mockHandler struct {

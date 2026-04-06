@@ -17,8 +17,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 
-	"k8sgateway/internal/token"
-	"k8sgateway/test/data"
+	"gateway/internal/token"
+	"gateway/test/data"
 )
 
 const keyID = "1"

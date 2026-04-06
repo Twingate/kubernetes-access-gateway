@@ -14,7 +14,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/remotecommand"
 
-	"k8sgateway/internal/sessionrecorder"
+	"gateway/internal/sessionrecorder"
 )
 
 var (

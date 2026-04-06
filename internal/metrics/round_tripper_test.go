@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"k8sgateway/internal/metrics/testutil"
+	"gateway/internal/metrics/testutil"
 )
 
 func TestRoundTripper(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/remotecommand"
 
-	"k8sgateway/internal/sessionrecorder"
+	"gateway/internal/sessionrecorder"
 )
 
 type mockConn struct {

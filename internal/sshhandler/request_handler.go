@@ -110,13 +110,15 @@ type RequestHandler interface {
 // parseRequestPayload unmarshals request payload and logs error if parsing fails.
 func (h *SSHRequestHandler) parseRequestPayload(req Request, target any) {
 	if err := ssh.Unmarshal(req.GetPayload(), target); err != nil {
-		h.logger.Error("Failed to parse "+req.GetType()+" request", zap.Error(err))
+		h.logger.Error("Failed to parse "+req.GetType()+" request",
+			zap.Any("ssh", h.sshChannelCtx.withRequest(req.GetType(), nil)),
+			zap.Error(err))
 	}
 }
 
 // handleRequest processes and forwards a single SSH request, returning session info if applicable.
 func (h *SSHRequestHandler) handleRequest(req Request, sessionSignals SSHSessionSignals) {
-	h.logger.Debug("Channel request", zap.String("type", req.GetType()))
+	h.logger.Debug("Channel request", zap.Any("ssh", h.sshChannelCtx.withRequest(req.GetType(), nil)))
 
 	// Sessions are started when a shell, exec, or subsystem request is received
 	// see: https://datatracker.ietf.org/doc/html/rfc4254#section-6.5
@@ -124,9 +126,7 @@ func (h *SSHRequestHandler) handleRequest(req Request, sessionSignals SSHSession
 	command := ""
 
 	shouldLog := false
-	requestFields := map[string]any{
-		"type": req.GetType(),
-	}
+	extra := map[string]any{}
 
 	switch req.GetType() {
 	case requestTypePty:
@@ -150,7 +150,7 @@ func (h *SSHRequestHandler) handleRequest(req Request, sessionSignals SSHSession
 		command = req.GetType() + " " + execReq.Command
 
 		shouldLog = true
-		requestFields["command"] = execReq.Command
+		extra["command"] = execReq.Command
 	case requestTypeSubsystem:
 		sessionStarted = true
 
@@ -160,7 +160,7 @@ func (h *SSHRequestHandler) handleRequest(req Request, sessionSignals SSHSession
 		command = req.GetType() + " " + subsystemReq.Name
 
 		shouldLog = true
-		requestFields["name"] = subsystemReq.Name
+		extra["name"] = subsystemReq.Name
 	case requestTypeWindowChange:
 		var windowChangeReq windowChangeReq
 		h.parseRequestPayload(req, &windowChangeReq)
@@ -171,11 +171,14 @@ func (h *SSHRequestHandler) handleRequest(req Request, sessionSignals SSHSession
 	}
 
 	if shouldLog {
-		h.logger.Info("Received SSH request", zap.Any("request", requestFields))
+		h.logger.Info("SSH channel request",
+			zap.Any("ssh", h.sshChannelCtx.withRequest(req.GetType(), extra)))
 	}
 
 	if err := forwardRequest(h.targetChannel, req); err != nil {
-		h.logger.Error("Failed to forward request", zap.Error(err))
+		h.logger.Error("Failed to forward request",
+			zap.Any("ssh", h.sshChannelCtx.withRequest(req.GetType(), nil)),
+			zap.Error(err))
 
 		return
 	}
@@ -190,6 +193,9 @@ func (h *SSHRequestHandler) handleRequest(req Request, sessionSignals SSHSession
 
 type SSHRequestHandler struct {
 	logger *zap.Logger
+
+	// SSH channel-level audit context for structured logging
+	sshChannelCtx *sshChannelContext
 
 	// Trigger used to flush any pending requests
 	flushTrigger <-chan SSHRequestHandlerFlushTrigger
@@ -230,7 +236,8 @@ func (h *SSHRequestHandler) handleRequests() SSHSessionSignals {
 
 			case trigger, ok := <-h.flushTrigger:
 				if !ok {
-					h.logger.Error("Flush trigger channel closed prematurely")
+					h.logger.Error("Flush trigger channel closed prematurely",
+						zap.Any("ssh", h.sshChannelCtx.baseFields()))
 
 					return
 				}

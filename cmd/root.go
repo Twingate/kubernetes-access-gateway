@@ -10,7 +10,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "gateway",
-	Short: "Twingate Kubernetes Access Gateway",
+	Short: "Twingate Gateway",
 }
 
 func Execute() {

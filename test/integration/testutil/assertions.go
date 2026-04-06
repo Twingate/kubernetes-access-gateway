@@ -17,7 +17,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	"k8sgateway/internal/sessionrecorder"
+	"gateway/internal/sessionrecorder"
 )
 
 func AssertWhoAmI(t *testing.T, output []byte, expectedUsername string, expectedGroups []string) {
@@ -86,12 +86,101 @@ func AssertLogsForExecOrAttach(t *testing.T, logs *observer.ObservedLogs, expect
 func AssertLogsForSSH(t *testing.T, logs *observer.ObservedLogs, expectedUser, expectedRequest map[string]any) {
 	t.Helper()
 
-	sessionLogs := logs.FilterMessage("Received SSH request").All()
+	sessionLogs := logs.FilterMessage("SSH channel request").All()
 	assert.Len(t, sessionLogs, 1, "expected 1 log for SSH session, user %v", expectedUser)
 
 	firstLog := sessionLogs[0]
 	assert.Equal(t, expectedUser, firstLog.ContextMap()["user"])
-	assert.Equal(t, expectedRequest, firstLog.ContextMap()["request"])
+
+	sshField, ok := firstLog.ContextMap()["ssh"].(map[string]any)
+	require.True(t, ok, "ssh field should be a map")
+
+	requestField, ok := sshField["request"].(map[string]any)
+	require.True(t, ok, "ssh.request field should be a map")
+
+	for k, v := range expectedRequest {
+		assert.Equal(t, v, requestField[k], "ssh.request.%s mismatch", k)
+	}
+}
+
+func AssertLogsForSSHChannel(t *testing.T, logs *observer.ObservedLogs, expectedUser, expectedChannel map[string]any) {
+	t.Helper()
+
+	channelLogs := logs.FilterMessage("SSH channel opened").All()
+	require.NotEmpty(t, channelLogs, "expected at least 1 'SSH channel opened' log")
+
+	// Find the first log entry matching expectedChannel (ignoring unrelated
+	// channels such as different channel types within the same connection).
+	for _, log := range channelLogs {
+		sshField, ok := log.ContextMap()["ssh"].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		channelField, ok := sshField["channel"].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		if !matchesExpected(channelField, expectedChannel) {
+			continue
+		}
+
+		assert.Equal(t, expectedUser, log.ContextMap()["user"])
+
+		for k, v := range expectedChannel {
+			assert.Equal(t, v, channelField[k], "ssh.channel.%s mismatch", k)
+		}
+
+		return
+	}
+
+	t.Errorf("no 'SSH channel opened' log matching %v", expectedChannel)
+}
+
+func AssertLogsForSSHGlobalRequest(t *testing.T, logs *observer.ObservedLogs, expectedUser, expectedGlobalRequest map[string]any) {
+	t.Helper()
+
+	globalRequestLogs := logs.FilterMessage("SSH global request").All()
+	require.NotEmpty(t, globalRequestLogs, "expected at least 1 'SSH global request' log")
+
+	// Find the first log entry matching expectedGlobalRequest (ignoring unrelated
+	// global requests such as hostkeys-00@openssh.com sent by OpenSSH).
+	for _, log := range globalRequestLogs {
+		sshField, ok := log.ContextMap()["ssh"].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		globalRequestField, ok := sshField["global_request"].(map[string]any)
+		if !ok {
+			continue
+		}
+
+		if !matchesExpected(globalRequestField, expectedGlobalRequest) {
+			continue
+		}
+
+		assert.Equal(t, expectedUser, log.ContextMap()["user"])
+
+		for k, v := range expectedGlobalRequest {
+			assert.Equal(t, v, globalRequestField[k], "ssh.global_request.%s mismatch", k)
+		}
+
+		return
+	}
+
+	t.Errorf("no 'SSH global request' log matching %v", expectedGlobalRequest)
+}
+
+func matchesExpected(actual, expected map[string]any) bool {
+	for k, v := range expected {
+		if actual[k] != v {
+			return false
+		}
+	}
+
+	return true
 }
 
 func assertAsciicast(t *testing.T, asciicast string, expectedHeader sessionrecorder.AsciicastHeader, expectedEvents []string) {

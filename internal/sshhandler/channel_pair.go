@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 
-	"k8sgateway/internal/sessionrecorder"
+	"gateway/internal/sessionrecorder"
 )
 
 var sessionStartTimeout = 10 * time.Second
@@ -46,19 +46,21 @@ type ChannelPair interface {
 type SSHChannelPair struct {
 	logger *zap.Logger
 
-	channelType string
+	// sshChannelCtx carries channel-level context
+	sshChannelCtx *sshChannelContext
 
-	// Downstream SSH channel
-	downstreamChannel ssh.Channel
-	// Downstream SSH channel requests channel
-	downstreamChannelRequests <-chan Request
+	// Source SSH channel
+	sourceChannel ssh.Channel
+	// Source SSH channel requests channel
+	sourceChannelRequests <-chan Request
 
-	// Upstream SSH channel
-	upstreamChannel ssh.Channel
-	// Upstream SSH channel requests channel
-	upstreamChannelRequests <-chan Request
-	// Upstream SSH username (for session recording)
-	upstreamSSHUsername string
+	// Target SSH channel
+	targetChannel ssh.Channel
+	// Target SSH channel requests channel
+	targetChannelRequests <-chan Request
+
+	// SSH username (for session recording)
+	sshUsername string
 
 	// Factory for creating session recorders
 	recorderFactory SessionRecorderFactory
@@ -67,20 +69,22 @@ type SSHChannelPair struct {
 }
 
 // NewSSHChannelPair creates a new SSHChannelPair with the default factories.
-func NewSSHChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan Request, upstreamChannel ssh.Channel, upstreamRequests <-chan Request, channelType string) *SSHChannelPair {
+func NewSSHChannelPair(logger *zap.Logger, sshChannelCtx *sshChannelContext, sshUsername string, sourceChannel ssh.Channel, sourceRequests <-chan Request, targetChannel ssh.Channel, targetRequests <-chan Request) *SSHChannelPair {
 	return &SSHChannelPair{
-		logger:                    logger,
-		upstreamSSHUsername:       upstreamSSHUsername,
-		downstreamChannel:         downstreamChannel,
-		downstreamChannelRequests: downstreamRequests,
-		upstreamChannel:           upstreamChannel,
-		upstreamChannelRequests:   upstreamRequests,
-		recorderFactory:           &DefaultSessionRecorderFactory{},
-		channelType:               channelType,
+		logger:                logger,
+		sshChannelCtx:         sshChannelCtx,
+		sshUsername:           sshUsername,
+		sourceChannel:         sourceChannel,
+		sourceChannelRequests: sourceRequests,
+		targetChannel:         targetChannel,
+		targetChannelRequests: targetRequests,
+		recorderFactory:       &DefaultSessionRecorderFactory{},
 	}
 }
 
 func (c *SSHChannelPair) serve() {
+	logger := c.logger.With(zap.Any("ssh", c.sshChannelCtx.baseFields()))
+
 	var (
 		rec   sessionrecorder.Recorder
 		recMu sync.RWMutex
@@ -90,16 +94,17 @@ func (c *SSHChannelPair) serve() {
 	asciinemaHeader := sessionrecorder.AsciicastHeader{
 		Version:   2,
 		Timestamp: time.Now().Unix(),
-		User:      c.upstreamSSHUsername,
+		User:      c.sshUsername,
 	}
 
-	// Handle the downstream channel's requests
-	downstreamEOFTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
-	downstreamRequestHandler := &SSHRequestHandler{
-		logger:            c.logger.With(zap.String("direction", "downstream -> upstream")),
-		flushTrigger:      downstreamEOFTrigger,
-		sourceRequestChan: c.downstreamChannelRequests,
-		targetChannel:     c.upstreamChannel,
+	// Handle the source channel's requests
+	sourceEOFTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
+	sourceRequestHandler := &SSHRequestHandler{
+		logger:            c.logger,
+		sshChannelCtx:     c.sshChannelCtx,
+		flushTrigger:      sourceEOFTrigger,
+		sourceRequestChan: c.sourceChannelRequests,
+		targetChannel:     c.targetChannel,
 		onPtyRequest: func(req ptyReq) {
 			// Set the asciinema header with the pty request details only once
 			c.ptyRequestOnce.Do(func() {
@@ -119,34 +124,42 @@ func (c *SSHChannelPair) serve() {
 			}
 
 			if err := r.WriteResizeEvent(int(req.WidthColumns), int(req.HeightRows)); err != nil {
-				c.logger.Error("failed to write resize event", zap.Error(err))
+				logger.Error("failed to write resize event", zap.Error(err))
 			}
 		},
 	}
-	downstreamSessionSignals := downstreamRequestHandler.handleRequests()
+	sourceSessionSignals := sourceRequestHandler.handleRequests()
 
-	// Handle the upstream channel's requests
-	upstreamEOFTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
-	upstreamRequestHandler := &SSHRequestHandler{
-		logger:            c.logger.With(zap.String("direction", "upstream -> downstream")),
-		flushTrigger:      upstreamEOFTrigger,
-		sourceRequestChan: c.upstreamChannelRequests,
-		targetChannel:     c.downstreamChannel,
+	// Handle the target channel's requests
+	targetEOFTrigger := make(chan SSHRequestHandlerFlushTrigger, 1)
+	targetChannelCtx := &sshChannelContext{
+		sshContext:  c.sshChannelCtx.sshContext,
+		channelID:   c.sshChannelCtx.channelID,
+		channelType: c.sshChannelCtx.channelType,
+		sourceLabel: c.sshChannelCtx.targetLabel,
+		targetLabel: c.sshChannelCtx.sourceLabel,
+	}
+	targetRequestHandler := &SSHRequestHandler{
+		logger:            c.logger,
+		sshChannelCtx:     targetChannelCtx,
+		flushTrigger:      targetEOFTrigger,
+		sourceRequestChan: c.targetChannelRequests,
+		targetChannel:     c.sourceChannel,
 		onPtyRequest:      nil,
 		onWindowChange:    nil,
 	}
-	upstreamSessionSignals := upstreamRequestHandler.handleRequests()
+	targetSessionSignals := targetRequestHandler.handleRequests()
 
 	var command string
 
-	if c.channelType == "session" {
-		// Wait for session to start from downstream prior to starting the data copying
+	if c.sshChannelCtx.channelType == "session" {
+		// Wait for session to start from source prior to starting the data copying
 		select {
-		case command = <-downstreamSessionSignals.started:
-			c.logger.Debug("Downstream session started", zap.String("command", command))
+		case command = <-sourceSessionSignals.started:
+			logger.Debug("Source session started", zap.String("command", command))
 			asciinemaHeader.Command = command
 		case <-time.After(sessionStartTimeout):
-			c.logger.Error("Timeout waiting for downstream session to start")
+			logger.Error("Timeout waiting for source session to start")
 
 			return
 		}
@@ -157,7 +170,7 @@ func (c *SSHChannelPair) serve() {
 	if command == requestTypeShell {
 		recMu.Lock()
 
-		rec = c.recorderFactory.NewRecorder(c.logger)
+		rec = c.recorderFactory.NewRecorder(logger)
 
 		recMu.Unlock()
 
@@ -166,31 +179,31 @@ func (c *SSHChannelPair) serve() {
 		// Write the asciinema header to the recorder
 		// Note: We are relying on the convention that 'pty-req' will be sent prior to 'shell' requests,
 		// so we should have already set the asciinema header with the pty request details
-		// in the onPtyRequest() callback on the downstreamRequestHandler
+		// in the onPtyRequest() callback on the sourceRequestHandler
 		err := rec.WriteHeader(asciinemaHeader)
 		if err != nil {
-			c.logger.Error("failed to write asciinema header", zap.Error(err))
+			logger.Error("failed to write asciinema header", zap.Error(err))
 		}
 
 		processor = &TerminalOutputRecorder{recorder: rec}
 	}
 
 	copier := &BidirectionalCopier{
-		logger: c.logger,
-		DownstreamToUpstream: ChannelCopyPair{
-			logger:          c.logger.With(zap.String("direction", "downstream -> upstream")),
-			Src:             c.downstreamChannel,
-			Dst:             c.upstreamChannel,
-			EOFTriggerCh:    downstreamEOFTrigger,
-			ChannelClosedCh: downstreamSessionSignals.finished,
+		logger: logger,
+		SourceToTarget: ChannelCopyPair{
+			logger:          logger,
+			Src:             c.sourceChannel,
+			Dst:             c.targetChannel,
+			EOFTriggerCh:    sourceEOFTrigger,
+			ChannelClosedCh: sourceSessionSignals.finished,
 		},
 
-		UpstreamToDownstream: ChannelCopyPair{
-			logger:          c.logger.With(zap.String("direction", "upstream -> downstream")),
-			Src:             c.upstreamChannel,
-			Dst:             c.downstreamChannel,
-			EOFTriggerCh:    upstreamEOFTrigger,
-			ChannelClosedCh: upstreamSessionSignals.finished,
+		TargetToSource: ChannelCopyPair{
+			logger:          logger,
+			Src:             c.targetChannel,
+			Dst:             c.sourceChannel,
+			EOFTriggerCh:    targetEOFTrigger,
+			ChannelClosedCh: targetSessionSignals.finished,
 			Tap:             processor,
 		},
 	}

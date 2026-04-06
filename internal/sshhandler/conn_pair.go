@@ -4,16 +4,18 @@
 package sshhandler
 
 import (
+	"errors"
+	"net"
 	"sync"
+	"sync/atomic"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 )
 
 const (
-	dirDownstreamToUpstream = "downstream -> upstream"
-	dirUpstreamToDownstream = "upstream -> downstream"
+	labelDownstream = "downstream"
+	labelUpstream   = "upstream"
 )
 
 // Denylists for channel types per direction (RFC 4254).
@@ -43,32 +45,34 @@ var (
 
 // ChannelPairFactory creates SSH channel pairs.
 type ChannelPairFactory interface {
-	NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request, channelType string) ChannelPair
+	NewChannelPair(logger *zap.Logger, sshChannelCtx *sshChannelContext, sshUsername string, sourceChannel ssh.Channel, sourceRequests <-chan *ssh.Request, targetChannel ssh.Channel, targetRequests <-chan *ssh.Request) ChannelPair
 }
 
 // DefaultChannelPairFactory implements ChannelPairFactory using SSHChannelPair.
 type DefaultChannelPairFactory struct{}
 
 //nolint:ireturn
-func (f *DefaultChannelPairFactory) NewChannelPair(logger *zap.Logger, upstreamSSHUsername string, downstreamChannel ssh.Channel, downstreamRequests <-chan *ssh.Request, upstreamChannel ssh.Channel, upstreamRequests <-chan *ssh.Request, channelType string) ChannelPair {
+func (f *DefaultChannelPairFactory) NewChannelPair(logger *zap.Logger, sshChannelCtx *sshChannelContext, sshUsername string, sourceChannel ssh.Channel, sourceRequests <-chan *ssh.Request, targetChannel ssh.Channel, targetRequests <-chan *ssh.Request) ChannelPair {
 	return NewSSHChannelPair(
 		logger,
-		upstreamSSHUsername,
-		downstreamChannel,
-		wrapSSHRequestChannel(downstreamRequests),
-		upstreamChannel,
-		wrapSSHRequestChannel(upstreamRequests),
-		channelType,
+		sshChannelCtx,
+		sshUsername,
+		sourceChannel,
+		wrapSSHRequestChannel(sourceRequests),
+		targetChannel,
+		wrapSSHRequestChannel(targetRequests),
 	)
 }
 
 type ConnPair interface {
 	serve()
 	close()
+	ChannelsOpened() int
 }
 
 type SSHConnPair struct {
 	logger *zap.Logger
+	sshCtx *sshContext
 
 	// Downstream SSH connection, channels, and global requests
 	downstreamConn            ssh.Conn
@@ -83,17 +87,21 @@ type SSHConnPair struct {
 	// Factory for creating channel pairs
 	channelPairFactory ChannelPairFactory
 
+	// Counter for opened channels
+	channelCount atomic.Int32
+
 	// Wait group for all channel pairs to be finished
 	wg sync.WaitGroup
 }
 
 func NewSSHConnPair(
-	logger *zap.Logger,
+	logger *zap.Logger, sshCtx *sshContext,
 	downstreamConn ssh.Conn, downstreamChannels <-chan ssh.NewChannel, downstreamRequests <-chan *ssh.Request,
 	upstreamConn ssh.Conn, upstreamChannels <-chan ssh.NewChannel, upstreamRequests <-chan *ssh.Request,
 ) *SSHConnPair {
 	return &SSHConnPair{
 		logger:                    logger,
+		sshCtx:                    sshCtx,
 		downstreamConn:            downstreamConn,
 		downstreamSSHChannelsChan: downstreamChannels,
 		downstreamRequestsChan:    downstreamRequests,
@@ -104,37 +112,57 @@ func NewSSHConnPair(
 	}
 }
 
+func (c *SSHConnPair) ChannelsOpened() int {
+	return int(c.channelCount.Load())
+}
+
 func (c *SSHConnPair) serve() {
-	// Forward global requests in both directions
+	// When either side closes, close the other to unblock all ranging goroutines.
 	c.wg.Go(func() {
-		c.forwardGlobalRequests(c.downstreamRequestsChan, c.upstreamConn, nil, dirDownstreamToUpstream)
+		_ = c.downstreamConn.Wait()
+
+		if err := c.upstreamConn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			c.logger.Debug("Failed to close upstream connection", zap.Error(err))
+		}
 	})
 
 	c.wg.Go(func() {
-		c.forwardGlobalRequests(c.upstreamRequestsChan, c.downstreamConn, disallowedUpstreamGlobalRequests, dirUpstreamToDownstream)
+		_ = c.upstreamConn.Wait()
+
+		if err := c.downstreamConn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			c.logger.Debug("Failed to close downstream connection", zap.Error(err))
+		}
+	})
+
+	// Forward global requests in both directions
+	c.wg.Go(func() {
+		c.forwardGlobalRequests(c.downstreamRequestsChan, c.upstreamConn, nil, labelDownstream, labelUpstream)
+	})
+
+	c.wg.Go(func() {
+		c.forwardGlobalRequests(c.upstreamRequestsChan, c.downstreamConn, disallowedUpstreamGlobalRequests, labelUpstream, labelDownstream)
 	})
 
 	// Forward channels in both directions
 	c.wg.Go(func() {
-		c.forwardChannels(c.downstreamSSHChannelsChan, c.upstreamConn, disallowedDownstreamChannelTypes, dirDownstreamToUpstream)
+		c.forwardChannels(c.downstreamSSHChannelsChan, c.upstreamConn, disallowedDownstreamChannelTypes, labelDownstream, labelUpstream)
 	})
 
 	c.wg.Go(func() {
-		c.forwardChannels(c.upstreamSSHChannelsChan, c.downstreamConn, disallowedUpstreamChannelTypes, dirUpstreamToDownstream)
+		c.forwardChannels(c.upstreamSSHChannelsChan, c.downstreamConn, disallowedUpstreamChannelTypes, labelUpstream, labelDownstream)
 	})
 
 	c.wg.Wait()
 }
 
-func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn ssh.Conn, disallowedTypes map[string]bool, direction string) {
-	logger := c.logger.With(zap.String("direction", direction))
-
+func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn ssh.Conn, disallowedTypes map[string]bool, source, target string) {
 	for newChannel := range channels {
 		channelType := newChannel.ChannelType()
-		logger.Debug("Handling channel", zap.String("channelType", channelType))
+		sshChannelCtx := newSSHChannelContext(c.sshCtx, channelType, source, target)
+		logger := c.logger.With(zap.Any("ssh", sshChannelCtx.baseFields()))
 
 		if disallowedTypes[channelType] {
-			logger.Warn("Rejecting disallowed channel type", zap.String("channelType", channelType))
+			logger.Warn("SSH channel rejected")
 
 			if err := newChannel.Reject(ssh.Prohibited, "channel type not allowed"); err != nil {
 				logger.Error("Failed to reject channel", zap.Error(err))
@@ -167,39 +195,41 @@ func (c *SSHConnPair) forwardChannels(channels <-chan ssh.NewChannel, targetConn
 			continue
 		}
 
-		channelID := uuid.New().String()
-		logger.Debug("Serving channel pair", zap.String("channel_pair_id", channelID))
+		c.channelCount.Add(1)
+
+		logger.Info("SSH channel opened")
 
 		channelPair := c.channelPairFactory.NewChannelPair(
-			logger.With(zap.String("channel_pair_id", channelID)),
+			c.logger,
+			sshChannelCtx,
 			c.upstreamConn.User(),
 			sourceChannel, sourceRequests,
 			targetChannel, targetRequests,
-			channelType,
 		)
 
 		c.wg.Go(func() {
 			channelPair.serve()
+			logger.Info("SSH channel closed")
 		})
 	}
 }
 
-func (c *SSHConnPair) forwardGlobalRequests(requests <-chan *ssh.Request, dst ssh.Conn, disallowedTypes map[string]bool, direction string) {
-	logger := c.logger.With(zap.String("direction", direction))
-
+func (c *SSHConnPair) forwardGlobalRequests(requests <-chan *ssh.Request, dst ssh.Conn, disallowedTypes map[string]bool, source, target string) {
 	for req := range requests {
+		logger := c.logger.With(zap.Any("ssh", c.sshCtx.withGlobalRequest(req.Type, source, target)))
+
 		if disallowedTypes[req.Type] {
-			logger.Warn("Rejecting disallowed global request", zap.String("type", req.Type))
+			logger.Warn("SSH global request rejected")
 			replyToGlobalRequest(req, false, nil, logger)
 
 			continue
 		}
 
-		logger.Debug("Forwarding global request", zap.String("type", req.Type))
+		logger.Info("SSH global request")
 
 		ok, payload, err := dst.SendRequest(req.Type, req.WantReply, req.Payload)
 		if err != nil {
-			logger.Error("Failed to forward global request", zap.String("type", req.Type), zap.Error(err))
+			logger.Error("Failed to forward global request", zap.Error(err))
 			replyToGlobalRequest(req, false, nil, logger)
 
 			continue
@@ -210,13 +240,11 @@ func (c *SSHConnPair) forwardGlobalRequests(requests <-chan *ssh.Request, dst ss
 }
 
 func (c *SSHConnPair) close() {
-	err := c.downstreamConn.Close()
-	if err != nil {
+	if err := c.downstreamConn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 		c.logger.Error("Failed to close downstream connection", zap.Error(err))
 	}
 
-	err = c.upstreamConn.Close()
-	if err != nil {
+	if err := c.upstreamConn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 		c.logger.Error("Failed to close upstream connection", zap.Error(err))
 	}
 }

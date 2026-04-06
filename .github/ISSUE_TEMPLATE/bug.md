@@ -1,6 +1,6 @@
 ---
 name: Bug
-about: Report a bug related to the Twingate Kubernetes Access Gateway
+about: Report a bug related to the Twingate Gateway
 labels: bug
 ---
 

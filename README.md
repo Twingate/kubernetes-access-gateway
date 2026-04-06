@@ -1,8 +1,8 @@
-# Twingate Kubernetes Access Gateway
+# Twingate Gateway
 
-[![CI](https://github.com/Twingate/kubernetes-access-gateway/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/Twingate/kubernetes-access-gateway/actions/workflows/ci.yaml)
-[![codecov](https://codecov.io/gh/Twingate/kubernetes-access-gateway/branch/master/graph/badge.svg)](https://codecov.io/gh/Twingate/kubernetes-access-gateway)
-[![Dockerhub](https://img.shields.io/badge/dockerhub-images-info.svg?logo=Docker)](https://hub.docker.com/r/twingate/kubernetes-access-gateway)
+[![CI](https://github.com/Twingate/gateway/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/Twingate/gateway/actions/workflows/ci.yaml)
+[![codecov](https://codecov.io/gh/Twingate/gateway/branch/master/graph/badge.svg)](https://codecov.io/gh/Twingate/gateway)
+[![Dockerhub](https://img.shields.io/badge/dockerhub-images-info.svg?logo=Docker)](https://hub.docker.com/r/twingate/gateway)
 
 > [!IMPORTANT]
 > **Available Now.** Twingate Privileged Access for Kubernetes is currently available and free for up to five resources. For additional pricing information, please contact Twingate.
@@ -12,9 +12,9 @@ Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes 
 [Demo][1]   |  [Wiki][2]  |  [Quick Start][3]  |  [Installation][4]
 
 [1]: https://youtu.be/kLE9txLo8Kg?si=iUrjzFuILMwnWCVI&t=1038
-[2]: https://github.com/Twingate/kubernetes-access-gateway/wiki
-[3]: https://github.com/Twingate/kubernetes-access-gateway/wiki/Quick-Start-Guide
-[4]: https://github.com/Twingate/kubernetes-access-gateway/wiki/Installation
+[2]: https://github.com/Twingate/gateway/wiki
+[3]: https://github.com/Twingate/gateway/wiki/Quick-Start-Guide
+[4]: https://github.com/Twingate/gateway/wiki/Installation
 
 ## Prerequisites
 
@@ -25,9 +25,9 @@ Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes 
 
 ## Installation
 
-- See [Quick Started](https://github.com/Twingate/kubernetes-access-gateway/wiki/Quick-Start-Guide) to set up the Gateway from scratch using the Twingate Operator.
-- See [Installation](https://github.com/Twingate/kubernetes-access-gateway/wiki/Installation) for different installation options.
-- See [Monitoring](https://github.com/Twingate/kubernetes-access-gateway/wiki/Monitoring) for enabling scraping metrics, alerts and Grafana dashboard.
+- See [Quick Started](https://github.com/Twingate/gateway/wiki/Quick-Start-Guide) to set up the Gateway from scratch using the Twingate Operator.
+- See [Installation](https://github.com/Twingate/gateway/wiki/Installation) for different installation options.
+- See [Monitoring](https://github.com/Twingate/gateway/wiki/Monitoring) for enabling scraping metrics, alerts and Grafana dashboard.
 
 ## Support
 
@@ -37,4 +37,4 @@ Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes 
 
 ## Developers
 
-- See [Developer](https://github.com/Twingate/kubernetes-access-gateway/wiki/Developers) for how to set up a development environment and release process.
+- See [Developer](https://github.com/Twingate/gateway/wiki/Developers) for how to set up a development environment and release process.

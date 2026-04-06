@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"k8sgateway/internal/token"
+	"gateway/internal/token"
 )
 
 type client struct {

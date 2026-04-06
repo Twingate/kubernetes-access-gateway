@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net"
 
-	"k8sgateway/internal/token"
-	"k8sgateway/test/fake"
+	"gateway/internal/token"
+	"gateway/test/fake"
 )
 
 // User represents a user, its Kubectl instance and its fake Client.
