@@ -174,6 +174,69 @@ func TestSSH(t *testing.T) {
 	testutil.AssertLogsForSSH(t, env.logs, expectedUser, expectedRequest)
 }
 
+// TestSSHVault tests SSH proxying through the gateway using Vault as the CA backend.
+func TestSSHVault(t *testing.T) {
+	const gatewayPort = 8448
+
+	vaultContainerID, vaultPort := testutil.SetupVaultServer(t)
+	vaultAddress := fmt.Sprintf("http://127.0.0.1:%d", vaultPort)
+
+	tests := []struct {
+		name      string
+		authSetup func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig
+	}{
+		{
+			name: "token",
+			authSetup: func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig {
+				t.Helper()
+
+				return gatewayconfig.SSHCAVaultAuthConfig{
+					Token: testutil.SetupVaultToken(t, vaultContainerID),
+				}
+			},
+		},
+		{
+			name: "approle",
+			authSetup: func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig {
+				t.Helper()
+
+				roleID, secretID := testutil.SetupVaultAppRole(t, vaultContainerID)
+
+				return gatewayconfig.SSHCAVaultAuthConfig{
+					AppRole: &gatewayconfig.SSHCAVaultAppRoleConfig{
+						RoleID:   roleID,
+						SecretID: secretID,
+					},
+				}
+			},
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			auth := tt.authSetup(t)
+			env := setupSSHGateway(t, &token.User{
+				ID:       "user-ssh-1",
+				Username: "alex@acme.com",
+				Groups:   []string{"OnCall", "Engineering"},
+			}, gatewayconfig.SSHCAConfig{
+				Vault: &gatewayconfig.SSHCAVaultConfig{
+					Address: vaultAddress,
+					Mount:   "ssh",
+					Role:    "gateway-signer",
+					Auth:    auth,
+				},
+			}, gatewayPort+i)
+
+			// Test `ssh 127.0.0.1 -l admin -p 2222 "whoami"`
+			output, err := env.user.SSH.Command("whoami")
+			require.NoError(t, err, "failed to execute 'whoami' command")
+
+			assert.Equalf(t, sshUsername+"\n", string(output), "whoami should return '%s'", sshUsername)
+		})
+	}
+}
+
 // TestSSHLocalPortForwarding tests that local port forwarding (-L) works through the gateway.
 // This exercises the direct-tcpip channel forwarding in conn_pair.go.
 func TestSSHLocalPortForwarding(t *testing.T) {
@@ -339,67 +402,4 @@ func TestSSHRemotePortForwarding(t *testing.T) {
 		"target": "downstream",
 	}
 	testutil.AssertLogsForSSHChannel(t, env.logs, expectedUser, expectedChannel)
-}
-
-// TestSSHVault tests SSH proxying through the gateway using Vault as the CA backend.
-func TestSSHVault(t *testing.T) {
-	const gatewayPort = 8448
-
-	vaultContainerName, vaultPort := testutil.SetupVaultServer(t)
-	vaultAddress := fmt.Sprintf("http://127.0.0.1:%d", vaultPort)
-
-	tests := []struct {
-		name      string
-		authSetup func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig
-	}{
-		{
-			name: "token",
-			authSetup: func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig {
-				t.Helper()
-
-				return gatewayconfig.SSHCAVaultAuthConfig{
-					Token: testutil.SetupVaultToken(t, vaultContainerName),
-				}
-			},
-		},
-		{
-			name: "approle",
-			authSetup: func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig {
-				t.Helper()
-
-				roleID, secretID := testutil.SetupVaultAppRole(t, vaultContainerName)
-
-				return gatewayconfig.SSHCAVaultAuthConfig{
-					AppRole: &gatewayconfig.SSHCAVaultAppRoleConfig{
-						RoleID:   roleID,
-						SecretID: secretID,
-					},
-				}
-			},
-		},
-	}
-
-	for i, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			auth := tt.authSetup(t)
-			env := setupSSHGateway(t, &token.User{
-				ID:       "user-ssh-1",
-				Username: "alex@acme.com",
-				Groups:   []string{"OnCall", "Engineering"},
-			}, gatewayconfig.SSHCAConfig{
-				Vault: &gatewayconfig.SSHCAVaultConfig{
-					Address: vaultAddress,
-					Mount:   "ssh",
-					Role:    "gateway-signer",
-					Auth:    auth,
-				},
-			}, gatewayPort+i)
-
-			// Test `ssh 127.0.0.1 -l admin -p 2222 "whoami"`
-			output, err := env.user.SSH.Command("whoami")
-			require.NoError(t, err, "failed to execute 'whoami' command")
-
-			assert.Equalf(t, sshUsername+"\n", string(output), "whoami should return '%s'", sshUsername)
-		})
-	}
 }
