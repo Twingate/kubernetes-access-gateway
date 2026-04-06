@@ -345,7 +345,7 @@ func TestSSHRemotePortForwarding(t *testing.T) {
 func TestSSHVault(t *testing.T) {
 	const gatewayPort = 8448
 
-	vaultContainerID, vaultPort := testutil.SetupVaultServer(t)
+	vaultContainerName, vaultPort := testutil.SetupVaultServer(t)
 	vaultAddress := fmt.Sprintf("http://127.0.0.1:%d", vaultPort)
 
 	tests := []struct {
@@ -358,7 +358,7 @@ func TestSSHVault(t *testing.T) {
 				t.Helper()
 
 				return gatewayconfig.SSHCAVaultAuthConfig{
-					Token: testutil.SetupVaultToken(t, vaultContainerID),
+					Token: testutil.SetupVaultToken(t, vaultContainerName),
 				}
 			},
 		},
@@ -367,7 +367,7 @@ func TestSSHVault(t *testing.T) {
 			authSetup: func(t *testing.T) gatewayconfig.SSHCAVaultAuthConfig {
 				t.Helper()
 
-				roleID, secretID := testutil.SetupVaultAppRole(t, vaultContainerID)
+				roleID, secretID := testutil.SetupVaultAppRole(t, vaultContainerName)
 
 				return gatewayconfig.SSHCAVaultAuthConfig{
 					AppRole: &gatewayconfig.SSHCAVaultAppRoleConfig{

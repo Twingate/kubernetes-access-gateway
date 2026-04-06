@@ -18,13 +18,10 @@ import (
 func SetupVaultServer(t *testing.T) (string, int) {
 	t.Helper()
 
-	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err := RunCommand(exec.Command("docker", "pull", "hashicorp/vault:1.21.4"))
-	require.NoError(t, err, "failed to pull Vault docker image")
+	containerName := "gateway-integration-test-vault-" + strings.ToLower(t.Name())
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	containerName := "gateway-integration-test-vault-" + strings.ToLower(t.Name())
-	output, err := RunCommand(exec.Command("docker", "run", "-d",
+	_, err := RunCommand(exec.Command("docker", "run", "-d",
 		"-p", "0:8200",
 		"--name", containerName,
 		"-e", "VAULT_DEV_ROOT_TOKEN_ID=root",
@@ -35,16 +32,14 @@ func SetupVaultServer(t *testing.T) (string, int) {
 	))
 	require.NoError(t, err, "failed to create Vault container")
 
-	containerID := strings.TrimSpace(string(output))
-
 	t.Cleanup(func() {
-		// #nosec G204 -- output is a container ID returned by docker
-		_, err = RunCommand(exec.Command("docker", "rm", "-vf", containerID))
+		// #nosec G204 -- inputs are from trusted operator configuration
+		_, err = RunCommand(exec.Command("docker", "rm", "-vf", containerName))
 		require.NoError(t, err, "failed to remove Vault docker container")
 	})
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	output, err = RunCommand(exec.Command("docker", "inspect", containerID,
+	output, err := RunCommand(exec.Command("docker", "inspect", containerName,
 		"--format='{{(index (index .NetworkSettings.Ports \"8200/tcp\") 0).HostPort}}'",
 	))
 	require.NoError(t, err, "failed to get Vault docker container port mappings")
@@ -54,7 +49,7 @@ func SetupVaultServer(t *testing.T) (string, int) {
 
 	err = wait.PollUntilContextTimeout(t.Context(), time.Second, 10*time.Second, true, func(_ context.Context) (bool, error) {
 		// #nosec G204 -- inputs are from trusted operator configuration
-		_, err := RunCommand(exec.Command("docker", "exec", containerID, "vault", "status"))
+		_, err := RunCommand(exec.Command("docker", "exec", containerName, "vault", "status"))
 		if err != nil {
 			t.Log("Waiting for Vault server to be ready...")
 
@@ -68,15 +63,15 @@ func SetupVaultServer(t *testing.T) (string, int) {
 	require.NoError(t, err, "failed to start Vault server")
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err = RunCommand(exec.Command("docker", "exec", containerID, "vault", "secrets", "enable", "-path=ssh", "ssh"))
+	_, err = RunCommand(exec.Command("docker", "exec", containerName, "vault", "secrets", "enable", "-path=ssh", "ssh"))
 	require.NoError(t, err, "failed to enable SSH secrets engine in Vault")
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err = RunCommand(exec.Command("docker", "cp", "../data/ssh/ca", containerID+":/tmp/ca"))
+	_, err = RunCommand(exec.Command("docker", "cp", "../data/ssh/ca", containerName+":/tmp/ca"))
 	require.NoError(t, err, "failed to copy SSH CA keys to Vault container")
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err = RunCommand(exec.Command("docker", "exec", containerID,
+	_, err = RunCommand(exec.Command("docker", "exec", containerName,
 		"vault", "write", "ssh/config/ca",
 		"private_key=@/tmp/ca/ca",
 		"public_key=@/tmp/ca/ca.pub",
@@ -84,7 +79,7 @@ func SetupVaultServer(t *testing.T) (string, int) {
 	require.NoError(t, err, "failed to configure SSH CA in Vault")
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err = RunCommand(exec.Command("docker", "exec", containerID,
+	_, err = RunCommand(exec.Command("docker", "exec", containerName,
 		"vault", "write", "ssh/roles/gateway-signer",
 		"key_type=ca",
 		"allow_user_certificates=true",
@@ -96,7 +91,7 @@ func SetupVaultServer(t *testing.T) (string, int) {
 	require.NoError(t, err, "failed to create SSH signing role in Vault")
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err = RunCommand(exec.Command("docker", "exec", containerID,
+	_, err = RunCommand(exec.Command("docker", "exec", containerName,
 		"sh", "-c", `vault policy write integration-test - <<EOF
 path "ssh/sign/*" {
   capabilities = ["create", "update"]
@@ -107,14 +102,14 @@ path "ssh/config/ca" {
 EOF`))
 	require.NoError(t, err, "failed to create Vault policy")
 
-	return containerID, serverPort
+	return containerName, serverPort
 }
 
-func SetupVaultToken(t *testing.T, containerID string) string {
+func SetupVaultToken(t *testing.T, containerName string) string {
 	t.Helper()
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	output, err := RunCommand(exec.Command("docker", "exec", containerID,
+	output, err := RunCommand(exec.Command("docker", "exec", containerName,
 		"vault", "token", "create", "-field=token", "-policy=integration-test",
 	))
 	require.NoError(t, err, "failed to create Vault token")
@@ -126,22 +121,22 @@ func SetupVaultToken(t *testing.T, containerID string) string {
 	return token
 }
 
-func SetupVaultAppRole(t *testing.T, containerID string) (roleID string, secretID string) {
+func SetupVaultAppRole(t *testing.T, containerName string) (roleID string, secretID string) {
 	t.Helper()
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err := RunCommand(exec.Command("docker", "exec", containerID, "vault", "auth", "enable", "approle"))
+	_, err := RunCommand(exec.Command("docker", "exec", containerName, "vault", "auth", "enable", "approle"))
 	require.NoError(t, err, "failed to enable AppRole auth in Vault")
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	_, err = RunCommand(exec.Command("docker", "exec", containerID,
+	_, err = RunCommand(exec.Command("docker", "exec", containerName,
 		"vault", "write", "auth/approle/role/gateway",
 		"token_policies=integration-test",
 	))
 	require.NoError(t, err, "failed to create AppRole role in Vault")
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	output, err := RunCommand(exec.Command("docker", "exec", containerID,
+	output, err := RunCommand(exec.Command("docker", "exec", containerName,
 		"vault", "read", "-field=role_id", "auth/approle/role/gateway/role-id",
 	))
 	require.NoError(t, err, "failed to read AppRole role-id from Vault")
@@ -149,7 +144,7 @@ func SetupVaultAppRole(t *testing.T, containerID string) (roleID string, secretI
 	roleID = strings.TrimSpace(string(output))
 
 	// #nosec G204 -- inputs are from trusted operator configuration
-	output, err = RunCommand(exec.Command("docker", "exec", containerID,
+	output, err = RunCommand(exec.Command("docker", "exec", containerName,
 		"vault", "write", "-field=secret_id", "-f", "auth/approle/role/gateway/secret-id",
 	))
 	require.NoError(t, err, "failed to generate AppRole secret-id from Vault")
