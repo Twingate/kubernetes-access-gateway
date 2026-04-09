@@ -19,6 +19,7 @@ var (
 	ErrRequired          = errors.New("required field is missing")
 	ErrInvalidPort       = errors.New("invalid port number")
 	ErrDuplicateUpstream = errors.New("duplicate upstream name")
+	ErrMultipleInCluster = errors.New("only one in-cluster upstream is allowed")
 	ErrInvalidAddress    = errors.New("invalid address format")
 	ErrInvalidSSHKeyType = errors.New("invalid SSH key type")
 	ErrNegativeTTL       = errors.New("TTL must be non-negative")
@@ -252,8 +253,9 @@ func (k *KubernetesConfig) Validate() error {
 		return fmt.Errorf("%w: at least one upstream is required", ErrRequired)
 	}
 
-	// Check for duplicate upstream names within kubernetes
+	// Check for duplicate upstream names and multiple in-cluster upstreams
 	upstreamNames := make(map[string]struct{})
+	hasInCluster := false
 
 	for i, upstream := range k.Upstreams {
 		if err := upstream.Validate(); err != nil {
@@ -265,6 +267,14 @@ func (k *KubernetesConfig) Validate() error {
 		}
 
 		upstreamNames[upstream.Name] = struct{}{}
+
+		if upstream.InCluster {
+			if hasInCluster {
+				return ErrMultipleInCluster
+			}
+
+			hasInCluster = true
+		}
 	}
 
 	return nil
