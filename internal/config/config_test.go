@@ -409,10 +409,10 @@ func TestKubernetesConfig_Validate(t *testing.T) {
 				},
 			},
 			wantErr:     true,
-			errContains: "only one in-cluster upstream is allowed",
+			errContains: "only one in-cluster upstream is allowed: \"cluster-b\"",
 		},
 		{
-			name: "mixed in-cluster and external",
+			name: "mixed in-cluster and external cluster",
 			k8s: KubernetesConfig{
 				Upstreams: []KubernetesUpstream{
 					{Name: "local", InCluster: true},

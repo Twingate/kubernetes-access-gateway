@@ -270,7 +270,7 @@ func (k *KubernetesConfig) Validate() error {
 
 		if upstream.InCluster {
 			if hasInCluster {
-				return ErrMultipleInCluster
+				return fmt.Errorf("%w: %q", ErrMultipleInCluster, upstream.Name)
 			}
 
 			hasInCluster = true
