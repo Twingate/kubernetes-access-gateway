@@ -5,36 +5,42 @@
 [![Dockerhub](https://img.shields.io/badge/dockerhub-images-info.svg?logo=Docker)](https://hub.docker.com/r/twingate/gateway)
 
 > [!IMPORTANT]
-> **Available Now.** Twingate Privileged Access for Kubernetes is currently available and free for up to five resources. For additional pricing information, please contact Twingate.
+> **Available Now.** Twingate Identity Firewall is currently available and free for up to five Kubernetes or SSH resources. For additional pricing information, please contact Twingate.
 
-Twingate Kubernetes Access enables secure, zero-trust access to your Kubernetes cluster. It provides a seamless integration between Twingate's secure access platform and your Kubernetes infrastructure, allowing you to manage and control access to your cluster through Twingate's security policies.
+The Gateway is part of [Twingate Identity Firewall](https://www.twingate.com/docs/identity-firewall). It is a Layer 7 reverse proxy deployed within your environment that enables identity propagation and comprehensive auditing for upstream services such as Kubernetes API servers and SSH servers.
 
-[Demo][1]   |  [Wiki][2]  |  [Quick Start][3]  |  [Installation][4]
+[Demo](https://youtu.be/kLE9txLo8Kg?si=iUrjzFuILMwnWCVI&t=1038) | [Wiki](https://github.com/Twingate/gateway/wiki) | [How It Works](https://github.com/Twingate/gateway/wiki/How-It-Works)
 
-[1]: https://youtu.be/kLE9txLo8Kg?si=iUrjzFuILMwnWCVI&t=1038
-[2]: https://github.com/Twingate/gateway/wiki
-[3]: https://github.com/Twingate/gateway/wiki/Quick-Start-Guide
-[4]: https://github.com/Twingate/gateway/wiki/Installation
+## Key Benefits
 
-## Prerequisites
+- **Seamless Identity Propagation:** Passes user identity through to upstream services, eliminating double authentication and removing the need for plaintext credentials on end-user machines.
+- **Compliance-Ready Auditing:** All user activity is logged and attributed to specific identities, with session recording and replay for forensic review and compliance requirements.
+- **Simplified Policy Management:** A unified policy engine governs both network and application access, reducing management overhead and eliminating credential sprawl.
 
-- Kubernetes cluster (1.31+)
-- Twingate account setup with a `Remote Network` for the Kubernetes cluster and
- connectors deployed (see the [Twingate Kubernetes Operator](https://github.com/Twingate/kubernetes-operator) or [the Helm chart](https://github.com/Twingate/helm-charts)
- if required)
+## Supported Protocols
 
-## Installation
+### Kubernetes
 
-- See [Quick Started](https://github.com/Twingate/gateway/wiki/Quick-Start-Guide) to set up the Gateway from scratch using the Twingate Operator.
-- See [Installation](https://github.com/Twingate/gateway/wiki/Installation) for different installation options.
-- See [Monitoring](https://github.com/Twingate/gateway/wiki/Monitoring) for enabling scraping metrics, alerts and Grafana dashboard.
+Secure access to private Kubernetes clusters with identity propagation, RBAC integration, and session recording for `kubectl` commands.
+
+- [Overview](https://github.com/Twingate/gateway/wiki/Kubernetes-Overview)
+- [Quick Start Guide](https://github.com/Twingate/gateway/wiki/Kubernetes-Quick-Start-Guide)
+
+### SSH
+
+Secure access to SSH servers with certificate-based authentication, CA management, and full channel support (shell, exec, SFTP, port forwarding).
+
+- [Overview](https://github.com/Twingate/gateway/wiki/SSH-Overview)
+- [Quick Start Guide](https://github.com/Twingate/gateway/wiki/SSH-Quick-Start-Guide)
+
+### Web App *(Coming Soon)*
 
 ## Support
 
 - For general issues using this gateway please open a GitHub issue.
 - For account specific issues, please visit the [Twingate forum](https://forum.twingate.com/)
- or open a [support ticket](https://help.twingate.com/)
+  or open a [support ticket](https://help.twingate.com/)
 
 ## Developers
 
-- See [Developer](https://github.com/Twingate/gateway/wiki/Developers) for how to set up a development environment and release process.
+- See [Developer Guide](https://github.com/Twingate/gateway/wiki/Developers) for how to set up a development environment and release process.
