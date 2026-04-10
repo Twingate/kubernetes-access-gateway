@@ -400,6 +400,27 @@ func TestKubernetesConfig_Validate(t *testing.T) {
 			wantErr:     true,
 			errContains: "\"prod-k8s\"",
 		},
+		{
+			name: "multiple in-cluster upstreams",
+			k8s: KubernetesConfig{
+				Upstreams: []KubernetesUpstream{
+					{Name: "cluster-a", InCluster: true},
+					{Name: "cluster-b", InCluster: true},
+				},
+			},
+			wantErr:     true,
+			errContains: "only one in-cluster upstream is allowed: \"cluster-b\"",
+		},
+		{
+			name: "mixed in-cluster and external cluster",
+			k8s: KubernetesConfig{
+				Upstreams: []KubernetesUpstream{
+					{Name: "local", InCluster: true},
+					{Name: "remote", Address: "10.0.0.1:443", BearerToken: "token"},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
