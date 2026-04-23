@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/httpstream/wsstream"
+	"k8s.io/streaming/pkg/httpstream/wsstream"
 
 	k8stransport "k8s.io/client-go/transport"
 
