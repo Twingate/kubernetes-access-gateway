@@ -24,8 +24,6 @@ spec:
   secretName: {{ $caSecretName }}
   commonName: {{ printf "%s-ca" $fullname }}
   isCA: true
-  privateKey:
-    rotationPolicy: Always
   issuerRef:
     name: {{ default $selfSignedIssuerName $cm.existingIssuer }}
     kind: {{ $cm.existingIssuerKind }}

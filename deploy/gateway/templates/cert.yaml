@@ -17,7 +17,6 @@ spec:
     organizations:
       - Twingate
   privateKey:
-    rotationPolicy: Always
     algorithm: {{ $cm.keyAlgorithm }}
     size: {{ $cm.keySize }}
   dnsNames:

@@ -29,8 +29,6 @@ should render bootstrap Issuer, CA Certificate, and CA Issuer:
       issuerRef:
         kind: Issuer
         name: RELEASE-NAME-gateway-selfsigned-issuer
-      privateKey:
-        rotationPolicy: Always
       secretName: RELEASE-NAME-gateway-ca-crt
   3: |
     apiVersion: cert-manager.io/v1

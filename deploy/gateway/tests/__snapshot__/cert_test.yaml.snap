@@ -23,7 +23,6 @@ should render leaf Certificate with default values:
         name: RELEASE-NAME-gateway-ca-issuer
       privateKey:
         algorithm: RSA
-        rotationPolicy: Always
         size: 2048
       renewBefore: 360h
       secretName: RELEASE-NAME-gateway-tls
