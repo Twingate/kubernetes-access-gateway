@@ -25,8 +25,13 @@ spec:
   commonName: {{ printf "%s-ca" $fullname }}
   isCA: true
   issuerRef:
-    name: {{ default $selfSignedIssuerName $cm.existingIssuer }}
+    {{- if $cm.existingIssuer }}
+    name: {{ $cm.existingIssuer }}
     kind: {{ $cm.existingIssuerKind }}
+    {{- else }}
+    name: {{ $selfSignedIssuerName }}
+    kind: Issuer
+    {{- end }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
