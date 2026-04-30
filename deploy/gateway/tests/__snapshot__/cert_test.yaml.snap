@@ -1,0 +1,31 @@
+should render leaf Certificate with default values:
+  1: |
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/version: 0.1.0
+        helm.sh/chart: gateway-0.1.0
+      name: RELEASE-NAME-gateway-crt
+    spec:
+      commonName: RELEASE-NAME-gateway
+      dnsNames:
+        - kubernetes
+        - kubernetes.default
+        - kubernetes.default.svc
+        - kubernetes.default.svc.cluster.local
+      duration: 2160h
+      issuerRef:
+        kind: Issuer
+        name: RELEASE-NAME-gateway-ca-issuer
+      privateKey:
+        algorithm: RSA
+        size: 2048
+      renewBefore: 360h
+      secretName: RELEASE-NAME-gateway-tls
+      subject:
+        organizations:
+          - Twingate
