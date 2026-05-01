@@ -315,3 +315,12 @@ metrics:
       #     severity: warning
       #   annotations:
       #     description: Twingate Gateway authentication failure rate is {{ $value | humanizePercentage }} over the last 2 minutes.
+
+# Extra Kubernetes manifests to render alongside the chart's resources.
+# Each entry is rendered through `tpl`, so release values such as
+# {{ .Release.Namespace }} or {{ .Values.<key> }} are interpolated.
+extraObjects: []
+  # - apiVersion: v1
+  #   kind: ConfigMap
+  #   metadata:
+  #     name: '{{ template "gateway.fullname" . }}-extra'

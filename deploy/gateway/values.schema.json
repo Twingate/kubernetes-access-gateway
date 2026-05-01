@@ -594,6 +594,22 @@
         }
       },
       "additionalProperties": false
+    },
+    "extraObjects": {
+      "type": "array",
+      "description": "Extra Kubernetes manifests to render alongside the chart's resources. Each entry may be a YAML object or a string (multi-document YAML); both are passed through `tpl` so release values are interpolated.",
+      "default": [],
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": true
+          },
+          {
+            "type": "string"
+          }
+        ]
+      }
     }
   }
 }
