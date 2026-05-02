@@ -37,7 +37,7 @@ tests:
             key: value
     asserts:
       - matchSnapshot: {}
-  - it: should render string-form entries and interpolate release values via tpl
+  - it: should render multi-document string-form entries
     release:
       namespace: my-gateway-ns
     set:
@@ -46,9 +46,13 @@ tests:
           apiVersion: v1
           kind: ConfigMap
           metadata:
-            name: cm-from-string
+            name: cm-multi-one
             namespace: {{ .Release.Namespace }}
-          data:
-            key: value
+          ---
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: cm-multi-two
+            namespace: {{ .Release.Namespace }}
     asserts:
       - matchSnapshot: {}
