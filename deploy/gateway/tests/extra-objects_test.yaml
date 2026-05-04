@@ -1,0 +1,58 @@
+suite: Extra Objects
+templates:
+  - extra-objects.yaml
+tests:
+  - it: should not render any document by default
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: should render a single inline manifest and interpolate release values via tpl
+    release:
+      namespace: my-gateway-ns
+    set:
+      extraObjects:
+        - apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: my-config
+            namespace: '{{ .Release.Namespace }}'
+          data:
+            key: value
+    asserts:
+      - matchSnapshot: {}
+  - it: should render multiple inline manifests
+    set:
+      extraObjects:
+        - apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: cm-one
+          data:
+            key: value
+        - apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: cm-two
+          data:
+            key: value
+    asserts:
+      - matchSnapshot: {}
+  - it: should render multi-document string-form entries
+    release:
+      namespace: my-gateway-ns
+    set:
+      extraObjects:
+        - |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: cm-multi-one
+            namespace: {{ .Release.Namespace }}
+          ---
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: cm-multi-two
+            namespace: {{ .Release.Namespace }}
+    asserts:
+      - matchSnapshot: {}

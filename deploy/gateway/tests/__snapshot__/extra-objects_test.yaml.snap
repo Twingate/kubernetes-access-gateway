@@ -1,0 +1,37 @@
+should render a single inline manifest and interpolate release values via tpl:
+  1: |
+    apiVersion: v1
+    data:
+      key: value
+    kind: ConfigMap
+    metadata:
+      name: my-config
+      namespace: my-gateway-ns
+should render multi-document string-form entries:
+  1: |
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cm-multi-one
+      namespace: my-gateway-ns
+  2: |
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cm-multi-two
+      namespace: my-gateway-ns
+should render multiple inline manifests:
+  1: |
+    apiVersion: v1
+    data:
+      key: value
+    kind: ConfigMap
+    metadata:
+      name: cm-one
+  2: |
+    apiVersion: v1
+    data:
+      key: value
+    kind: ConfigMap
+    metadata:
+      name: cm-two
